@@ -10,7 +10,7 @@
 - [x] Ch 5 Monte Carlo Methods
 - [x] Ch 6 Temporal-Difference Learning
 - [x] Ch 7 n-step Bootstrapping
-- [ ] Ch 9 On-policy Prediction with Approximation
+- [x] Ch 9 On-policy Prediction with Approximation
 - [ ] Revision pages: algorithm catalogue, hyperparameters, formula sheet, mixed practice
 
 ## Phase 2 — per-chapter quizzes (requested 2026-10-23, start after Phase 1)
