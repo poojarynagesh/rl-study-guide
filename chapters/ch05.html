@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 5 · Monte Carlo Methods — RL Study Guide</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/site.js"></script>
+<style>
+  .hm { border-collapse: separate; border-spacing: 2px; font-size: 11.5px; }
+  .hm td, .hm th { padding: 0; width: 34px; height: 24px; text-align: center; border: 0; background: none; font-weight: 500; }
+  .hm th { color: var(--text-3); font-size: 11px; }
+  .hm td { border-radius: 3px; font-family: var(--mono); }
+  .hm-wrap { display: flex; flex-wrap: wrap; gap: 22px; }
+  .hm-legend { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); margin-top: 8px; }
+  .hm-legend .bar { width: 160px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, var(--s8), var(--surface-2), var(--s1)); }
+</style>
+</head>
+<body data-page="ch05" data-root="..">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Chapter 5 · Book pp. 91–117</div>
+  <h1>Monte Carlo Methods</h1>
+  <p class="lead">Our first <em>learning</em> methods: no model of the environment is needed — only experience (sample episodes). Values are estimated by <strong>averaging complete returns</strong>, so MC works for episodic tasks and updates episode-by-episode. MC methods do <strong>not bootstrap</strong>.</p>
+  <div class="meta">
+    <span class="chip">First-visit vs every-visit</span>
+    <span class="chip">Exploring starts</span>
+    <span class="chip">On-policy ε-soft</span>
+    <span class="chip">Off-policy</span>
+    <span class="chip">Ordinary vs weighted importance sampling</span>
+    <span class="chip">Incremental MC</span>
+  </div>
+</div>
+
+<div class="box exam">
+  <span class="box-title">Exam focus for this chapter</span>
+  <ul>
+    <li>Why MC needs no model, why it only works for episodic tasks, and why it does not bootstrap.</li>
+    <li>First-visit vs every-visit MC; their convergence properties.</li>
+    <li>Why we estimate <strong>action values</strong> without a model, and the problem of <strong>maintaining exploration</strong>.</li>
+    <li>Three ways to explore: exploring starts, on-policy ε-soft, off-policy with a behaviour policy.</li>
+    <li>Importance-sampling ratio (5.3) — why the dynamics cancel; ordinary (5.5) vs weighted (5.6) IS: bias, variance.</li>
+    <li>The incremental weighted update (5.8) and the off-policy MC control algorithm (and why $W \leftarrow W/b$).</li>
+    <li>Advantages of MC over DP.</li>
+  </ul>
+</div>
+
+<h2 id="intro">Why Monte Carlo?</h2>
+<ul>
+  <li>Requires only <strong>experience</strong> — sample sequences of states, actions, rewards from <em>actual</em> interaction (no model at all) or <em>simulated</em> interaction (a <strong>sample model</strong> that only generates transitions, not the full distributions DP needs).</li>
+  <li>Defined here only for <strong>episodic</strong> tasks, so well-defined returns exist. Values and policies change only <strong>at the end of an episode</strong> — incremental episode-by-episode, not step-by-step.</li>
+  <li>Like bandits, MC averages samples per state–action pair — but now there are many interrelated "bandits": the return after an action depends on later actions, which are also being learned ⇒ <strong>nonstationary</strong> from the earlier state's viewpoint. Handled with <strong>GPI</strong>.</li>
+</ul>
+
+<h2 id="prediction">5.1 Monte Carlo prediction</h2>
+<p>Estimate $v_\pi(s)$ by averaging the returns observed after <strong>visits</strong> to $s$. The first occurrence of $s$ in an episode is its <strong>first visit</strong>.</p>
+<div class="table-wrap"><table>
+  <tr><th></th><th>First-visit MC</th><th>Every-visit MC</th></tr>
+  <tr><td>Averages returns after…</td><td>only the first visit to $s$ in each episode</td><td>every visit to $s$</td></tr>
+  <tr><td>Samples</td><td>i.i.d. unbiased estimates of $v_\pi(s)$; error std. falls as $1/\sqrt n$</td><td>Not independent (biased for finite data)</td></tr>
+  <tr><td>Convergence</td><td>To $v_\pi(s)$ by the law of large numbers</td><td>Also to $v_\pi(s)$ (quadratically)</td></tr>
+  <tr><td>History / use</td><td>Most studied (since 1940s); used in this chapter</td><td>Extends more naturally to function approximation and eligibility traces</td></tr>
+</table></div>
+
+<div class="algo">
+  <div class="algo-head"><span class="name">First-visit MC prediction, for estimating V ≈ vπ</span><span class="tags"><span class="tag on">on-policy</span><span class="tag">no model</span><span class="tag">no bootstrap</span></span></div>
+<pre><span class="k">Input</span>: a policy π to be evaluated
+<span class="k">Initialize</span>:
+    V(s) ∈ ℝ, arbitrarily, for all s ∈ S
+    Returns(s) ← an empty list, for all s ∈ S
+<span class="k">Loop forever</span> (for each episode):
+    Generate an episode following π: S₀, A₀, R₁, S₁, A₁, R₂, …, S_{T−1}, A_{T−1}, R_T
+    G ← 0
+    <span class="k">Loop for each step of episode</span>, t = T−1, T−2, …, 0:
+        G ← γG + R_{t+1}
+        <span class="k">Unless</span> S_t appears in S₀, S₁, …, S_{t−1}:      <span class="c">// drop this check → every-visit MC</span>
+            Append G to Returns(S_t)
+            V(S_t) ← average(Returns(S_t))</pre>
+  <div class="algo-foot">Returns are computed <strong>backwards</strong> with $G\leftarrow\gamma G+R_{t+1}$ (eq. 3.9). Exercise 5.9: replace the list by a count: $N(S_t)\mathrel{+}=1$; $V(S_t)\leftarrow V(S_t)+\frac{1}{N(S_t)}[G-V(S_t)]$.</div>
+</div>
+
+<h3>Example 5.1 — Blackjack</h3>
+<ul>
+  <li>Episodic, undiscounted (γ = 1); reward +1 win, −1 lose, 0 draw (also the return). Actions: <strong>hit</strong> or <strong>stick</strong>. Infinite deck. Dealer sticks on ≥ 17.</li>
+  <li>State = (player sum 12–21, dealer's showing card A–10, usable ace?) → <strong>200 states</strong>. A <strong>usable ace</strong> counts as 11 without busting.</li>
+  <li>Evaluate the policy "stick only on 20 or 21". Even though we know the rules completely, computing $p(s',r\mid s,a)$ for DP would be complex and error-prone; generating sample games is easy.</li>
+</ul>
+
+<div class="demo" id="bj-demo">
+  <div class="demo-title">Try it: Figure 5.1 — MC evaluation of "stick on 20 or 21"</div>
+  <div class="controls">
+    <label class="control">Episodes <select id="bj-n"><option>10000</option><option selected>100000</option><option>500000</option></select></label>
+    <label class="control">Method <select id="bj-m"><option value="first">First-visit</option><option value="every">Every-visit</option></select></label>
+    <button class="btn" id="bj-run" type="button">Run</button>
+  </div>
+  <div class="hm-wrap" id="bj-out"></div>
+  <div class="hm-legend"><span>−1</span><span class="bar"></span><span>+1</span><span class="muted">· rows = player sum, columns = dealer showing</span></div>
+  <div class="demo-out" id="bj-note"></div>
+</div>
+
+<div class="box exam"><span class="box-title">Exercises 5.1 and 5.2</span>
+<p><strong>5.1</strong> Values jump up for player sums <strong>20 and 21</strong> because the policy sticks there and usually wins. They drop for the column where the dealer shows an <strong>ace</strong> — the dealer's strongest card. Values are higher with a <strong>usable ace</strong> (low sums) because the player can hit without risk of busting (the ace can revert to 1).</p>
+<p><strong>5.2</strong> Every-visit gives the <strong>same</strong> results here: in blackjack a state can never recur within an episode (the sum or the usable-ace flag always changes), so every visit is a first visit.</p></div>
+
+<h3>Backup diagram and key properties</h3>
+<div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start">
+  <figure class="diagram" style="margin:0"><div class="backup-row"><div class="bk" data-tree="s|a1|s1|a1|s1|a1|s1|~|T" data-label="MC for v<sub>π</sub>: one sampled trajectory, all the way to terminal"></div></div></figure>
+  <div style="flex:1;min-width:260px">
+    <ul>
+      <li>DP's diagram shows <strong>all</strong> possible one-step transitions; MC's shows <strong>only the sampled</strong> transitions of one episode, but <strong>all the way to the end</strong>.</li>
+      <li>Estimates for each state are <strong>independent</strong> — MC does <strong>not bootstrap</strong>.</li>
+      <li>Cost of estimating one state is <strong>independent of the number of states</strong>: you can generate episodes from the states of interest only (soap-bubble example 5.2: random walks to the boundary estimate the surface height at one point).</li>
+      <li>Exercise 5.3: the MC backup for $q_\pi$ has a <strong>state–action pair</strong> as root, followed by the trajectory to termination.</li>
+    </ul>
+  </div>
+</div>
+
+<h2 id="action-values">5.2 Monte Carlo estimation of action values</h2>
+<div class="box key"><span class="box-title">Why action values?</span>
+<p>With a model, $v$ suffices: look one step ahead and choose the best action. <strong>Without a model, state values alone are not sufficient</strong> — you need $q(s,a)$ to pick actions. So the primary goal of MC control is to estimate $q_*$.</p></div>
+<p>Same methods, but visits are to state–action pairs. <strong>Problem</strong>: under a deterministic π, only one action per state is ever observed, so other actions' estimates never improve. This is the problem of <strong>maintaining exploration</strong>.</p>
+<p><strong>Exploring starts (ES)</strong>: every episode starts in a state–action pair, and every pair has non-zero probability of being the start ⇒ all pairs visited infinitely often. Useful in simulation, but cannot be relied on when learning from real interaction.</p>
+
+<h2 id="control">5.3 Monte Carlo control</h2>
+<div class="eq">
+$$\pi_0\xrightarrow{E}q_{\pi_0}\xrightarrow{I}\pi_1\xrightarrow{E}q_{\pi_1}\xrightarrow{I}\pi_2\xrightarrow{E}\cdots\xrightarrow{I}\pi_*\xrightarrow{E}q_*$$
+<div class="eq-name"><span>MC policy iteration</span><span class="ref">§5.3</span></div>
+</div>
+<p>Policy improvement is greedy w.r.t. the current action-value function — <strong>no model needed</strong>:</p>
+<div class="eq">
+$$\pi(s)\doteq\argmax_a q(s,a), \qquad q_{\pi_k}(s,\pi_{k+1}(s)) = \max_a q_{\pi_k}(s,a) \ge q_{\pi_k}(s,\pi_k(s)) \ge v_{\pi_k}(s)$$
+<div class="eq-name"><span>Greedy improvement satisfies the policy improvement theorem</span><span class="ref">(5.1)</span></div>
+</div>
+<p>Two unrealistic assumptions give the easy convergence guarantee: (1) exploring starts, (2) infinitely many episodes per evaluation. Remove (2) like value iteration does — <strong>don't complete evaluation</strong>; alternate evaluation and improvement <strong>episode by episode</strong>:</p>
+
+<div class="algo">
+  <div class="algo-head"><span class="name">Monte Carlo ES (Exploring Starts), for estimating π ≈ π*</span><span class="tags"><span class="tag on">on-policy</span><span class="tag">no model</span><span class="tag">no bootstrap</span></span></div>
+<pre><span class="k">Initialize</span>:
+    π(s) ∈ A(s) (arbitrarily), for all s ∈ S
+    Q(s,a) ∈ ℝ (arbitrarily), for all s ∈ S, a ∈ A(s)
+    Returns(s,a) ← empty list, for all s ∈ S, a ∈ A(s)
+<span class="k">Loop forever</span> (for each episode):
+    Choose S₀ ∈ S, A₀ ∈ A(S₀) randomly such that all pairs have probability &gt; 0
+    Generate an episode from S₀, A₀, following π: S₀, A₀, R₁, …, S_{T−1}, A_{T−1}, R_T
+    G ← 0
+    <span class="k">Loop for each step of episode</span>, t = T−1, T−2, …, 0:
+        G ← γG + R_{t+1}
+        <span class="k">Unless</span> the pair S_t, A_t appears in S₀, A₀, S₁, A₁, …, S_{t−1}, A_{t−1}:
+            Append G to Returns(S_t, A_t)
+            Q(S_t, A_t) ← average(Returns(S_t, A_t))
+            π(S_t) ← argmax_a Q(S_t, a)</pre>
+  <div class="algo-foot">Cannot converge to a sub-optimal policy (the value function would then converge to that policy's values, changing the policy). Convergence to the optimal fixed point "seems inevitable" but is <strong>not formally proved</strong> — one of the most fundamental open theoretical questions in RL. Exercise 5.4: use incremental means $Q\leftarrow Q+\frac1N(G-Q)$ instead of lists.</div>
+</div>
+
+<div class="demo" id="es-demo">
+  <div class="demo-title">Try it: Figure 5.2 — Monte Carlo ES solves blackjack</div>
+  <p class="small muted">Exploring starts pick dealer card, player sum, usable ace and the first action uniformly at random. Initial policy: stick only on 20 or 21; Q = 0.</p>
+  <div class="controls">
+    <label class="control">Episodes <select id="es-n"><option>100000</option><option selected>500000</option><option>2000000</option></select></label>
+    <button class="btn" id="es-run" type="button">Run MC ES</button>
+  </div>
+  <div class="hm-wrap" id="es-out"></div>
+  <div class="demo-out" id="es-note"></div>
+</div>
+
+<h2 id="on-policy">5.4 Monte Carlo control without exploring starts (on-policy)</h2>
+<div class="box def"><span class="box-title">On-policy vs off-policy</span>
+<p><strong>On-policy</strong> methods evaluate or improve the <em>same</em> policy that is used to make decisions (MC ES is on-policy). <strong>Off-policy</strong> methods evaluate or improve a policy <em>different</em> from the one that generates the data.</p></div>
+<p>On-policy control uses <strong>soft</strong> policies: $\pi(a\mid s)&gt;0$ for all $s,a$, gradually shifted toward a deterministic optimal policy. <strong>ε-soft</strong>: $\pi(a\mid s)\ge\varepsilon/|\mathcal A(s)|$. <strong>ε-greedy</strong> policies (non-greedy actions get $\varepsilon/|\mathcal A(s)|$, greedy gets $1-\varepsilon+\varepsilon/|\mathcal A(s)|$) are the ε-soft policies closest to greedy.</p>
+<p>GPI only requires moving the policy <em>toward</em> greedy, so we move it to ε-greedy:</p>
+
+<div class="algo">
+  <div class="algo-head"><span class="name">On-policy first-visit MC control (for ε-soft policies), estimates π ≈ π*</span><span class="tags"><span class="tag on">on-policy</span><span class="tag">no model</span><span class="tag">ε-greedy</span></span></div>
+<pre><span class="k">Algorithm parameter</span>: small ε &gt; 0
+<span class="k">Initialize</span>:
+    π ← an arbitrary ε-soft policy
+    Q(s,a) ∈ ℝ (arbitrarily), for all s ∈ S, a ∈ A(s)
+    Returns(s,a) ← empty list, for all s ∈ S, a ∈ A(s)
+<span class="k">Repeat forever</span> (for each episode):
+    Generate an episode following π: S₀, A₀, R₁, …, S_{T−1}, A_{T−1}, R_T
+    G ← 0
+    <span class="k">Loop for each step of episode</span>, t = T−1, T−2, …, 0:
+        G ← γG + R_{t+1}
+        <span class="k">Unless</span> the pair S_t, A_t appears in S₀, A₀, …, S_{t−1}, A_{t−1}:
+            Append G to Returns(S_t, A_t)
+            Q(S_t, A_t) ← average(Returns(S_t, A_t))
+            A* ← argmax_a Q(S_t, a)                       <span class="c">(with ties broken arbitrarily)</span>
+            For all a ∈ A(S_t):
+                π(a|S_t) ← 1 − ε + ε/|A(S_t)|   if a = A*
+                           ε/|A(S_t)|           if a ≠ A*</pre>
+</div>
+<p>Any ε-greedy policy π′ w.r.t. $q_\pi$ is an improvement over any ε-soft π:</p>
+<div class="eq">
+$$q_\pi(s,\pi'(s)) = \frac{\varepsilon}{|\mathcal A(s)|}\sum_a q_\pi(s,a) + (1-\varepsilon)\max_a q_\pi(s,a) \;\ge\; \frac{\varepsilon}{|\mathcal A(s)|}\sum_aq_\pi(s,a) + (1-\varepsilon)\sum_a\frac{\pi(a\mid s)-\frac{\varepsilon}{|\mathcal A(s)|}}{1-\varepsilon}q_\pi(s,a) = v_\pi(s)$$
+<div class="eq-name"><span>ε-greedy improvement over an ε-soft policy</span><span class="ref">(5.2)</span></div>
+</div>
+<p>(The max is ≥ any weighted average with non-negative weights summing to 1.) Equality holds only when π is optimal <strong>among ε-soft policies</strong> — shown by "moving the ε-softness inside the environment" (with prob. ε the environment re-picks the action at random); the best general policy there equals the best ε-soft policy here. <strong>Trade-off</strong>: we only reach the best ε-soft policy, but we no longer need exploring starts.</p>
+
+<h2 id="off-policy">5.5 Off-policy prediction via importance sampling</h2>
+<div class="box key"><span class="box-title">The dilemma of all learning control methods</span>
+<p>They want action values for <em>optimal</em> behaviour, but must behave non-optimally to explore. On-policy is a compromise (learns about a near-optimal policy that still explores). Off-policy uses <strong>two policies</strong>: the <strong>target policy</strong> π (learned about; becomes optimal; may be deterministic) and the <strong>behaviour policy</strong> $b$ (generates data; exploratory).</p></div>
+<div class="table-wrap"><table>
+  <tr><th></th><th>On-policy</th><th>Off-policy</th></tr>
+  <tr><td>Policies</td><td>One: π both acts and is learned</td><td>Two: target π, behaviour $b$</td></tr>
+  <tr><td>Complexity</td><td>Simpler; considered first</td><td>Needs importance sampling and extra notation</td></tr>
+  <tr><td>Variance / speed</td><td>Lower variance</td><td>Often greater variance, slower to converge</td></tr>
+  <tr><td>Generality</td><td>Special case ($\pi=b$)</td><td>More powerful: learn from a human expert, a non-learning controller, or about many policies</td></tr>
+  <tr><td>What is learned</td><td>Best ε-soft policy</td><td>Deterministic optimal policy</td></tr>
+</table></div>
+<p><strong>Coverage assumption</strong>: $\pi(a\mid s)&gt;0 \Rightarrow b(a\mid s)&gt;0$. So $b$ must be stochastic wherever it differs from π; π may be deterministic (typically greedy).</p>
+<div class="eq">
+$$\rho_{t:T-1}\doteq\frac{\prod_{k=t}^{T-1}\pi(A_k\mid S_k)\,p(S_{k+1}\mid S_k,A_k)}{\prod_{k=t}^{T-1}b(A_k\mid S_k)\,p(S_{k+1}\mid S_k,A_k)} = \prod_{k=t}^{T-1}\frac{\pi(A_k\mid S_k)}{b(A_k\mid S_k)}$$
+<div class="eq-name"><span>Importance-sampling ratio</span><span class="ref">(5.3)</span></div>
+</div>
+<p>The unknown <strong>dynamics cancel</strong> — the ratio depends only on the two policies and the observed sequence. It corrects the expectation:</p>
+<div class="eq">
+$$\E[G_t\mid S_t=s]=v_b(s)\qquad\text{but}\qquad \E[\rho_{t:T-1}G_t\mid S_t=s]=v_\pi(s)$$
+<div class="eq-name"><span>Importance sampling fixes the expectation</span><span class="ref">(5.4)</span></div>
+</div>
+<p>Number time steps continuously across episodes; $\mathcal T(s)$ = time steps at which $s$ is visited (first visits only for first-visit), $T(t)$ = first termination after $t$.</p>
+<div class="grid-2">
+<div class="eq">
+$$V(s)\doteq\frac{\sum_{t\in\mathcal T(s)}\rho_{t:T(t)-1}G_t}{|\mathcal T(s)|}$$
+<div class="eq-name"><span>Ordinary importance sampling</span><span class="ref">(5.5)</span></div>
+</div>
+<div class="eq">
+$$V(s)\doteq\frac{\sum_{t\in\mathcal T(s)}\rho_{t:T(t)-1}G_t}{\sum_{t\in\mathcal T(s)}\rho_{t:T(t)-1}}$$
+<div class="eq-name"><span>Weighted importance sampling</span><span class="ref">(5.6)</span></div>
+</div>
+</div>
+
+<div class="table-wrap"><table>
+  <tr><th></th><th>Ordinary IS (5.5)</th><th>Weighted IS (5.6)</th></tr>
+  <tr><td>After one return</td><td>$\rho G$ — can be extreme (ratio 10 ⇒ 10× the return)</td><td>Exactly $G$ (ratio cancels) — reasonable, but its expectation is $v_b$</td></tr>
+  <tr><td>Bias (first-visit)</td><td class="yes">Unbiased</td><td>Biased (bias → 0 asymptotically)</td></tr>
+  <tr><td>Variance</td><td class="no">Can be <strong>unbounded</strong> (ratios unbounded)</td><td class="yes">Bounded: max weight on any return is 1; variance → 0 even if ratio variance is infinite (bounded returns)</td></tr>
+  <tr><td>In practice</td><td>Easier to extend to function approximation</td><td><strong>Strongly preferred</strong> — dramatically lower variance</td></tr>
+  <tr><td>Every-visit versions</td><td colspan="2">Both biased (bias → 0); often preferred in practice (no need to track first visits, easier to approximate)</td></tr>
+</table></div>
+
+<div class="demo" id="is-demo">
+  <div class="demo-title">Try it: Figure 5.3 — ordinary vs weighted importance sampling on one blackjack state</div>
+  <p class="small muted">State: dealer shows 2, player sum 13 with a usable ace. Behaviour: hit/stick with prob. ½ each. Target: stick only on 20 or 21. True value ≈ −0.27726. Mean-square error averaged over independent runs (log x-axis).</p>
+  <div class="controls">
+    <label class="control">Runs <select id="is-runs"><option>50</option><option selected>100</option><option>300</option></select></label>
+    <button class="btn" id="is-run" type="button">Run</button>
+  </div>
+  <div id="is-chart"></div>
+  <div class="demo-out" id="is-out"></div>
+</div>
+
+<h3>Example 5.5 — infinite variance</h3>
+<p>One state $s$; <em>right</em> → terminate with reward 0; <em>left</em> → back to $s$ w.p. 0.9, or terminate with +1 w.p. 0.1. Target: always left ⇒ $v_\pi(s)=1$. Behaviour: left/right ½ each. Episodes ending with <em>right</em> have ρ = 0; an episode of $k+1$ lefts has ρ = $2^{k+1}$. The second moment of the scaled return:</p>
+<div class="eq">
+$$\E\Big[\Big(\prod_{t=0}^{T-1}\tfrac{\pi(A_t|S_t)}{b(A_t|S_t)}G_0\Big)^2\Big] = 0.1\sum_{k=0}^\infty 0.9^k\cdot 2^k\cdot 2 = 0.2\sum_{k=0}^\infty1.8^k = \infty$$
+<div class="eq-name"><span>Infinite variance of ordinary IS</span><span class="ref">Ex 5.5 (§5.5)</span></div>
+</div>
+<p>Ordinary IS estimates fail to converge even after millions of episodes; weighted IS gives <strong>exactly 1</strong> after the first episode ending with left. Trajectories with <strong>loops</strong> easily cause this.</p>
+<div class="demo" id="iv-demo">
+  <div class="demo-title">Try it: Figure 5.4 — ordinary importance sampling never settles</div>
+  <div class="controls">
+    <label class="control">Episodes per run <select id="iv-n"><option>100000</option><option selected>1000000</option></select></label>
+    <button class="btn" id="iv-run" type="button">Run 10 runs</button>
+  </div>
+  <div id="iv-chart"></div>
+</div>
+
+<h2 id="incremental">5.6 Incremental implementation</h2>
+<p>On-policy MC and ordinary IS: use the Chapter 2 incremental mean on (scaled) returns. Weighted IS needs a weighted average. With returns $G_1,\dots,G_{n-1}$ and weights $W_k$ (e.g. $\rho$):</p>
+<div class="eq">
+$$V_n\doteq\frac{\sum_{k=1}^{n-1}W_kG_k}{\sum_{k=1}^{n-1}W_k},\quad n\ge2$$
+<div class="eq-name"><span>Weighted average of returns</span><span class="ref">(5.7)</span></div>
+</div>
+<div class="eq">
+$$V_{n+1}\doteq V_n+\frac{W_n}{C_n}\big[G_n-V_n\big],\qquad C_{n+1}\doteq C_n+W_{n+1},\quad C_0\doteq0$$
+<div class="eq-name"><span>Incremental weighted update</span><span class="ref">(5.8)</span></div>
+</div>
+<p class="small">Exercise 5.10 derivation: $V_{n+1}=\frac{C_{n-1}V_n+W_nG_n}{C_n}=\frac{(C_n-W_n)V_n+W_nG_n}{C_n}=V_n+\frac{W_n}{C_n}(G_n-V_n)$. Note the <strong>step size</strong> here is $W_n/C_n$ — a data-dependent, decreasing step size.</p>
+
+<div class="algo">
+  <div class="algo-head"><span class="name">Off-policy MC prediction (policy evaluation) for estimating Q ≈ qπ</span><span class="tags"><span class="tag off">off-policy</span><span class="tag">weighted IS</span><span class="tag">every-visit</span></span></div>
+<pre><span class="k">Input</span>: an arbitrary target policy π
+<span class="k">Initialize</span>, for all s ∈ S, a ∈ A(s):
+    Q(s,a) ∈ ℝ (arbitrarily)
+    C(s,a) ← 0
+<span class="k">Loop forever</span> (for each episode):
+    b ← any policy with coverage of π
+    Generate an episode following b: S₀, A₀, R₁, …, S_{T−1}, A_{T−1}, R_T
+    G ← 0
+    W ← 1
+    <span class="k">Loop for each step of episode</span>, t = T−1, T−2, …, 0, <span class="k">while</span> W ≠ 0:
+        G ← γG + R_{t+1}
+        C(S_t,A_t) ← C(S_t,A_t) + W
+        Q(S_t,A_t) ← Q(S_t,A_t) + (W / C(S_t,A_t)) [G − Q(S_t,A_t)]
+        W ← W · π(A_t|S_t) / b(A_t|S_t)</pre>
+  <div class="algo-foot">With π = b, W is always 1 and this is on-policy every-visit MC. W is updated <em>after</em> Q because $Q(S_t,A_t)$ is conditioned on $A_t$ — the ratio starts at $t+1$ (Exercise 5.6: $Q(s,a)=\frac{\sum\rho_{t+1:T(t)-1}G_t}{\sum\rho_{t+1:T(t)-1}}$).</div>
+</div>
+
+<h2 id="off-control">5.7 Off-policy Monte Carlo control</h2>
+<div class="algo">
+  <div class="algo-head"><span class="name">Off-policy MC control, for estimating π ≈ π*</span><span class="tags"><span class="tag off">off-policy</span><span class="tag">weighted IS</span><span class="tag">greedy target</span></span></div>
+<pre><span class="k">Initialize</span>, for all s ∈ S, a ∈ A(s):
+    Q(s,a) ∈ ℝ (arbitrarily)
+    C(s,a) ← 0
+    π(s) ← argmax_a Q(s,a)                 <span class="c">(with ties broken consistently)</span>
+<span class="k">Loop forever</span> (for each episode):
+    b ← any soft policy
+    Generate an episode using b: S₀, A₀, R₁, …, S_{T−1}, A_{T−1}, R_T
+    G ← 0
+    W ← 1
+    <span class="k">Loop for each step of episode</span>, t = T−1, T−2, …, 0:
+        G ← γG + R_{t+1}
+        C(S_t,A_t) ← C(S_t,A_t) + W
+        Q(S_t,A_t) ← Q(S_t,A_t) + (W / C(S_t,A_t)) [G − Q(S_t,A_t)]
+        π(S_t) ← argmax_a Q(S_t,a)         <span class="c">(with ties broken consistently)</span>
+        If A_t ≠ π(S_t) then exit inner Loop (proceed to next episode)
+        W ← W · 1 / b(A_t|S_t)</pre>
+  <div class="algo-foot">
+    <ul>
+      <li><strong>Exercise 5.11 — why 1/b, not π/b?</strong> π is deterministic greedy. If $A_t\ne\pi(S_t)$ the ratio would be 0 and we exit the loop; otherwise $\pi(A_t|S_t)=1$, so the factor is $1/b(A_t|S_t)$.</li>
+      <li><strong>Weakness:</strong> learns only from the <strong>tails</strong> of episodes after the last non-greedy action. If non-greedy actions are common, learning is slow, especially for early states of long episodes. Remedy: TD learning (Ch 6), or discounting-aware IS (§5.8).</li>
+      <li>To converge to π*, every (s,a) needs infinitely many returns: choose $b$ ε-soft. $b$ may even change between or within episodes.</li>
+    </ul>
+  </div>
+</div>
+
+<h2 id="advanced-is">5.8–5.9 *Discounting-aware and per-decision importance sampling</h2>
+<p><strong>Discounting-aware IS</strong>: if γ &lt; 1 and episodes are long, scaling $G_0$ by all 100 ratio factors is wasteful — with γ = 0, $G_0=R_1$ only needs $\pi(A_0|S_0)/b(A_0|S_0)$. Treat discounting as a <strong>probability of termination</strong> and decompose the return into <strong>flat partial returns</strong> $\bar G_{t:h}\doteq R_{t+1}+\dots+R_h$:</p>
+<div class="eq">
+$$G_t = (1-\gamma)\sum_{h=t+1}^{T-1}\gamma^{h-t-1}\bar G_{t:h} + \gamma^{T-t-1}\bar G_{t:T}$$
+<div class="eq-name"><span>Return as a sum of flat partial returns</span><span class="ref">§5.8</span></div>
+</div>
+<p>Each $\bar G_{t:h}$ is then scaled only by the truncated ratio $\rho_{t:h-1}$ (estimators 5.9 ordinary, 5.10 weighted). Identical to §5.5 when γ = 1.</p>
+<p><strong>Per-decision IS</strong> (works even with γ = 1): each reward $R_{t+k}$ only needs the ratios up to the action that produced it, because later factors have expected value 1: $\E\big[\tfrac{\pi(A_k|S_k)}{b(A_k|S_k)}\big]=\sum_a b(a|S_k)\tfrac{\pi(a|S_k)}{b(a|S_k)}=1$ (5.13).</p>
+<div class="eq">
+$$\E[\rho_{t:T-1}R_{t+k}] = \E[\rho_{t:t+k-1}R_{t+k}] \;\Rightarrow\; \tilde G_t = \rho_{t:t}R_{t+1}+\gamma\rho_{t:t+1}R_{t+2}+\gamma^2\rho_{t:t+2}R_{t+3}+\dots+\gamma^{T-t-1}\rho_{t:T-1}R_T$$
+<div class="eq-name"><span>Per-decision importance sampling</span><span class="ref">(5.14), (5.15)</span></div>
+</div>
+<p>$V(s)=\sum_{t\in\mathcal T(s)}\tilde G_t/|\mathcal T(s)|$ is unbiased (first-visit) with possibly lower variance. No consistent per-decision <em>weighted</em> version is known.</p>
+
+<h2 id="summary">5.10 Summary — MC vs DP</h2>
+<div class="table-wrap"><table>
+  <tr><th></th><th>Dynamic programming (Ch 4)</th><th>Monte Carlo (Ch 5)</th></tr>
+  <tr><td>Model</td><td>Needs full distributions $p(s',r|s,a)$</td><td><strong>None</strong> (actual experience) or only a <strong>sample model</strong> (simulation)</td></tr>
+  <tr><td>Update</td><td>Expected update, one step, all successors</td><td>Sample update, whole episode, one trajectory</td></tr>
+  <tr><td>Bootstraps?</td><td class="yes">Yes</td><td class="no">No</td></tr>
+  <tr><td>Focus on a subset of states</td><td>Must sweep (or async)</td><td><strong>Easy and efficient</strong> — start episodes there</td></tr>
+  <tr><td>Markov violations</td><td>Hurt (relies on successor estimates)</td><td>Less harmed (no bootstrapping)</td></tr>
+  <tr><td>Task types</td><td>Episodic and continuing</td><td>Episodic only</td></tr>
+  <tr><td>When updates happen</td><td>Per sweep / per state</td><td>End of episode</td></tr>
+</table></div>
+<p><strong>Four advantages of MC over DP</strong>: (1) learn from actual interaction with no model; (2) work with simulation/sample models; (3) easy to focus on a small subset of states; (4) less harmed by violations of the Markov property.</p>
+
+<h2 id="hyperparams">Hyperparameters and design choices</h2>
+<div class="table-wrap"><table>
+  <tr><th>Choice</th><th>Options</th><th>Effect</th></tr>
+  <tr><td>Step size</td><td>Sample average $1/N(s,a)$; or constant α ("constant-α MC", eq. 6.1); weighted: $W/C$</td><td>$1/N$ converges for a fixed policy; constant α weights recent returns more — better while the policy (hence returns) keeps changing in control.</td></tr>
+  <tr><td>ε (on-policy)</td><td>Fixed or decaying</td><td>Larger ε explores more but the learned policy is only best among ε-soft policies (performance capped). Decay ε → 0 for convergence to π*.</td></tr>
+  <tr><td>Behaviour policy $b$</td><td>Any soft policy with coverage</td><td>The more $b$ differs from π, the larger the IS ratios ⇒ higher variance; off-policy MC control only learns from episode tails where $b$ agreed with π.</td></tr>
+  <tr><td>IS variant</td><td>Ordinary vs weighted; per-decision; discounting-aware</td><td>Weighted: biased but low variance (preferred). Ordinary: unbiased but possibly infinite variance.</td></tr>
+  <tr><td>First- vs every-visit</td><td></td><td>Every-visit is simpler and generalises to function approximation.</td></tr>
+  <tr><td>γ</td><td>Usually 1 (episodic)</td><td>γ &lt; 1 enables discounting-aware IS variance reduction.</td></tr>
+</table></div>
+
+<h2 id="selftest">Self-test</h2>
+<div class="quiz">
+  <details><summary>Ex 5.5 — One non-terminal state, one action: back to itself w.p. p, terminate w.p. 1−p; reward +1 every transition, γ = 1. One episode of 10 steps (return 10). First-visit and every-visit estimates?</summary><div class="ans"><p>First-visit: only the first visit counts, return 10 → <strong>10</strong>. Every-visit: returns from the 10 visits are 10, 9, …, 1 → average <strong>5.5</strong>.</p></div></details>
+  <details><summary>Ex 5.7 — Why did the weighted IS error first <em>increase</em> in Figure 5.3?</summary><div class="ans"><p>Estimates start at 0 (error ≈ 0.077). Early on, weighted IS sets the estimate to the few returns with non-zero weight — essentially single ±1 outcomes (it is biased toward these samples), so the squared error jumps up before averaging over more episodes brings it down.</p></div></details>
+  <details><summary>Ex 5.8 — With every-visit MC in Example 5.5, is the variance still infinite?</summary><div class="ans"><p>Yes. Every-visit adds the scaled returns of later visits within the same episode; the term for the first visit (and all long-episode terms with ratio $2^k$) still has an infinite second moment, and adding more non-negative terms cannot make it finite.</p></div></details>
+  <details><summary>Why can't we use state values alone for model-free control?</summary><div class="ans"><p>Choosing an action from $v$ needs a one-step lookahead $\sum p(s',r|s,a)[r+\gamma v(s')]$, i.e. a model. $q(s,a)$ ranks actions directly.</p></div></details>
+  <details><summary>What are exploring starts, and why are they unrealistic?</summary><div class="ans"><p>Every episode begins from a randomly chosen state–action pair with all pairs having non-zero probability. In real interaction you usually can't choose the start state/action freely.</p></div></details>
+  <details><summary>What does on-policy first-visit MC control converge to?</summary><div class="ans"><p>The best policy among ε-soft policies (not the true optimal deterministic policy), unless ε is decayed.</p></div></details>
+  <details><summary>Why do the transition probabilities cancel in the importance-sampling ratio?</summary><div class="ans"><p>The trajectory probability under both policies contains the same factors $p(S_{k+1}|S_k,A_k)$; only the action-selection probabilities differ.</p></div></details>
+  <details><summary>Give the main trade-off between ordinary and weighted importance sampling.</summary><div class="ans"><p>Ordinary: unbiased, but variance can be unbounded. Weighted: biased (→0 asymptotically) but bounded and usually much lower variance — preferred in practice.</p></div></details>
+  <details><summary>State the coverage assumption and its consequence for $b$.</summary><div class="ans"><p>$\pi(a|s)&gt;0\Rightarrow b(a|s)&gt;0$. Hence $b$ must be stochastic in every state where it differs from π.</p></div></details>
+  <details><summary>Why is off-policy MC control potentially slow?</summary><div class="ans"><p>It learns only from the portion of each episode after the last action where $b$ deviated from the greedy π (the "tail"). Early states of long episodes rarely get updates.</p></div></details>
+  <details><summary>What does "MC does not bootstrap" buy you?</summary><div class="ans"><p>Estimates are independent across states (no reliance on other estimates); less harmed by non-Markov states; cost of estimating one state independent of the number of states. The price: must wait until the end of the episode, and high variance.</p></div></details>
+  <details><summary>Ex 5.13 — Sketch why $\E[\rho_{t:T-1}R_{t+1}]=\E[\rho_{t:t}R_{t+1}]$.</summary><div class="ans"><p>$\rho_{t:T-1}R_{t+1}=\rho_{t:t}R_{t+1}\cdot\prod_{k=t+1}^{T-1}\frac{\pi(A_k|S_k)}{b(A_k|S_k)}$. Condition on everything up to $S_{t+1}$: each later factor, given its state, has expectation $\sum_ab(a|s)\frac{\pi(a|s)}{b(a|s)}=1$; applying the tower rule from the last factor backward, the product's conditional expectation is 1, leaving $\E[\rho_{t:t}R_{t+1}]$.</p></div></details>
+</div>
+
+</main>
+
+<script>
+document.addEventListener("rl:ready", function () {
+  const $ = (id) => document.getElementById(id);
+
+  /* ---------- Blackjack (infinite deck) ---------- */
+  const card = (r) => Math.min(1 + r.int(13), 10);
+  // hand: {sum, ace} where sum counts aces as 1; usable if ace && sum + 10 <= 21
+  const val = (h) => (h.ace && h.sum + 10 <= 21 ? h.sum + 10 : h.sum);
+  const usable = (h) => h.ace && h.sum + 10 <= 21;
+  const add = (h, c) => ({ sum: h.sum + c, ace: h.ace || c === 1 });
+  const sidx = (ps, dc, ua) => ((ua ? 1 : 0) * 10 + (dc - 1)) * 10 + (ps - 12); // 200 states
+  function dealerPlay(show, r) {
+    let d = add({ sum: 0, ace: false }, show); d = add(d, card(r));
+    while (val(d) < 17) d = add(d, card(r));
+    return val(d);
+  }
+  // One episode. policy(stateIdx) -> 1 hit / 0 stick. start: optional {ps, dc, ua, a0}.
+  function episode(policy, r, start) {
+    let p, dc;
+    const traj = [];
+    if (start) {
+      dc = start.dc;
+      p = { sum: start.ua ? start.ps - 10 : start.ps, ace: start.ua };
+    } else {
+      p = add(add({ sum: 0, ace: false }, card(r)), card(r));
+      dc = card(r);
+      // natural
+      if (val(p) === 21) {
+        const hidden = card(r), dealerNat = (dc === 1 && hidden === 10) || (dc === 10 && hidden === 1);
+        traj.push([sidx(21, dc, usable(p)), 0]);
+        return { traj, reward: dealerNat ? 0 : 1 };
+      }
+      while (val(p) < 12) p = add(p, card(r));
+    }
+    let first = true;
+    while (true) {
+      const s = sidx(val(p), dc, usable(p));
+      const a = first && start && start.a0 != null ? start.a0 : policy(s);
+      first = false;
+      traj.push([s, a]);
+      if (a === 1) { p = add(p, card(r)); if (val(p) > 21) return { traj, reward: -1 }; }
+      else break;
+    }
+    const ds = dealerPlay(dc, r), ps = val(p);
+    return { traj, reward: ds > 21 || ps > ds ? 1 : ps === ds ? 0 : -1 };
+  }
+  const stick20 = (s) => (s % 10 + 12 >= 20 ? 0 : 1);
+
+  const DEALER = ["A", 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  function heat(v) {
+    const t = Math.max(-1, Math.min(1, v)), pct = Math.round(Math.abs(t) * 100);
+    const col = t >= 0 ? "var(--s1)" : "var(--s8)";
+    const ink = Math.abs(t) > 0.55 ? "#fff" : "var(--text)";
+    return 'style="background:color-mix(in srgb,' + col + " " + pct + '%, var(--surface-2));color:' + ink + '"';
+  }
+  function valueTable(title, V, ua) {
+    let h = '<div><div class="small" style="font-weight:600;margin-bottom:4px">' + title + '</div><table class="hm"><tr><th></th>' + DEALER.map((d) => "<th>" + d + "</th>").join("") + "</tr>";
+    for (let ps = 21; ps >= 12; ps--) {
+      h += "<tr><th>" + ps + "</th>";
+      for (let dc = 1; dc <= 10; dc++) { const v = V[sidx(ps, dc, ua)]; h += "<td " + heat(v) + ' title="sum ' + ps + ", dealer " + DEALER[dc - 1] + ": " + v.toFixed(3) + '">' + v.toFixed(2).replace("0.", ".").replace("-.", "−.") + "</td>"; }
+      h += "</tr>";
+    }
+    return h + "</table></div>";
+  }
+  function policyTable(title, P, ua) {
+    let h = '<div><div class="small" style="font-weight:600;margin-bottom:4px">' + title + '</div><table class="hm"><tr><th></th>' + DEALER.map((d) => "<th>" + d + "</th>").join("") + "</tr>";
+    for (let ps = 21; ps >= 12; ps--) {
+      h += "<tr><th>" + ps + "</th>";
+      for (let dc = 1; dc <= 10; dc++) { const a = P[sidx(ps, dc, ua)]; h += '<td style="background:' + (a ? "var(--accent-soft)" : "var(--surface-2)") + ';color:' + (a ? "var(--accent)" : "var(--text-2)") + ';font-family:var(--font);font-weight:600">' + (a ? "H" : "S") + "</td>"; }
+      h += "</tr>";
+    }
+    return h + "</table></div>";
+  }
+
+  function runBJ() {
+    const n = +$("bj-n").value, every = $("bj-m").value === "every", r = RL.rng(Date.now() | 1);
+    const S = new Float64Array(200), N = new Float64Array(200);
+    const btn = $("bj-run"); btn.disabled = true; btn.textContent = "Running…";
+    setTimeout(() => {
+      let revisits = 0;
+      for (let e = 0; e < n; e++) {
+        const { traj, reward } = episode(stick20, r);
+        const seen = new Set();
+        for (const [s] of traj) { if (seen.has(s)) revisits++; if (!every && seen.has(s)) continue; seen.add(s); S[s] += reward; N[s]++; } // γ=1, rewards only at the end
+      }
+      const V = Array.from(S, (v, i) => (N[i] ? v / N[i] : 0));
+      $("bj-out").innerHTML = valueTable("Usable ace", V, true) + valueTable("No usable ace", V, false);
+      $("bj-note").innerHTML = "After " + n.toLocaleString() + " episodes. States re-visited within an episode: <strong>" + revisits + "</strong> — so first-visit and every-visit MC coincide here (Exercise 5.2). Usable-ace states are rarer, hence noisier.";
+      btn.disabled = false; btn.textContent = "Run";
+    }, 20);
+  }
+  $("bj-run").addEventListener("click", runBJ);
+  runBJ();
+
+  function runES() {
+    const n = +$("es-n").value, r = RL.rng(42);
+    const Q = new Float64Array(400), N = new Float64Array(400), P = new Int8Array(200);
+    for (let s = 0; s < 200; s++) P[s] = stick20(s);
+    const btn = $("es-run"); btn.disabled = true; btn.textContent = "Running…";
+    setTimeout(() => {
+      for (let e = 0; e < n; e++) {
+        const start = { ps: 12 + r.int(10), dc: 1 + r.int(10), ua: r() < 0.5, a0: r.int(2) };
+        const { traj, reward } = episode((s) => P[s], r, start);
+        const seen = new Set();
+        for (const [s, a] of traj) {
+          const k = s * 2 + a; if (seen.has(k)) continue; seen.add(k);
+          N[k]++; Q[k] += (reward - Q[k]) / N[k];
+          P[s] = Q[s * 2 + 1] > Q[s * 2] ? 1 : 0;
+        }
+      }
+      const V = Array.from({ length: 200 }, (_, s) => Math.max(Q[s * 2], Q[s * 2 + 1]));
+      $("es-out").innerHTML = policyTable("π* — usable ace", P, true) + policyTable("π* — no usable ace", P, false) + valueTable("v* — usable ace", V, true) + valueTable("v* — no usable ace", V, false);
+      $("es-note").innerHTML = "H = hit, S = stick. Compare with Thorp's basic strategy: with no usable ace, stick on 13–16 against a dealer 2–6 and hit against 7–A; stick on 17+. Borderline cells may flip with fewer episodes — their Q-values are nearly tied.";
+      btn.disabled = false; btn.textContent = "Run MC ES";
+    }, 20);
+  }
+  $("es-run").addEventListener("click", runES);
+
+  /* ---------- Off-policy single state ---------- */
+  function runIS() {
+    const runs = +$("is-runs").value, E = 10000, truth = -0.27726;
+    const marks = []; for (let k = 0; k <= 40; k++) marks.push(Math.round(Math.pow(10, k / 10)));
+    const xs = [...new Set(marks)].filter((v) => v <= E);
+    const errO = new Float64Array(xs.length), errW = new Float64Array(xs.length);
+    const btn = $("is-run"); btn.disabled = true; btn.textContent = "Running…";
+    setTimeout(() => {
+      const r = RL.rng(7);
+      for (let run = 0; run < runs; run++) {
+        let num = 0, den = 0, mi = 0;
+        for (let e = 1; e <= E; e++) {
+          let rho = 1;
+          const { traj, reward } = episode(() => (r() < 0.5 ? 1 : 0), r, { ps: 13, dc: 2, ua: true, a0: null });
+          for (const [s, a] of traj) { rho *= (a === stick20(s) ? 1 : 0) / 0.5; }
+          num += rho * reward; den += rho;
+          if (e === xs[mi]) {
+            const o = num / e, w = den ? num / den : 0;
+            errO[mi] += (o - truth) ** 2; errW[mi] += (w - truth) ** 2; mi++;
+          }
+        }
+      }
+      RL.lineChart($("is-chart"), {
+        x: xs, logX: true, xLabel: "Episodes (log scale)", yLabel: "Mean square error", xTicks: [1, 10, 100, 1000, 10000], yMin: 0,
+        series: [ { name: "Ordinary importance sampling", color: "var(--s3)", y: Array.from(errO, (v) => v / runs) },
+                  { name: "Weighted importance sampling", color: "var(--s8)", y: Array.from(errW, (v) => v / runs) } ],
+      });
+      $("is-out").innerHTML = "Final MSE after 10,000 episodes — ordinary: " + (errO[xs.length - 1] / runs).toFixed(4) + ", weighted: " + (errW[xs.length - 1] / runs).toFixed(4) + ". Weighted IS has much lower error early on.";
+      btn.disabled = false; btn.textContent = "Run";
+    }, 20);
+  }
+  $("is-run").addEventListener("click", runIS);
+
+  /* ---------- Infinite variance ---------- */
+  function runIV() {
+    const n = +$("iv-n").value, r = RL.rng(99);
+    const xs = []; for (let k = 0; k <= 60; k++) { const v = Math.round(Math.pow(10, k / 10)); if (v <= n && !xs.includes(v)) xs.push(v); }
+    const series = [];
+    const btn = $("iv-run"); btn.disabled = true; btn.textContent = "Running…";
+    setTimeout(() => {
+      const cols = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)", "var(--s6)", "var(--s7)", "var(--s8)", "var(--text-3)", "var(--text-2)"];
+      for (let run = 0; run < 10; run++) {
+        let sum = 0, mi = 0; const ys = [];
+        for (let e = 1; e <= n; e++) {
+          let rho = 1, G = 0;
+          while (true) {
+            if (r() < 0.5) { rho = 0; break; } // right: target never takes it
+            rho *= 2;
+            if (r() < 0.1) { G = 1; break; }
+          }
+          sum += rho * G;
+          if (e === xs[mi]) { ys.push(sum / e); mi++; }
+        }
+        series.push({ name: "run " + (run + 1), color: cols[run], y: ys });
+      }
+      RL.lineChart($("iv-chart"), { x: xs, logX: true, xLabel: "Episodes (log scale)", yLabel: "Ordinary IS estimate of v_π(s)", yMin: 0, yMax: 3,
+        xTicks: xs.filter((v) => /^10*$/.test(String(v))), series });
+      btn.disabled = false; btn.textContent = "Run 10 runs";
+    }, 20);
+  }
+  $("iv-run").addEventListener("click", runIV);
+});
+</script>
+</body>
+</html>

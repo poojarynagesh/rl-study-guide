@@ -7,7 +7,7 @@
 - [x] Ch 2 Multi-armed Bandits
 - [x] Ch 3 Finite MDPs
 - [x] Ch 4 Dynamic Programming
-- [ ] Ch 5 Monte Carlo Methods
+- [x] Ch 5 Monte Carlo Methods
 - [ ] Ch 6 Temporal-Difference Learning
 - [ ] Ch 7 n-step Bootstrapping
 - [ ] Ch 9 On-policy Prediction with Approximation
