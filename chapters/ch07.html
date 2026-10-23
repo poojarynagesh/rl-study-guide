@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 7 · n-step Bootstrapping — RL Study Guide</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/site.js"></script>
+<style>
+  .mini { display: inline-grid; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .mini div { width: 28px; height: 28px; display: grid; place-items: center; font-size: 13px; background: var(--surface); color: var(--accent); }
+  .mini .path { background: color-mix(in srgb, var(--s1) 18%, var(--surface)); }
+  .mini .sg { background: var(--surface-2); color: var(--text); font-weight: 700; font-size: 11px; }
+  .mini-wrap { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 10px; }
+  .mini-wrap .lbl { font-size: 12.5px; font-weight: 600; color: var(--text-2); margin-bottom: 4px; }
+</style>
+</head>
+<body data-page="ch07" data-root="..">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Chapter 7 · Book pp. 141–158</div>
+  <h1>n-step Bootstrapping</h1>
+  <p class="lead">n-step methods unify Monte Carlo and one-step TD: bootstrap after <em>n</em> real rewards instead of one (TD) or all of them (MC). The best methods are usually in between. They also free us from the "tyranny of the time step".</p>
+  <div class="meta">
+    <span class="chip">n-step return G<sub>t:t+n</sub></span>
+    <span class="chip">n-step TD</span>
+    <span class="chip">n-step Sarsa / Expected Sarsa</span>
+    <span class="chip">Off-policy with ρ</span>
+    <span class="chip">Control variates</span>
+    <span class="chip">Tree backup</span>
+    <span class="chip">Q(σ)</span>
+  </div>
+</div>
+
+<div class="box exam">
+  <span class="box-title">Exam focus for this chapter</span>
+  <ul>
+    <li>The n-step return (7.1) and its truncation at T; why updates are delayed n steps.</li>
+    <li>Error reduction property (7.3) — why n-step TD is sound.</li>
+    <li>Effect of n and α together (Figure 7.2): intermediate n is best; larger n needs smaller α.</li>
+    <li>n-step Sarsa (7.4)–(7.5) and n-step Expected Sarsa (7.7)–(7.8).</li>
+    <li>Off-policy n-step: which ρ for state values (ρ<sub>t:t+n−1</sub>) vs action values (ρ<sub>t+1:t+n</sub>) vs Expected Sarsa (ρ<sub>t+1:t+n−1</sub>), and why.</li>
+    <li>Control variates (7.13): why they reduce variance without bias.</li>
+    <li>Tree backup: off-policy without importance sampling; how the leaf weights work. Q(σ) unifies everything.</li>
+  </ul>
+</div>
+
+<div class="box key"><span class="box-title">The tyranny of the time step</span>
+<p>In one-step TD, the same time step determines <em>how often the action can change</em> and <em>the interval over which bootstrapping is done</em>. We often want to act quickly, but bootstrapping works best over a span in which a significant, recognisable state change has happened. n-step methods decouple the two. (They also introduce the ideas behind eligibility traces, Ch 12.)</p></div>
+
+<h2 id="nstep-td">7.1 n-step TD prediction</h2>
+<figure class="diagram"><div class="backup-row">
+  <div class="bk" data-tree="s|a1|s1" data-label="1-step TD = TD(0)"></div>
+  <div class="bk" data-tree="s|a1|s1|a1|s1" data-label="2-step TD"></div>
+  <div class="bk" data-tree="s|a1|s1|a1|s1|a1|s1" data-label="3-step TD"></div>
+  <div class="bk" data-tree="s|a1|s1|~|a1|s1" data-label="n-step TD"></div>
+  <div class="bk" data-tree="s|a1|s1|a1|s1|~|T" data-label="∞-step TD = Monte Carlo"></div>
+</div><figcaption>Figure 7.1 — the spectrum of n-step updates. They are still TD methods: they change an earlier estimate based on how it differs from a later estimate — now n steps later.</figcaption></figure>
+
+<div class="table-wrap"><table>
+  <tr><th>Method</th><th>Target</th></tr>
+  <tr><td>Monte Carlo</td><td>$G_t\doteq R_{t+1}+\gamma R_{t+2}+\dots+\gamma^{T-t-1}R_T$</td></tr>
+  <tr><td>One-step</td><td>$G_{t:t+1}\doteq R_{t+1}+\gamma V_t(S_{t+1})$</td></tr>
+  <tr><td>Two-step</td><td>$G_{t:t+2}\doteq R_{t+1}+\gamma R_{t+2}+\gamma^2V_{t+1}(S_{t+2})$</td></tr>
+</table></div>
+<div class="eq">
+$$G_{t:t+n}\doteq R_{t+1}+\gamma R_{t+2}+\dots+\gamma^{n-1}R_{t+n}+\gamma^nV_{t+n-1}(S_{t+n}),\qquad n\ge1,\ 0\le t\lt T-n$$
+<div class="eq-name"><span>n-step return (truncated, then corrected by V)</span><span class="ref">(7.1)</span></div>
+</div>
+<p>If $t+n\ge T$, the missing terms are zero and $G_{t:t+n}\doteq G_t$ (the full return). The n-step return isn't available until time $t+n$, so:</p>
+<div class="eq">
+$$V_{t+n}(S_t)\doteq V_{t+n-1}(S_t)+\alpha\big[G_{t:t+n}-V_{t+n-1}(S_t)\big],\qquad 0\le t\lt T$$
+<div class="eq-name"><span>n-step TD update (other states unchanged)</span><span class="ref">(7.2)</span></div>
+</div>
+<p>No updates in the first $n-1$ steps of an episode; the same number of extra updates are made after termination.</p>
+
+<div class="algo">
+  <div class="algo-head"><span class="name">n-step TD for estimating V ≈ vπ</span><span class="tags"><span class="tag on">on-policy</span><span class="tag boot">bootstraps</span><span class="tag">n-step</span></span></div>
+<pre><span class="k">Input</span>: a policy π
+<span class="k">Algorithm parameters</span>: step size α ∈ (0, 1], a positive integer n
+Initialize V(s) arbitrarily, for all s ∈ S
+All store and access operations (for S_t and R_t) can take their index mod n + 1
+<span class="k">Loop for each episode</span>:
+    Initialize and store S₀ ≠ terminal
+    T ← ∞
+    <span class="k">Loop for</span> t = 0, 1, 2, …:
+        If t &lt; T, then:
+            Take an action according to π(·|S_t)
+            Observe and store the next reward as R_{t+1} and the next state as S_{t+1}
+            If S_{t+1} is terminal, then T ← t + 1
+        τ ← t − n + 1          <span class="c">(τ is the time whose state's estimate is being updated)</span>
+        If τ ≥ 0:
+            G ← Σ_{i=τ+1}^{min(τ+n,T)} γ^{i−τ−1} R_i
+            If τ + n &lt; T, then: G ← G + γⁿ V(S_{τ+n})          <span class="c">(G_{τ:τ+n})</span>
+            V(S_τ) ← V(S_τ) + α [G − V(S_τ)]
+    <span class="k">Until</span> τ = T − 1</pre>
+</div>
+
+<div class="eq">
+$$\max_s\Big|\E_\pi[G_{t:t+n}\mid S_t=s]-v_\pi(s)\Big| \le \gamma^n\max_s\Big|V_{t+n-1}(s)-v_\pi(s)\Big|$$
+<div class="eq-name"><span>Error reduction property</span><span class="ref">(7.3)</span></div>
+</div>
+<p>The expected n-step return is a better estimate of $v_\pi$ than $V$ is, in the worst-state sense — so all n-step TD methods converge to the correct predictions under appropriate conditions. TD(0) and MC are the extreme members of a family of <strong>sound</strong> methods.</p>
+<p class="small"><strong>Exercise 7.1</strong> — with V fixed, the n-step error is a sum of TD errors: $G_{t:t+n}-V(S_t)=\sum_{k=t}^{\min(t+n,T)-1}\gamma^{k-t}\delta_k$ (generalising 6.6).</p>
+
+<h3>Example 7.1 — n-step TD on the random walk</h3>
+<p>5-state walk, first episode C → D → E → right (+1), all $V=0.5$: one-step updates only $V(E)$; two-step updates $V(D)$ and $V(E)$; three-step or more updates all three visited states toward 1, by the same amount.</p>
+<p>Figure 7.2 uses a <strong>19-state</strong> walk with outcome <strong>−1 on the left</strong>, +1 on the right, values initialised to 0. Measure: RMS error over the 19 states at the end of each episode, averaged over the first 10 episodes and 100 runs.</p>
+<div class="demo" id="ps-demo">
+  <div class="demo-title">Try it: Figure 7.2 — performance of n-step TD as a function of α and n</div>
+  <div class="controls">
+    <label class="control">Runs <select id="ps-runs"><option>30</option><option selected>100</option></select></label>
+    <button class="btn" id="ps-run" type="button">Run parameter study</button>
+  </div>
+  <div id="ps-chart"></div>
+  <div class="demo-out" id="ps-out"></div>
+</div>
+<div class="box key"><span class="box-title">Reading Figure 7.2 (hyperparameter interaction)</span>
+<ul>
+  <li><strong>Intermediate n works best</strong> (≈ 4–8 here) — better than both TD(0) (n = 1) and MC (n large).</li>
+  <li>For every n the curve is U-shaped in α; <strong>the larger n, the smaller the best α</strong> (longer returns have more variance, so steps must be smaller). Large n with large α blows up the error.</li>
+</ul></div>
+<div class="quiz">
+  <details><summary>Ex 7.3 — Why a 19-state walk instead of 5? Would a smaller walk shift the best n? What about the −1 left outcome?</summary><div class="ans"><p>Longer episodes are needed for n-step differences to show — on a 5-state walk episodes are short, so any n beyond a few is already MC and the best n would be smaller. With outcome 0 on the left and values initialised to 0, left-terminating episodes carry no learning signal for one-step methods; −1 makes both ends informative and the true values symmetric around 0 (= the initial values), which affects how much bootstrapping helps — it tends to favour somewhat larger n since both ends propagate information.</p></div></details>
+  <details><summary>Ex 7.2 — Would using the sum of TD errors (with V changing each step) in place of the n-step error be better or worse?</summary><div class="ans"><p>It is a slightly different algorithm: each TD error would use the latest estimate, so information from updates made within the last n steps is used sooner. Empirically the two behave similarly on the random walk; the TD-error-sum version can be slightly better for small α and slightly less stable for large α. (The book leaves this as a programming experiment.)</p></div></details>
+</div>
+
+<h2 id="nstep-sarsa">7.2 n-step Sarsa</h2>
+<p>Switch states for state–action pairs and use an ε-greedy policy. One-step Sarsa is now called <strong>Sarsa(0)</strong>.</p>
+<div class="eq">
+$$G_{t:t+n}\doteq R_{t+1}+\gamma R_{t+2}+\dots+\gamma^{n-1}R_{t+n}+\gamma^nQ_{t+n-1}(S_{t+n},A_{t+n}),\qquad G_{t:t+n}\doteq G_t \text{ if } t+n\ge T$$
+<div class="eq-name"><span>n-step return for Sarsa</span><span class="ref">(7.4)</span></div>
+</div>
+<div class="eq">
+$$Q_{t+n}(S_t,A_t)\doteq Q_{t+n-1}(S_t,A_t)+\alpha\big[G_{t:t+n}-Q_{t+n-1}(S_t,A_t)\big]$$
+<div class="eq-name"><span>n-step Sarsa update</span><span class="ref">(7.5)</span></div>
+</div>
+<figure class="diagram"><div class="backup-row">
+  <div class="bk" data-tree="a|s1|a1" data-label="1-step Sarsa = Sarsa(0)"></div>
+  <div class="bk" data-tree="a|s1|a1|s1|a1" data-label="2-step Sarsa"></div>
+  <div class="bk" data-tree="a|s1|a1|s1|a1|~|s1|a1" data-label="n-step Sarsa"></div>
+  <div class="bk" data-tree="a|s1|a1|s1|a1|~|T" data-label="∞-step = Monte Carlo"></div>
+  <div class="bk" data-tree="a|s1|a1|s1|a1|~|s1|a3" data-label="n-step Expected Sarsa"></div>
+</div><figcaption>Figure 7.3 — Sarsa diagrams start and end with an action. Expected Sarsa's last step branches over all actions weighted by π.</figcaption></figure>
+
+<div class="algo">
+  <div class="algo-head"><span class="name">n-step Sarsa for estimating Q ≈ q* or qπ</span><span class="tags"><span class="tag on">on-policy</span><span class="tag boot">bootstraps</span><span class="tag">n-step</span></span></div>
+<pre>Initialize Q(s,a) arbitrarily, for all s ∈ S, a ∈ A
+Initialize π to be ε-greedy with respect to Q, or to a fixed given policy
+<span class="k">Algorithm parameters</span>: step size α ∈ (0, 1], small ε &gt; 0, a positive integer n
+All store and access operations (for S_t, A_t, and R_t) can take their index mod n + 1
+<span class="k">Loop for each episode</span>:
+    Initialize and store S₀ ≠ terminal
+    Select and store an action A₀ ∼ π(·|S₀)
+    T ← ∞
+    <span class="k">Loop for</span> t = 0, 1, 2, …:
+        If t &lt; T, then:
+            Take action A_t
+            Observe and store the next reward as R_{t+1} and the next state as S_{t+1}
+            If S_{t+1} is terminal, then: T ← t + 1
+            else: Select and store an action A_{t+1} ∼ π(·|S_{t+1})
+        τ ← t − n + 1          <span class="c">(τ is the time whose estimate is being updated)</span>
+        If τ ≥ 0:
+            G ← Σ_{i=τ+1}^{min(τ+n,T)} γ^{i−τ−1} R_i
+            If τ + n &lt; T, then G ← G + γⁿ Q(S_{τ+n}, A_{τ+n})          <span class="c">(G_{τ:τ+n})</span>
+            Q(S_τ, A_τ) ← Q(S_τ, A_τ) + α [G − Q(S_τ, A_τ)]
+            If π is being learned, then ensure that π(·|S_τ) is ε-greedy wrt Q
+    <span class="k">Until</span> τ = T − 1</pre>
+</div>
+
+<h3>Figure 7.4 — why n-step methods speed up learning</h3>
+<p>All rewards are 0 except at G, and Q starts at 0. After one episode, <strong>one-step Sarsa strengthens only the last action</strong> before G; <strong>n-step Sarsa strengthens the last n actions</strong> — much more is learned from one episode.</p>
+<div class="demo" id="cred-demo">
+  <div class="demo-title">See it: which action values one episode strengthens</div>
+  <div class="controls">
+    <label class="control">n <span class="val" id="cred-n-v">10</span><input type="range" id="cred-n" min="1" max="30" step="1" value="10"></label>
+    <button class="btn ghost" id="cred-new" type="button">New random path</button>
+  </div>
+  <div class="mini-wrap" id="cred-out"></div>
+</div>
+
+<div class="demo" id="ws-demo">
+  <div class="demo-title">Try it: n-step Sarsa on the windy gridworld</div>
+  <p class="small muted">Same task as Example 6.5 (ε = 0.1, Q = 0, reward −1 per step). Larger n spreads credit faster, but needs a smaller α.</p>
+  <div class="controls">
+    <label class="control">α <span class="val" id="ws-a-v">0.40</span><input type="range" id="ws-a" min="0.05" max="1" step="0.05" value="0.4"></label>
+    <label class="control">Runs <select id="ws-runs"><option>5</option><option selected>20</option><option>50</option></select></label>
+    <button class="btn" id="ws-run" type="button">Run</button>
+  </div>
+  <div id="ws-chart"></div>
+</div>
+
+<h3>n-step Expected Sarsa</h3>
+<div class="eq">
+$$G_{t:t+n}\doteq R_{t+1}+\dots+\gamma^{n-1}R_{t+n}+\gamma^n\bar V_{t+n-1}(S_{t+n}),\quad t+n\lt T \qquad \bar V_t(s)\doteq\sum_a\pi(a\mid s)Q_t(s,a)$$
+<div class="eq-name"><span>n-step Expected Sarsa return and expected approximate value</span><span class="ref">(7.7), (7.8)</span></div>
+</div>
+<p>$\bar V$ of a terminal state is 0. Expected approximate values recur throughout the rest of the book.</p>
+<p class="small"><strong>Exercise 7.4</strong> — Sarsa's n-step return as a sum of "novel" TD errors: $G_{t:t+n}=Q_{t-1}(S_t,A_t)+\sum_{k=t}^{\min(t+n,T)-1}\gamma^{k-t}\big[R_{k+1}+\gamma Q_k(S_{k+1},A_{k+1})-Q_{k-1}(S_k,A_k)\big]$ — proven by telescoping: the $Q$ terms cancel pairwise, leaving the rewards plus $\gamma^nQ_{t+n-1}(S_{t+n},A_{t+n})$ (or nothing past T).</p>
+
+<h2 id="offpolicy">7.3 n-step off-policy learning (importance sampling)</h2>
+<p>Weight each n-step update by the relative probability of the n actions under π and $b$:</p>
+<div class="eq">
+$$\rho_{t:h}\doteq\prod_{k=t}^{\min(h,T-1)}\frac{\pi(A_k\mid S_k)}{b(A_k\mid S_k)}$$
+<div class="eq-name"><span>Importance-sampling ratio over a span</span><span class="ref">(7.10)</span></div>
+</div>
+<div class="eq">
+$$V_{t+n}(S_t)\doteq V_{t+n-1}(S_t)+\alpha\,\rho_{t:t+n-1}\big[G_{t:t+n}-V_{t+n-1}(S_t)\big]$$
+<div class="eq-name"><span>Off-policy n-step TD</span><span class="ref">(7.9)</span></div>
+</div>
+<div class="eq">
+$$Q_{t+n}(S_t,A_t)\doteq Q_{t+n-1}(S_t,A_t)+\alpha\,\rho_{t+1:t+n}\big[G_{t:t+n}-Q_{t+n-1}(S_t,A_t)\big]$$
+<div class="eq-name"><span>Off-policy n-step Sarsa</span><span class="ref">(7.11)</span></div>
+</div>
+<div class="table-wrap"><table>
+  <tr><th>Algorithm</th><th>Ratio used</th><th>Why</th></tr>
+  <tr><td>n-step TD (state values)</td><td>$\rho_{t:t+n-1}$</td><td>All n actions $A_t\dots A_{t+n-1}$ influenced the return</td></tr>
+  <tr><td>n-step Sarsa (action values)</td><td>$\rho_{t+1:t+n}$ — starts and ends one step later</td><td>$A_t$ is given (we're learning its value) — only <em>subsequent</em> actions need correction; $A_{t+n}$ is used in the bootstrap $Q(S_{t+n},A_{t+n})$</td></tr>
+  <tr><td>n-step Expected Sarsa</td><td>$\rho_{t+1:t+n-1}$ — one fewer factor</td><td>The last state uses an expectation over all actions; the action actually taken there doesn't matter</td></tr>
+</table></div>
+<p>If π would never take some action ($\pi=0$), the return gets zero weight. If an action is much likelier under π than $b$, the return is over-weighted (it's characteristic of π but rare in the data). On-policy ($\pi=b$) ⇒ ρ = 1, so (7.9) and (7.11) generalise the on-policy updates.</p>
+
+<div class="algo">
+  <div class="algo-head"><span class="name">Off-policy n-step Sarsa for estimating Q ≈ q* or qπ</span><span class="tags"><span class="tag off">off-policy</span><span class="tag">importance sampling</span><span class="tag boot">bootstraps</span></span></div>
+<pre><span class="k">Input</span>: an arbitrary behavior policy b such that b(a|s) &gt; 0, for all s ∈ S, a ∈ A
+Initialize Q(s,a) arbitrarily, for all s ∈ S, a ∈ A
+Initialize π to be greedy with respect to Q, or as a fixed given policy
+<span class="k">Algorithm parameters</span>: step size α ∈ (0, 1], a positive integer n
+All store and access operations (for S_t, A_t, and R_t) can take their index mod n + 1
+<span class="k">Loop for each episode</span>:
+    Initialize and store S₀ ≠ terminal
+    Select and store an action A₀ ∼ b(·|S₀)
+    T ← ∞
+    <span class="k">Loop for</span> t = 0, 1, 2, …:
+        If t &lt; T, then:
+            Take action A_t
+            Observe and store the next reward as R_{t+1} and the next state as S_{t+1}
+            If S_{t+1} is terminal, then: T ← t + 1
+            else: Select and store an action A_{t+1} ∼ b(·|S_{t+1})
+        τ ← t − n + 1
+        If τ ≥ 0:
+            ρ ← Π_{i=τ+1}^{min(τ+n,T−1)} π(A_i|S_i) / b(A_i|S_i)          <span class="c">(ρ_{τ+1:τ+n})</span>
+            G ← Σ_{i=τ+1}^{min(τ+n,T)} γ^{i−τ−1} R_i
+            If τ + n &lt; T, then: G ← G + γⁿ Q(S_{τ+n}, A_{τ+n})          <span class="c">(G_{τ:τ+n})</span>
+            Q(S_τ, A_τ) ← Q(S_τ, A_τ) + α ρ [G − Q(S_τ, A_τ)]
+            If π is being learned, then ensure that π(·|S_τ) is greedy wrt Q
+    <span class="k">Until</span> τ = T − 1</pre>
+</div>
+
+<h2 id="control-variates">7.4 *Per-decision methods with control variates</h2>
+<p>Write the n-step return recursively, $G_{t:h}=R_{t+1}+\gamma G_{t+1:h}$ with $G_{h:h}\doteq V_{h-1}(S_h)$. Simply multiplying by $\rho_t$ would make the target 0 whenever $\rho_t=0$ (shrinking the estimate, high variance). Instead:</p>
+<div class="eq">
+$$G_{t:h}\doteq\rho_t\big(R_{t+1}+\gamma G_{t+1:h}\big)+\underbrace{(1-\rho_t)V_{h-1}(S_t)}_{\text{control variate}},\qquad t\lt h\lt T$$
+<div class="eq-name"><span>Off-policy n-step return with control variate (state values)</span><span class="ref">(7.13)</span></div>
+</div>
+<ul>
+  <li>If $\rho_t=0$ the target equals the current estimate ⇒ <strong>no change</strong> (ignore the sample) — sensible.</li>
+  <li>The control variate has <strong>expected value zero</strong> ($\E[\rho_t]=1$, uncorrelated with the estimate) ⇒ the expected update is unchanged; variance is reduced. (Exercise 7.6)</li>
+  <li>On-policy ($\rho_t=1$) it reduces to (7.1). Use it with the plain n-step TD update (7.2) — no extra ratios.</li>
+</ul>
+<div class="eq">
+$$G_{t:h}\doteq R_{t+1}+\gamma\Big(\rho_{t+1}G_{t+1:h}+\bar V_{h-1}(S_{t+1})-\rho_{t+1}Q_{h-1}(S_{t+1},A_{t+1})\Big) = R_{t+1}+\gamma\rho_{t+1}\big(G_{t+1:h}-Q_{h-1}(S_{t+1},A_{t+1})\big)+\gamma\bar V_{h-1}(S_{t+1})$$
+<div class="eq-name"><span>Off-policy n-step return with control variate (action values)</span><span class="ref">(7.14)</span></div>
+</div>
+<p>Recursion ends with $G_{h:h}\doteq Q_{h-1}(S_h,A_h)$ if $h\lt T$, or $G_{T-1:h}\doteq R_T$ if $h\ge T$. The first action is not importance-sampled. <strong>Exercise 7.8</strong>: with V fixed, (7.13) is $G_{t:h}=V(S_t)+\sum_{k=t}^{h-1}\gamma^{k-t}\big(\prod_{i=t}^{k}\rho_i\big)\delta_k$.</p>
+<p>Importance sampling enables sound off-policy learning but gives high-variance updates (forcing small α, slow learning). Remedies: control variates, adaptive step sizes (Autostep), invariant updates, and — next — avoiding IS altogether.</p>
+
+<h2 id="tree-backup">7.5 Off-policy learning without importance sampling: n-step tree backup</h2>
+<figure class="diagram"><div class="backup-row">
+  <div class="bk" data-tree="a|s1|a3|s1|a3|s1|a3" data-label="3-step tree backup (spine = actual actions; side branches = unselected actions, bootstrapped)"></div>
+</div></figure>
+<p>Down the spine: sampled states, rewards and actions. Hanging off each state: the <strong>actions not selected</strong> — we have no data for them, so we bootstrap from their estimated values. The target is formed from the <strong>leaf nodes</strong> of the whole tree; interior (taken) action nodes don't contribute directly. Leaf weights:</p>
+<ul>
+  <li>first-level non-selected $a$: $\pi(a\mid S_{t+1})$;</li>
+  <li>second-level non-selected $a'$: $\pi(A_{t+1}\mid S_{t+1})\,\pi(a'\mid S_{t+2})$;</li>
+  <li>third-level: $\pi(A_{t+1}|S_{t+1})\pi(A_{t+2}|S_{t+2})\pi(a''|S_{t+3})$, and so on.</li>
+</ul>
+<div class="eq">
+$$G_{t:t+1}\doteq R_{t+1}+\gamma\sum_a\pi(a\mid S_{t+1})Q_t(S_{t+1},a)\quad\text{(= Expected Sarsa)}$$
+<div class="eq-name"><span>One-step tree-backup return</span><span class="ref">(7.15)</span></div>
+</div>
+<div class="eq">
+$$G_{t:t+n}\doteq R_{t+1}+\gamma\sum_{a\ne A_{t+1}}\pi(a\mid S_{t+1})Q_{t+n-1}(S_{t+1},a)+\gamma\,\pi(A_{t+1}\mid S_{t+1})\,G_{t+1:t+n}$$
+<div class="eq-name"><span>n-step tree-backup return (recursive)</span><span class="ref">(7.16)</span></div>
+</div>
+<p>Used with the plain n-step Sarsa update (7.5). Exercise 7.11: with fixed Q, $G_{t:t+n}=Q(S_t,A_t)+\sum_{k=t}^{\min(t+n-1,T-1)}\delta_k\prod_{i=t+1}^{k}\gamma\pi(A_i|S_i)$ with $\delta_t\doteq R_{t+1}+\gamma\bar V_t(S_{t+1})-Q(S_t,A_t)$.</p>
+
+<div class="algo">
+  <div class="algo-head"><span class="name">n-step Tree Backup for estimating Q ≈ q* or qπ</span><span class="tags"><span class="tag off">off-policy</span><span class="tag">no importance sampling</span><span class="tag boot">bootstraps</span></span></div>
+<pre>Initialize Q(s,a) arbitrarily, for all s ∈ S, a ∈ A
+Initialize π to be greedy with respect to Q, or as a fixed given policy
+<span class="k">Algorithm parameters</span>: step size α ∈ (0, 1], a positive integer n
+All store and access operations can take their index mod n + 1
+<span class="k">Loop for each episode</span>:
+    Initialize and store S₀ ≠ terminal
+    Choose an action A₀ arbitrarily as a function of S₀; Store A₀
+    T ← ∞
+    <span class="k">Loop for</span> t = 0, 1, 2, …:
+        If t &lt; T:
+            Take action A_t; observe and store the next reward and state as R_{t+1}, S_{t+1}
+            If S_{t+1} is terminal: T ← t + 1
+            else: Choose an action A_{t+1} arbitrarily as a function of S_{t+1}; Store A_{t+1}
+        τ ← t + 1 − n
+        If τ ≥ 0:
+            If t + 1 ≥ T: G ← R_T
+            else: G ← R_{t+1} + γ Σ_a π(a|S_{t+1}) Q(S_{t+1}, a)
+            <span class="k">Loop for</span> k = min(t, T − 1) down through τ + 1:
+                G ← R_k + γ Σ_{a≠A_k} π(a|S_k) Q(S_k, a) + γ π(A_k|S_k) G
+            Q(S_τ, A_τ) ← Q(S_τ, A_τ) + α [G − Q(S_τ, A_τ)]
+            If π is being learned, then ensure that π(·|S_τ) is greedy wrt Q
+    <span class="k">Until</span> τ = T − 1</pre>
+  <div class="algo-foot">The natural multi-step extension of <strong>Q-learning</strong> to stochastic target policies. Behaviour actions can be chosen "arbitrarily". Weakness: if π and b differ a lot, $\pi(A_k|S_k)$ is often small (0 for non-greedy actions under greedy π), so the effective bootstrapping span is only a few steps even with large n.</div>
+</div>
+
+<h2 id="qsigma">7.6 *A unifying algorithm: n-step Q(σ)</h2>
+<p>Decide step by step whether to <strong>sample</strong> the action (σ = 1, like Sarsa) or take the <strong>expectation</strong> over actions (σ = 0, like tree backup). σ<sub>t</sub> ∈ [0, 1] may even vary continuously and depend on the state/action.</p>
+<div class="eq">
+$$G_{t:h}\doteq R_{t+1}+\gamma\Big(\sigma_{t+1}\rho_{t+1}+(1-\sigma_{t+1})\pi(A_{t+1}\mid S_{t+1})\Big)\Big(G_{t+1:h}-Q_{h-1}(S_{t+1},A_{t+1})\Big)+\gamma\bar V_{h-1}(S_{t+1})$$
+<div class="eq-name"><span>n-step Q(σ) return</span><span class="ref">(7.17)</span></div>
+</div>
+<p>Recursion ends with $G_{h:h}\doteq Q_{h-1}(S_h,A_h)$ if $h\lt T$, or $G_{T-1:T}\doteq R_T$. Use with the plain update (7.5).</p>
+<div class="table-wrap"><table>
+  <tr><th>σ at each step</th><th>Algorithm obtained</th></tr>
+  <tr><td>σ = 1 always</td><td>n-step Sarsa (with per-decision IS / control variates off-policy)</td></tr>
+  <tr><td>σ = 0 always</td><td>n-step tree backup</td></tr>
+  <tr><td>σ = 1 except the last step (σ = 0)</td><td>n-step Expected Sarsa</td></tr>
+  <tr><td>mixtures / fractional σ</td><td>new intermediate algorithms</td></tr>
+</table></div>
+
+<details class="card" style="margin:16px 0"><summary style="cursor:pointer;font-weight:650">Pseudocode: Off-policy n-step Q(σ) (click to expand)</summary>
+<div class="algo" style="margin-bottom:0"><pre><span class="k">Input</span>: an arbitrary behavior policy b such that b(a|s) &gt; 0, for all s ∈ S, a ∈ A
+Initialize Q(s,a) arbitrarily, for all s ∈ S, a ∈ A
+Initialize π to be greedy with respect to Q, or else it is a fixed given policy
+<span class="k">Algorithm parameters</span>: step size α ∈ (0, 1], a positive integer n
+<span class="k">Loop for each episode</span>:
+    Initialize and store S₀ ≠ terminal
+    Choose and store an action A₀ ∼ b(·|S₀)
+    T ← ∞
+    <span class="k">Loop for</span> t = 0, 1, 2, …:
+        If t &lt; T:
+            Take action A_t; observe and store the next reward and state as R_{t+1}, S_{t+1}
+            If S_{t+1} is terminal: T ← t + 1
+            else:
+                Choose and store an action A_{t+1} ∼ b(·|S_{t+1})
+                Select and store σ_{t+1}
+                Store π(A_{t+1}|S_{t+1}) / b(A_{t+1}|S_{t+1}) as ρ_{t+1}
+        τ ← t − n + 1
+        If τ ≥ 0:
+            If t + 1 &lt; T: G ← Q(S_{t+1}, A_{t+1})
+            <span class="k">Loop for</span> k = min(t + 1, T) down through τ + 1:
+                if k = T: G ← R_T
+                else:
+                    V̄ ← Σ_a π(a|S_k) Q(S_k, a)
+                    G ← R_k + γ (σ_k ρ_k + (1 − σ_k) π(A_k|S_k)) (G − Q(S_k, A_k)) + γ V̄
+            Q(S_τ, A_τ) ← Q(S_τ, A_τ) + α [G − Q(S_τ, A_τ)]
+            If π is being learned, then ensure that π(·|S_τ) is greedy wrt Q
+    <span class="k">Until</span> τ = T − 1</pre></div>
+</details>
+
+<h2 id="summary">7.7 Summary</h2>
+<div class="table-wrap"><table>
+  <tr><th>Method</th><th>Target / return</th><th>On/off</th><th>IS needed?</th><th>Key property</th></tr>
+  <tr><td>n-step TD</td><td>$G_{t:t+n}$ (7.1) with $V$</td><td>on (off with $\rho_{t:t+n-1}$)</td><td>off-policy only</td><td>Bridges TD(0) and MC; error reduction</td></tr>
+  <tr><td>n-step Sarsa</td><td>(7.4) with $Q(S_{t+n},A_{t+n})$</td><td>on (off with $\rho_{t+1:t+n}$)</td><td>off-policy only</td><td>Faster credit propagation (Fig 7.4)</td></tr>
+  <tr><td>n-step Expected Sarsa</td><td>(7.7) with $\bar V(S_{t+n})$</td><td>on/off ($\rho_{t+1:t+n-1}$)</td><td>off-policy only</td><td>Lower variance at the last step</td></tr>
+  <tr><td>Control-variate versions</td><td>(7.13), (7.14)</td><td>off</td><td>per-decision</td><td>Same expectation, lower variance</td></tr>
+  <tr><td>Tree backup</td><td>(7.16)</td><td>off</td><td class="yes">No</td><td>Multi-step Q-learning; short effective span if π, b differ</td></tr>
+  <tr><td>Q(σ)</td><td>(7.17)</td><td>off</td><td>partially (σ)</td><td>Unifies all of the above</td></tr>
+</table></div>
+<div class="box pitfall"><span class="box-title">Costs of n-step methods</span>
+<p>(1) <strong>Delay</strong> of n steps before updating; (2) <strong>more computation</strong> per step; (3) <strong>more memory</strong> to store the last n states, actions, rewards. Eligibility traces (Ch 12) reduce memory/computation, but some extra cost always remains — "well worth paying to escape the tyranny of the single time step".</p></div>
+
+<h2 id="hyperparams">Hyperparameters in this chapter</h2>
+<div class="table-wrap"><table>
+  <tr><th>Parameter</th><th>Role</th><th>Guidance</th></tr>
+  <tr><td>n</td><td>How many real rewards before bootstrapping. n = 1 → TD(0); n ≥ episode length → MC</td><td>Intermediate n is usually best. Small n: more bias (relies on estimates), low variance. Large n: less bias, more variance, longer delay and memory.</td></tr>
+  <tr><td>α</td><td>Step size</td><td><strong>Interacts with n</strong>: the best α shrinks as n grows (Fig 7.2).</td></tr>
+  <tr><td>σ (Q(σ))</td><td>Degree of sampling per step</td><td>σ = 1 Sarsa-like (needs IS off-policy), σ = 0 tree-backup-like (no IS).</td></tr>
+  <tr><td>b vs π</td><td>Behaviour vs target policy</td><td>The more they differ, the higher the IS variance (or the shorter the tree-backup span).</td></tr>
+</table></div>
+
+<h2 id="selftest">Self-test</h2>
+<div class="quiz">
+  <details><summary>Write the n-step return and say what happens when t + n ≥ T.</summary><div class="ans"><p>$G_{t:t+n}=R_{t+1}+\gamma R_{t+2}+\dots+\gamma^{n-1}R_{t+n}+\gamma^nV(S_{t+n})$; if $t+n\ge T$ it is just the full return $G_t$.</p></div></details>
+  <details><summary>Why can't the n-step update for $S_t$ be made at time t+1?</summary><div class="ans"><p>The target needs $R_{t+n}$ and $V_{t+n-1}(S_{t+n})$, first available at time $t+n$.</p></div></details>
+  <details><summary>What does the error reduction property guarantee?</summary><div class="ans"><p>The worst-case error of the expected n-step return is at most $\gamma^n$ times the worst-case error of the current V — so n-step TD methods converge (under conditions).</p></div></details>
+  <details><summary>Why does off-policy n-step Sarsa use $\rho_{t+1:t+n}$ rather than $\rho_{t:t+n-1}$?</summary><div class="ans"><p>We are learning the value of the action $A_t$ that was actually taken, so its probability is irrelevant; only the subsequent actions $A_{t+1},\dots,A_{t+n}$ (including the one in the bootstrap term) must be corrected.</p></div></details>
+  <details><summary>How does a control variate reduce variance without introducing bias?</summary><div class="ans"><p>It adds $(1-\rho_t)V(S_t)$, whose expectation is 0 since $\E[\rho_t]=1$; when ρ is 0 the target collapses to the current estimate (no change) instead of 0.</p></div></details>
+  <details><summary>How does tree backup avoid importance sampling?</summary><div class="ans"><p>It never uses a sampled action's return beyond what π would weight: each step mixes the expected values of non-selected actions (weighted by π) with the continuation through the taken action weighted by π(A|S). Since everything is weighted by target-policy probabilities, no ratio π/b is needed.</p></div></details>
+  <details><summary>Which σ settings in Q(σ) give Sarsa, tree backup and Expected Sarsa?</summary><div class="ans"><p>σ = 1 everywhere → Sarsa; σ = 0 everywhere → tree backup; σ = 1 except σ = 0 on the final step → Expected Sarsa.</p></div></details>
+  <details><summary>Ex 7.6 — Prove the control variate in (7.13) doesn't change the expected return.</summary><div class="ans"><p>$\E[(1-\rho_t)V(S_t)\mid S_t]=V(S_t)(1-\E_b[\rho_t\mid S_t])=V(S_t)(1-\sum_ab(a|S_t)\frac{\pi(a|S_t)}{b(a|S_t)})=V(S_t)(1-1)=0$.</p></div></details>
+  <details><summary>Three costs of n-step methods vs one-step methods?</summary><div class="ans"><p>n-step delay before updating, more computation per step, more memory for the last n transitions.</p></div></details>
+</div>
+
+</main>
+
+<script>
+document.addEventListener("rl:ready", function () {
+  const $ = (id) => document.getElementById(id);
+  const bind = (id, d) => { const el = $(id), out = $(id + "-v"); const f = () => (out.textContent = (+el.value).toFixed(d)); el.addEventListener("input", f); f(); };
+  bind("cred-n", 0); bind("ws-a", 2);
+
+  /* ---------- 19-state random walk parameter study ---------- */
+  const NS = 19, TRUE = Array.from({ length: NS }, (_, i) => -1 + (2 * (i + 1)) / (NS + 1)); // -0.9 … 0.9
+  function walk(r) { const s = [10]; while (true) { const n = s[s.length - 1] + (r() < 0.5 ? -1 : 1); s.push(n); if (n === 0 || n === NS + 1) return s; } }
+  function runPS() {
+    const runs = +$("ps-runs").value, ns = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512];
+    const alphas = [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0];
+    const btn = $("ps-run"); btn.disabled = true; btn.textContent = "Running…";
+    setTimeout(() => {
+      // the same sets of walks for all parameter settings
+      const walks = []; for (let run = 0; run < runs; run++) { const r = RL.rng(2024 + run); const w = []; for (let e = 0; e < 10; e++) w.push(walk(r)); walks.push(w); }
+      const res = ns.map((n) => alphas.map((a) => {
+        let tot = 0;
+        for (let run = 0; run < runs; run++) {
+          const V = new Float64Array(NS + 2);
+          for (const s of walks[run]) {
+            const T = s.length - 1, R = (k) => (k === T ? (s[T] === 0 ? -1 : 1) : 0); // R_k reward on arriving at s[k]
+            for (let tau = 0; tau < T; tau++) {
+              const h = Math.min(tau + n, T);
+              let G = 0; for (let i = tau + 1; i <= h; i++) G += R(i);
+              if (tau + n < T) G += V[s[tau + n]];
+              V[s[tau]] += a * (G - V[s[tau]]);
+            }
+            let se = 0; for (let i = 1; i <= NS; i++) se += (V[i] - TRUE[i - 1]) ** 2;
+            tot += Math.sqrt(se / NS);
+          }
+        }
+        return tot / (runs * 10);
+      }));
+      const cols = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)", "var(--s6)", "var(--s7)", "var(--s8)", "var(--text-3)", "var(--text-2)"];
+      RL.lineChart($("ps-chart"), { x: alphas, xLabel: "α", yLabel: "Avg RMS error (19 states, first 10 episodes)", yMin: 0.25, yMax: 0.55, height: 340, xTicks: [0, 0.2, 0.4, 0.6, 0.8, 1], xFmt: (v) => v.toFixed(1), yFmt: (v) => v.toFixed(2),
+        series: ns.map((n, i) => ({ name: "n=" + n, color: cols[i], y: res[i] })) });
+      let best = { v: Infinity }; ns.forEach((n, i) => res[i].forEach((v, j) => { if (j && v < best.v) best = { v, n, a: alphas[j] }; }));
+      $("ps-out").innerHTML = "Best setting found: <strong>n = " + best.n + ", α = " + best.a.toFixed(2) + "</strong> (RMS " + best.v.toFixed(3) + "). Curves above 0.55 are clipped, as in the book.";
+      btn.disabled = false; btn.textContent = "Run parameter study";
+    }, 20);
+  }
+  $("ps-run").addEventListener("click", runPS);
+  runPS();
+
+  /* ---------- Fig 7.4 credit assignment ---------- */
+  const GH = 7, GW = 11, MV = [[-1, 0], [1, 0], [0, 1], [0, -1]], ARW = ["↑", "↓", "→", "←"];
+  let seed = 11;
+  function makePath() {
+    const r = RL.rng(seed); const goal = [1, 8];
+    while (true) {
+      let p = [5, 1]; const path = [];
+      for (let k = 0; k < 300; k++) {
+        // half the time step toward the goal, so the path wanders but stays readable
+        const toward = [goal[0] < p[0] ? 0 : goal[0] > p[0] ? 1 : -1, goal[1] > p[1] ? 2 : goal[1] < p[1] ? 3 : -1].filter((x) => x >= 0);
+        const a = r() < 0.5 && toward.length ? toward[r.int(toward.length)] : r.int(4), np = [p[0] + MV[a][0], p[1] + MV[a][1]];
+        if (np[0] < 0 || np[0] >= GH || np[1] < 0 || np[1] >= GW) continue;
+        path.push([p[0], p[1], a]); p = np;
+        if (p[0] === goal[0] && p[1] === goal[1]) return { path, goal };
+      }
+    }
+  }
+  let cur = makePath();
+  function drawCred() {
+    const n = +$("cred-n").value;
+    const grid = (title, marks) => {
+      let h = '<div><div class="lbl">' + title + '</div><div class="mini" style="grid-template-columns:repeat(' + GW + ',28px)">';
+      const onPath = new Set(cur.path.map((p) => p[0] * GW + p[1]));
+      for (let i = 0; i < GH; i++) for (let j = 0; j < GW; j++) {
+        const k = i * GW + j, isG = i === cur.goal[0] && j === cur.goal[1];
+        h += '<div class="' + (isG ? "sg" : onPath.has(k) ? "path" : "") + '">' + (isG ? "G" : marks.get(k) || "") + "</div>";
+      }
+      return h + "</div></div>";
+    };
+    const last = (m) => { const mk = new Map(); cur.path.slice(-m).forEach((p) => mk.set(p[0] * GW + p[1], (mk.get(p[0] * GW + p[1]) || "") + ARW[p[2]])); return mk; };
+    const taken = new Map(); cur.path.forEach((p) => taken.set(p[0] * GW + p[1], ARW[p[2]]));
+    $("cred-out").innerHTML = grid("Path taken (" + cur.path.length + " steps)", new Map()) + grid("Action values increased by one-step Sarsa", last(1)) + grid("Action values increased by " + n + "-step Sarsa", last(n));
+  }
+  $("cred-n").addEventListener("input", drawCred);
+  $("cred-new").addEventListener("click", () => { seed++; cur = makePath(); drawCred(); });
+  drawCred();
+
+  /* ---------- n-step Sarsa on the windy gridworld ---------- */
+  const WIND = [0, 0, 0, 1, 1, 1, 2, 2, 1, 0], WH = 7, WW = 10, START = 3 * WW, GOAL = 3 * WW + 7;
+  const wstep = (s, a) => { const i = Math.floor(s / WW), j = s % WW; return Math.max(0, Math.min(WH - 1, i + MV[a][0] - WIND[j])) * WW + Math.max(0, Math.min(WW - 1, j + MV[a][1])); };
+  function eg(Q, s, r) { if (r() < 0.1) return r.int(4); let b = -Infinity, t = []; for (let a = 0; a < 4; a++) { const v = Q[s * 4 + a]; if (v > b) { b = v; t = [a]; } else if (v === b) t.push(a); } return t[r.int(t.length)]; }
+  function nSarsa(n, alpha, steps, r) {
+    const Q = new Float64Array(WH * WW * 4); const curve = new Float64Array(steps + 1); let t = 0, ep = 0;
+    while (t < steps) {
+      const S = [START], A = [eg(Q, START, r)], R = [0]; let T = Infinity;
+      for (let k = 0; ; k++) {
+        if (k < T) {
+          const s2 = wstep(S[k], A[k]); S.push(s2); R.push(-1); t++; curve[Math.min(t, steps)] = ep;
+          if (s2 === GOAL || t >= steps) T = k + 1; else A.push(eg(Q, s2, r));
+        }
+        const tau = k - n + 1;
+        if (tau >= 0) {
+          let G = 0; for (let i = tau + 1; i <= Math.min(tau + n, T); i++) G += R[i];
+          if (tau + n < T) G += Q[S[tau + n] * 4 + A[tau + n]];
+          Q[S[tau] * 4 + A[tau]] += alpha * (G - Q[S[tau] * 4 + A[tau]]);
+        }
+        if (tau === T - 1) break;
+      }
+      if (S[S.length - 1] === GOAL) ep++;
+      curve[Math.min(t, steps)] = ep;
+    }
+    for (let i = 1; i <= steps; i++) if (curve[i] < curve[i - 1]) curve[i] = curve[i - 1];
+    return curve;
+  }
+  function runWS() {
+    const alpha = +$("ws-a").value, runs = +$("ws-runs").value, steps = 8000, ns = [1, 2, 4, 8, 16];
+    const btn = $("ws-run"); btn.disabled = true; btn.textContent = "Running…";
+    setTimeout(() => {
+      const xs = []; for (let i = 0; i <= steps; i += 100) xs.push(i);
+      const series = ns.map((n, k) => { const acc = new Float64Array(xs.length);
+        for (let run = 0; run < runs; run++) { const c = nSarsa(n, alpha, steps, RL.rng(60 + run)); xs.forEach((x, i) => (acc[i] += c[x])); }
+        return { name: "n=" + n, color: ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s7)", "var(--s8)"][k], y: Array.from(acc, (v) => v / runs) }; });
+      RL.lineChart($("ws-chart"), { x: xs, xLabel: "Time steps", yLabel: "Episodes completed (avg)", yMin: 0, yFmt: (v) => v.toFixed(0), series });
+      btn.disabled = false; btn.textContent = "Run";
+    }, 20);
+  }
+  $("ws-run").addEventListener("click", runWS);
+  runWS();
+});
+</script>
+</body>
+</html>
