@@ -51,3 +51,11 @@ navigation pick it up.
 
 Content is a study aid summarising the textbook; refer to the book itself for
 full derivations and proofs.
+
+## Online version
+
+Hosted with GitHub Pages — see the repository's About section for the link.
+
+This is an independent study aid; it is not affiliated with or endorsed by the
+book's authors. The book itself is freely available from the authors at
+http://incompleteideas.net/book/the-book-2nd.html.
