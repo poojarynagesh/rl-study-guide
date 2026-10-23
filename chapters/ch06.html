@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 6 · Temporal-Difference Learning — RL Study Guide</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/site.js"></script>
+<style>
+  .mini { display: inline-grid; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .mini div { width: 26px; height: 26px; display: grid; place-items: center; font-size: 11px; background: var(--surface); color: var(--text-3); }
+  .mini .cliff { background: color-mix(in srgb, var(--s8) 35%, var(--surface)); }
+  .mini .path { background: color-mix(in srgb, var(--s1) 30%, var(--surface)); color: var(--text); }
+  .mini .sg { background: var(--surface-2); color: var(--text); font-weight: 700; }
+  .mini-wrap { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 10px; }
+  .mini-wrap .lbl { font-size: 12.5px; font-weight: 600; color: var(--text-2); margin-bottom: 4px; }
+</style>
+</head>
+<body data-page="ch06" data-root="..">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Chapter 6 · Book pp. 119–140</div>
+  <h1>Temporal-Difference Learning</h1>
+  <p class="lead">"If one had to identify one idea as central and novel to RL, it would undoubtedly be TD learning." TD combines <strong>Monte Carlo</strong> (learn from raw experience, no model) with <strong>DP</strong> (bootstrap — update from other estimates without waiting for the final outcome).</p>
+  <div class="meta">
+    <span class="chip">TD(0)</span>
+    <span class="chip">TD error δ</span>
+    <span class="chip">Batch TD = certainty equivalence</span>
+    <span class="chip">Sarsa</span>
+    <span class="chip">Q-learning</span>
+    <span class="chip">Expected Sarsa</span>
+    <span class="chip">Double Q-learning</span>
+    <span class="chip">Afterstates</span>
+  </div>
+</div>
+
+<div class="box exam">
+  <span class="box-title">Exam focus for this chapter</span>
+  <ul>
+    <li>TD(0) update (6.2) and TD error (6.5); MC error as a sum of TD errors (6.6).</li>
+    <li>Why the TD target is an estimate "for two reasons" — sampling <em>and</em> bootstrapping.</li>
+    <li>Advantages of TD over MC and DP; convergence conditions.</li>
+    <li>Batch MC (minimises training MSE) vs batch TD (certainty-equivalence / max-likelihood model) — the "You are the predictor" example.</li>
+    <li><strong>Sarsa vs Q-learning vs Expected Sarsa</strong>: targets, on/off-policy, cliff walking behaviour, variance.</li>
+    <li>Maximization bias and Double Q-learning.</li>
+    <li>Backup diagrams for TD(0), Sarsa, Q-learning, Expected Sarsa.</li>
+  </ul>
+</div>
+
+<h2 id="td-prediction">6.1 TD prediction</h2>
+<div class="eq">
+$$V(S_t) \leftarrow V(S_t) + \alpha\big[\,G_t - V(S_t)\,\big]$$
+<div class="eq-name"><span>Constant-α MC (every-visit) — must wait for G<sub>t</sub></span><span class="ref">(6.1)</span></div>
+</div>
+<div class="eq">
+$$V(S_t) \leftarrow V(S_t) + \alpha\big[\,R_{t+1} + \gamma V(S_{t+1}) - V(S_t)\,\big]$$
+<div class="eq-name"><span>TD(0) / one-step TD — update on the next step</span><span class="ref">(6.2)</span></div>
+</div>
+<p>MC target: $G_t$. TD target: $R_{t+1}+\gamma V(S_{t+1})$. TD(0) is the special case of n-step TD (Ch 7) and TD(λ) (Ch 12).</p>
+
+<div class="algo">
+  <div class="algo-head"><span class="name">Tabular TD(0) for estimating vπ</span><span class="tags"><span class="tag on">on-policy</span><span class="tag">no model</span><span class="tag boot">bootstraps</span><span class="tag">online</span></span></div>
+<pre><span class="k">Input</span>: the policy π to be evaluated
+<span class="k">Algorithm parameter</span>: step size α ∈ (0, 1]
+Initialize V(s), for all s ∈ S⁺, arbitrarily except that V(terminal) = 0
+<span class="k">Loop for each episode</span>:
+    Initialize S
+    <span class="k">Loop for each step of episode</span>:
+        A ← action given by π for S
+        Take action A, observe R, S'
+        V(S) ← V(S) + α [R + γ V(S') − V(S)]
+        S ← S'
+    <span class="k">until</span> S is terminal</pre>
+</div>
+
+<div class="box key"><span class="box-title">Three targets, three kinds of estimate</span>
+<div class="eq" style="box-shadow:none">
+$$v_\pi(s) \doteq \E_\pi[G_t\mid S_t=s] \quad (6.3) \qquad\qquad = \E_\pi[R_{t+1}+\gamma v_\pi(S_{t+1})\mid S_t=s] \quad (6.4)$$
+</div>
+<ul>
+  <li><strong>MC</strong> estimates (6.3): uses a <em>sample</em> return because the expectation is unknown.</li>
+  <li><strong>DP</strong> estimates (6.4): the expectation is computed exactly from the model, but $v_\pi(S_{t+1})$ is unknown → uses the current estimate $V(S_{t+1})$ (<em>bootstrap</em>).</li>
+  <li><strong>TD</strong> is an estimate for <strong>both reasons</strong>: it <em>samples</em> the expectation in (6.4) and uses the current estimate $V$ instead of $v_\pi$.</li>
+</ul></div>
+
+<p>TD and MC updates are <strong>sample updates</strong> (one sampled successor); DP uses <strong>expected updates</strong> (full distribution of successors).</p>
+<div class="eq">
+$$\delta_t \doteq R_{t+1} + \gamma V(S_{t+1}) - V(S_t)$$
+<div class="eq-name"><span>TD error — the error in V(S<sub>t</sub>), available only at time t+1</span><span class="ref">(6.5)</span></div>
+</div>
+<div class="eq">
+$$G_t - V(S_t) = \delta_t + \gamma\delta_{t+1} + \gamma^2\delta_{t+2} + \dots + \gamma^{T-t-1}\delta_{T-1} = \sum_{k=t}^{T-1}\gamma^{k-t}\delta_k$$
+<div class="eq-name"><span>MC error = discounted sum of TD errors (if V is fixed during the episode)</span><span class="ref">(6.6)</span></div>
+</div>
+<p class="small"><strong>Exercise 6.1</strong> — if $V$ changes during the episode ($V_t$ used at time $t$), the identity gains a correction: $G_t - V_t(S_t) = \sum_{k=t}^{T-1}\gamma^{k-t}\delta_k + \sum_{k=t}^{T-1}\gamma^{k-t+1}\big[V_{k+1}(S_{k+1})-V_k(S_{k+1})\big]$. It is small when α is small.</p>
+
+<h3>Example 6.1 — driving home</h3>
+<div class="table-wrap"><table>
+  <tr><th>State</th><th>Elapsed (min)</th><th>Predicted time to go</th><th>Predicted total</th></tr>
+  <tr><td>leaving office, Friday 6:00</td><td>0</td><td>30</td><td>30</td></tr>
+  <tr><td>reach car, raining</td><td>5</td><td>35</td><td>40</td></tr>
+  <tr><td>exiting highway</td><td>20</td><td>15</td><td>35</td></tr>
+  <tr><td>2ndary road, behind truck</td><td>30</td><td>10</td><td>40</td></tr>
+  <tr><td>entering home street</td><td>40</td><td>3</td><td>43</td></tr>
+  <tr><td>arrive home</td><td>43</td><td>0</td><td>43</td></tr>
+</table></div>
+<p><strong>MC</strong> (α = 1) moves every prediction toward the actual outcome 43 — but only <em>after</em> arriving home (e.g. at "exiting highway" the error $G_t-V(S_t)=23-15=8$; with α = ½ the estimate rises by 4). <strong>TD</strong> moves each prediction toward the <em>next</em> prediction, immediately: changes are proportional to the temporal differences between successive predictions. If stuck in a jam 25 minutes in, TD already shifts the 30-minute estimate toward 50.</p>
+<p class="small"><strong>Exercise 6.2</strong> — after moving to a new building (same highway entrance), the later states' predictions are already accurate. TD updates for the new early states bootstrap from those good estimates and learn quickly; MC must wait for full returns and absorbs all the noise of the trip. The same happens in the original scenario whenever part of the trajectory is already well-learned.</p>
+
+<h2 id="advantages">6.2 Advantages of TD prediction methods</h2>
+<div class="table-wrap"><table>
+  <tr><th>vs.</th><th>TD's advantage</th></tr>
+  <tr><td>DP</td><td>Needs <strong>no model</strong> of rewards or next-state distributions.</td></tr>
+  <tr><td>MC</td><td><strong>Online, fully incremental</strong>: wait one step, not until episode end. Crucial for very long episodes and <strong>continuing tasks</strong>. Learns from every transition regardless of later (exploratory) actions — MC off-policy must ignore/discount such episodes.</td></tr>
+  <tr><td>Soundness</td><td>For any fixed π, TD(0) converges to $v_\pi$ — <strong>in the mean</strong> for a sufficiently small constant α, and <strong>with probability 1</strong> if α decreases per the stochastic-approximation conditions (2.7).</td></tr>
+  <tr><td>Speed</td><td>No proof either is faster, but in practice TD usually converges faster than constant-α MC on stochastic tasks.</td></tr>
+</table></div>
+
+<h3>Example 6.2 — random walk</h3>
+<p>A <strong>Markov reward process</strong> (MRP — an MDP without actions): states A B C D E, start at C, move left/right with prob. ½; terminate at either end; reward +1 only on the right exit. True values: $\tfrac16,\tfrac26,\tfrac36,\tfrac46,\tfrac56$. Initial $V(s)=0.5$.</p>
+<div class="demo" id="rw-demo">
+  <div class="demo-title">Try it: Example 6.2 — TD(0) vs constant-α MC</div>
+  <div class="controls">
+    <label class="control">Runs <select id="rw-runs"><option>50</option><option selected>100</option><option>300</option></select></label>
+    <button class="btn" id="rw-run" type="button">Run</button>
+  </div>
+  <h4>Values learned by TD(0), α = 0.1, single run</h4>
+  <div id="rw-vals"></div>
+  <h4>RMS error averaged over states and runs</h4>
+  <div id="rw-rms"></div>
+  <div class="demo-out" id="rw-out"></div>
+</div>
+<div class="quiz">
+  <details><summary>Ex 6.3 — The first episode changed only V(A). What happened, and by exactly how much did it change?</summary><div class="ans"><p>The episode terminated on the <strong>left</strong>, from A. All intermediate TD errors were 0 (rewards 0, all values 0.5), so only the last transition A → terminal (value 0, reward 0) gave $\delta=0+0-0.5$. $\Delta V(A)=\alpha\delta=0.1\times(-0.5)=\mathbf{-0.05}$ (to 0.45).</p></div></details>
+  <details><summary>Ex 6.4 — Would a wider range of α change which algorithm is better?</summary><div class="ans"><p>Unlikely. Small α makes both slow; large α makes both noisy. TD is better across the whole range, and there is no fixed α at which MC would become significantly better — MC's targets (full returns) simply have more variance.</p></div></details>
+  <details><summary>Ex 6.5 — Why does TD's RMS error go down then up at high α?</summary><div class="ans"><p>Early updates move values toward the truth; once near it, a large constant α keeps values fluctuating with recent episodes (noise floor ∝ α), and correlated bootstrapped errors (e.g. A and E values pulled together) push RMS up again. It depends on initialisation: starting at 0.5 is already exactly right for C and close for others, which makes the early dip and later rise visible.</p></div></details>
+  <details><summary>Ex 6.6 — Two ways to compute the true values $\frac16,\dots,\frac56$?</summary><div class="ans"><p>(1) Solve the Bellman equations $v(s)=\tfrac12v(s-1)+\tfrac12v(s+1)$ (+ boundary rewards) as a linear system, or by DP iterative policy evaluation. (2) Gambler's-ruin reasoning: probability of exiting right from position $k$ of 5 is $k/6$. (3) MC simulation. Most likely the analytical/linear-system solution — exact and cheap for 5 states.</p></div></details>
+</div>
+
+<h2 id="optimality">6.3 Optimality of TD(0) — batch updating</h2>
+<p><strong>Batch updating</strong>: with a finite amount of experience, present it repeatedly; compute the increments for every step but change V only once per pass, by their sum; repeat until convergence. Then:</p>
+<ul>
+  <li>Batch TD(0) converges deterministically to a single answer <strong>independent of α</strong> (if α small enough). Batch constant-α MC also converges — to a <strong>different</strong> answer.</li>
+  <li><strong>Batch MC</strong> → sample averages of observed returns: minimises <strong>mean-square error on the training set</strong>.</li>
+  <li><strong>Batch TD</strong> → the <strong>certainty-equivalence estimate</strong>: the value function that would be exactly correct for the <strong>maximum-likelihood model</strong> of the Markov process (transition probabilities = observed fractions, rewards = observed averages).</li>
+</ul>
+
+<h3>Example 6.4 — you are the predictor</h3>
+<p>Eight episodes: <code>A,0,B,0</code>; <code>B,1</code> six times; <code>B,0</code> once. B was visited 8 times and returned 1 six times, so everyone agrees $V(B)=\tfrac34$. But what is $V(A)$?</p>
+<div class="grid-2">
+  <div class="card"><h4>Batch TD: $V(A)=\tfrac34$</h4><p class="small">100% of the time A went to B with reward 0, and B is worth ¾ ⇒ A is worth ¾. This is the answer from first <em>modelling</em> the process. Expected to generalise better to <strong>future data</strong> if the process is Markov.</p></div>
+  <div class="card"><h4>Batch MC: $V(A)=0$</h4><p class="small">A was seen once, followed by return 0. Gives <strong>zero error on the training data</strong> — but ignores the Markov structure.</p></div>
+</div>
+<div class="box key"><span class="box-title">Why TD is often faster</span>
+<p>Batch TD computes the certainty-equivalence estimate, which explains its advantage under batch training (Fig 6.2) and perhaps also non-batch TD's speed: it moves <em>toward</em> a better estimate. Computing certainty equivalence directly needs $O(n^2)$ memory and $O(n^3)$ computation for $n$ states; TD approximates it with $O(n)$ memory — for large state spaces TD may be the only feasible way.</p></div>
+
+<div class="demo" id="batch-demo">
+  <div class="demo-title">Try it: Figure 6.2 — batch TD vs batch MC on the random walk</div>
+  <p class="small muted">After each new episode, the batch solution is computed exactly: MC → average return after each visited state; TD → value function of the maximum-likelihood model (what batch TD(0) converges to).</p>
+  <div class="controls"><button class="btn" id="batch-run" type="button">Run 100 runs</button></div>
+  <div id="batch-chart"></div>
+</div>
+<p class="small"><strong>Exercise 6.7</strong> — off-policy TD(0): $V(S_t)\leftarrow V(S_t)+\alpha\rho_{t:t}\big[R_{t+1}+\gamma V(S_{t+1})-V(S_t)\big]$, with $\rho_{t:t}=\pi(A_t|S_t)/b(A_t|S_t)$.</p>
+
+<h2 id="sarsa">6.4 Sarsa: on-policy TD control</h2>
+<p>Follow GPI with TD for evaluation. Learn action values $q_\pi$ by considering transitions from state–action pair to state–action pair:</p>
+<div class="eq">
+$$Q(S_t,A_t)\leftarrow Q(S_t,A_t)+\alpha\big[R_{t+1}+\gamma Q(S_{t+1},A_{t+1})-Q(S_t,A_t)\big]$$
+<div class="eq-name"><span>Sarsa update — uses the quintuple (S, A, R, S′, A′)</span><span class="ref">(6.7)</span></div>
+</div>
+<p>$Q(\text{terminal},\cdot)=0$. Convergence w.p. 1 to an optimal policy and $q_*$ requires (2.7) step sizes, all pairs visited infinitely often, and the policy converging to greedy in the limit (e.g. ε-greedy with ε = 1/t) — <strong>GLIE</strong>.</p>
+<div class="algo">
+  <div class="algo-head"><span class="name">Sarsa (on-policy TD control) for estimating Q ≈ q*</span><span class="tags"><span class="tag on">on-policy</span><span class="tag boot">bootstraps</span><span class="tag">no model</span></span></div>
+<pre><span class="k">Algorithm parameters</span>: step size α ∈ (0, 1], small ε &gt; 0
+Initialize Q(s,a), for all s ∈ S⁺, a ∈ A(s), arbitrarily except that Q(terminal,·) = 0
+<span class="k">Loop for each episode</span>:
+    Initialize S
+    Choose A from S using policy derived from Q (e.g., ε-greedy)
+    <span class="k">Loop for each step of episode</span>:
+        Take action A, observe R, S'
+        Choose A' from S' using policy derived from Q (e.g., ε-greedy)
+        Q(S,A) ← Q(S,A) + α [R + γ Q(S',A') − Q(S,A)]
+        S ← S'; A ← A'
+    <span class="k">until</span> S is terminal</pre>
+</div>
+
+<h3>Example 6.5 — windy gridworld</h3>
+<p>7×10 grid, upward wind per column <code>0 0 0 1 1 1 2 2 1 0</code>; reward −1 per step; undiscounted. ε-greedy Sarsa (ε = 0.1, α = 0.5, Q = 0). The greedy policy becomes optimal (15 steps); ε-exploration keeps the average around 17. <strong>MC cannot easily be used</strong>: termination is not guaranteed for all policies — an episode could last forever. Online methods learn <em>during</em> the episode that such policies are bad.</p>
+<div class="demo" id="wind-demo">
+  <div class="demo-title">Try it: Example 6.5 and Exercises 6.9–6.10 — Sarsa on the windy gridworld</div>
+  <div class="controls">
+    <label class="control">Actions <select id="wind-moves"><option value="4">4 moves (book)</option><option value="8">King's moves (8)</option><option value="9">King's moves + stay (9)</option></select></label>
+    <label class="control">Wind <select id="wind-stoch"><option value="0">Deterministic</option><option value="1">Stochastic (±1)</option></select></label>
+    <label class="control">α <span class="val" id="wind-a-v">0.50</span><input type="range" id="wind-a" min="0.05" max="1" step="0.05" value="0.5"></label>
+    <button class="btn" id="wind-run" type="button">Run 8000 steps</button>
+  </div>
+  <div id="wind-chart"></div>
+  <div class="mini-wrap"><div><div class="lbl">Greedy trajectory after learning</div><div id="wind-grid"></div></div><div class="small" id="wind-out" style="flex:1;min-width:220px"></div></div>
+</div>
+
+<h2 id="qlearning">6.5 Q-learning: off-policy TD control</h2>
+<div class="eq">
+$$Q(S_t,A_t)\leftarrow Q(S_t,A_t)+\alpha\Big[R_{t+1}+\gamma\max_a Q(S_{t+1},a)-Q(S_t,A_t)\Big]$$
+<div class="eq-name"><span>Q-learning update (Watkins, 1989)</span><span class="ref">(6.8)</span></div>
+</div>
+<ul>
+  <li>$Q$ directly approximates $q_*$, <strong>independent of the policy being followed</strong> — simplifies analysis; early convergence proofs.</li>
+  <li>The behaviour policy still matters: it determines which pairs are visited. Requirement for convergence: all pairs continue to be updated (+ step-size conditions) ⇒ $Q\to q_*$ w.p. 1.</li>
+  <li><strong>Off-policy</strong> (Ex 6.11): target policy is greedy (the max), behaviour is ε-greedy — and no importance sampling is needed because the target bootstraps from $\max_a Q(S',a)$ rather than a sampled next action.</li>
+</ul>
+<div class="algo">
+  <div class="algo-head"><span class="name">Q-learning (off-policy TD control) for estimating π ≈ π*</span><span class="tags"><span class="tag off">off-policy</span><span class="tag boot">bootstraps</span><span class="tag">no model</span></span></div>
+<pre><span class="k">Algorithm parameters</span>: step size α ∈ (0, 1], small ε &gt; 0
+Initialize Q(s,a), for all s ∈ S⁺, a ∈ A(s), arbitrarily except that Q(terminal,·) = 0
+<span class="k">Loop for each episode</span>:
+    Initialize S
+    <span class="k">Loop for each step of episode</span>:
+        Choose A from S using policy derived from Q (e.g., ε-greedy)
+        Take action A, observe R, S'
+        Q(S,A) ← Q(S,A) + α [R + γ max_a Q(S',a) − Q(S,A)]
+        S ← S'
+    <span class="k">until</span> S is terminal</pre>
+  <div class="algo-foot"><strong>Exercise 6.12</strong> — with greedy action selection, are Sarsa and Q-learning identical? <em>Almost, but not exactly.</em> Sarsa chooses A′ <em>before</em> updating Q(S,A); Q-learning chooses its next action <em>after</em> the update. If S′ = S, the update can change which action is greedy, so the two can select different actions and make different updates.</div>
+</div>
+
+<h3>Example 6.6 — cliff walking</h3>
+<p>4×12 grid; −1 per step; stepping into the cliff gives −100 and teleports to start. ε-greedy, ε = 0.1.</p>
+<ul>
+  <li><strong>Q-learning</strong> learns the values of the <strong>optimal</strong> path along the cliff edge — but, because of ε-greedy exploration, occasionally falls off ⇒ <strong>worse online performance</strong>.</li>
+  <li><strong>Sarsa</strong> takes its own exploration into account and learns the longer <strong>safer</strong> path ⇒ better online reward.</li>
+  <li>If ε were gradually reduced, both would converge to the optimal policy.</li>
+</ul>
+<div class="demo" id="cliff-demo">
+  <div class="demo-title">Try it: Example 6.6 — Sarsa vs Q-learning vs Expected Sarsa</div>
+  <div class="controls">
+    <label class="control">ε <span class="val" id="cliff-e-v">0.10</span><input type="range" id="cliff-e" min="0" max="0.3" step="0.01" value="0.1"></label>
+    <label class="control">α <span class="val" id="cliff-a-v">0.50</span><input type="range" id="cliff-a" min="0.1" max="1" step="0.05" value="0.5"></label>
+    <label class="control">Runs <select id="cliff-runs"><option>20</option><option selected>50</option><option>200</option></select></label>
+    <button class="btn" id="cliff-run" type="button">Run 500 episodes</button>
+  </div>
+  <div id="cliff-chart"></div>
+  <div class="mini-wrap" id="cliff-paths"></div>
+</div>
+
+<h2 id="expected-sarsa">6.6 Expected Sarsa</h2>
+<div class="eq">
+$$Q(S_t,A_t)\leftarrow Q(S_t,A_t)+\alpha\Big[R_{t+1}+\gamma\sum_a\pi(a\mid S_{t+1})Q(S_{t+1},a)-Q(S_t,A_t)\Big]$$
+<div class="eq-name"><span>Expected Sarsa update</span><span class="ref">(6.9)</span></div>
+</div>
+<ul>
+  <li>Moves <em>deterministically</em> in the direction Sarsa moves <em>in expectation</em> ⇒ <strong>eliminates the variance</strong> due to random selection of $A_{t+1}$. More computation per step; generally performs better than Sarsa.</li>
+  <li>In cliff walking (deterministic transitions; all randomness from the policy) Expected Sarsa can use <strong>α = 1</strong> without degrading asymptotic performance; Sarsa only does well long-run at small α (where short-term performance is poor).</li>
+  <li>Can be <strong>on- or off-policy</strong>. If π is greedy while behaviour is exploratory, Expected Sarsa <strong>is exactly Q-learning</strong> — it subsumes and generalises Q-learning while reliably improving over Sarsa.</li>
+</ul>
+<figure class="diagram"><div class="backup-row">
+  <div class="bk" data-tree="s|a1|s1" data-label="TD(0)"></div>
+  <div class="bk" data-tree="a|s1|a1" data-label="Sarsa"></div>
+  <div class="bk" data-tree="a|s1|a3m" data-label="Q-learning (max)"></div>
+  <div class="bk" data-tree="a|s1|a3" data-label="Expected Sarsa (π-weighted)"></div>
+</div><figcaption>Backup diagrams (Fig 6.4 and §6.4). Roots of the control methods are state–action pairs (solid dots).</figcaption></figure>
+
+<h3>Figure 6.3 — sensitivity to α</h3>
+<p>Interim performance (first 100 episodes) and asymptotic performance on cliff walking, ε = 0.1: Expected Sarsa is best across α and flat up to α = 1; Sarsa's asymptotic performance degrades at large α; Q-learning's online return is lowest (walks the edge).</p>
+<div class="demo" id="alpha-demo">
+  <div class="demo-title">Try it: interim performance vs α (Figure 6.3, interim curves)</div>
+  <div class="controls">
+    <label class="control">Runs per point <select id="alpha-runs"><option>20</option><option selected>50</option><option>200</option></select></label>
+    <button class="btn" id="alpha-run" type="button">Run parameter study</button>
+  </div>
+  <div id="alpha-chart"></div>
+</div>
+
+<h2 id="max-bias">6.7 Maximization bias and double learning</h2>
+<p>Control algorithms build target policies with a <strong>max</strong> (Q-learning's greedy target; ε-greedy in Sarsa). Using the max of noisy estimates as an estimate of the max of true values gives a <strong>positive bias</strong>: if all $q(s,a)=0$ but $Q(s,a)$ are noisy, $\max_aQ(s,a)&gt;0$. This is <strong>maximization bias</strong>.</p>
+<h3>Example 6.7</h3>
+<p>From A: <em>right</em> → terminal, reward 0. <em>left</em> → B, reward 0; from B many actions all terminate with reward $\sim\mathcal N(-0.1,1)$. So <em>left</em> is a mistake (expected −0.1), yet Q-learning initially strongly favours it and, even asymptotically, takes it ≈5% more than optimal (ε = 0.1, α = 0.1, γ = 1).</p>
+<div class="box key"><span class="box-title">Double learning</span>
+<p>The problem: the <strong>same samples</strong> are used to pick the maximising action <em>and</em> to estimate its value. Split them: learn two independent estimates $Q_1,Q_2$; use one to pick $A^*=\argmax_aQ_1(a)$ and the other to evaluate it, $Q_2(A^*)$ — unbiased: $\E[Q_2(A^*)]=q(A^*)$. Only one estimate is updated per step: <strong>double memory, same computation per step</strong>.</p></div>
+<div class="eq">
+$$Q_1(S_t,A_t)\leftarrow Q_1(S_t,A_t)+\alpha\Big[R_{t+1}+\gamma\,Q_2\big(S_{t+1},\argmax_aQ_1(S_{t+1},a)\big)-Q_1(S_t,A_t)\Big]$$
+<div class="eq-name"><span>Double Q-learning update (with prob. ½; else swap Q₁ and Q₂)</span><span class="ref">(6.10)</span></div>
+</div>
+<div class="algo">
+  <div class="algo-head"><span class="name">Double Q-learning, for estimating Q₁ ≈ Q₂ ≈ q*</span><span class="tags"><span class="tag off">off-policy</span><span class="tag boot">bootstraps</span><span class="tag">unbiased max</span></span></div>
+<pre><span class="k">Algorithm parameters</span>: step size α ∈ (0, 1], small ε &gt; 0
+Initialize Q₁(s,a) and Q₂(s,a), for all s ∈ S⁺, a ∈ A(s), such that Q(terminal,·) = 0
+<span class="k">Loop for each episode</span>:
+    Initialize S
+    <span class="k">Loop for each step of episode</span>:
+        Choose A from S using the policy ε-greedy in Q₁ + Q₂
+        Take action A, observe R, S'
+        With 0.5 probability:
+            Q₁(S,A) ← Q₁(S,A) + α (R + γ Q₂(S', argmax_a Q₁(S',a)) − Q₁(S,A))
+        else:
+            Q₂(S,A) ← Q₂(S,A) + α (R + γ Q₁(S', argmax_a Q₂(S',a)) − Q₂(S,A))
+        S ← S'
+    <span class="k">until</span> S is terminal</pre>
+  <div class="algo-foot"><strong>Exercise 6.13</strong> — Double Expected Sarsa (ε-greedy target): with prob. ½, $Q_1(S,A)\leftarrow Q_1(S,A)+\alpha\big[R+\gamma\sum_a\pi_1(a|S')\,Q_2(S',a)-Q_1(S,A)\big]$ where $\pi_1$ is ε-greedy w.r.t. $Q_1$; otherwise the same with 1 and 2 swapped.</div>
+</div>
+<div class="demo" id="mb-demo">
+  <div class="demo-title">Try it: Figure 6.5 — Q-learning vs Double Q-learning</div>
+  <div class="controls">
+    <label class="control">Actions in B <select id="mb-k"><option>2</option><option selected>10</option><option>100</option></select></label>
+    <label class="control">Runs <select id="mb-runs"><option>1000</option><option selected>3000</option><option>10000</option></select></label>
+    <button class="btn" id="mb-run" type="button">Run 300 episodes</button>
+  </div>
+  <div id="mb-chart"></div>
+</div>
+
+<h2 id="afterstates">6.8 Games, afterstates, and other special cases</h2>
+<p>The tic-tac-toe learner of Chapter 1 learned neither $v$ nor $q$ but an <strong>afterstate value function</strong>: values of positions <em>after</em> the agent's move. Useful when we know the <strong>immediate effect</strong> of our actions but not the rest of the dynamics (we know the resulting board, not the opponent's reply).</p>
+<ul>
+  <li>More efficient: many (position, move) pairs lead to the <strong>same afterstate</strong> and must have the same value; an action-value function would learn them separately, an afterstate function shares learning instantly.</li>
+  <li>Also arises in queuing (assigning/rejecting customers): actions are defined by their known immediate effects.</li>
+  <li><strong>Exercise 6.14</strong> — Jack's car rental: the afterstate is the number of cars at each location <em>after the overnight move</em>. Many (state, action) pairs lead to the same morning configuration — e.g. (10 cars, 5 cars) moving 1 car to the second location and (9, 6) moving none both give (9, 6) — so they share one value ⇒ fewer values to learn and faster convergence.</li>
+</ul>
+
+<h2 id="summary">6.9 Summary — comparison of the TD control methods</h2>
+<div class="table-wrap"><table>
+  <tr><th>Method</th><th>Target</th><th>On/off-policy</th><th>Learns</th><th>Notes</th></tr>
+  <tr><td><strong>TD(0)</strong></td><td>$R+\gamma V(S')$</td><td>on (prediction)</td><td>$v_\pi$</td><td>Prediction only</td></tr>
+  <tr><td><strong>Sarsa</strong></td><td>$R+\gamma Q(S',A')$, $A'\sim\pi$</td><td>on</td><td>$q_\pi$ of ε-greedy π (→ $q_*$ under GLIE)</td><td>Accounts for exploration ⇒ safe path on the cliff; variance from sampling $A'$</td></tr>
+  <tr><td><strong>Q-learning</strong></td><td>$R+\gamma\max_aQ(S',a)$</td><td>off</td><td>$q_*$ regardless of behaviour</td><td>Optimal path but worse online return with ε-greedy; maximization bias</td></tr>
+  <tr><td><strong>Expected Sarsa</strong></td><td>$R+\gamma\sum_a\pi(a|S')Q(S',a)$</td><td>on or off</td><td>$q_\pi$ (greedy π ⇒ Q-learning)</td><td>Lower variance than Sarsa; tolerates α = 1 in deterministic tasks; more computation</td></tr>
+  <tr><td><strong>Double Q-learning</strong></td><td>$R+\gamma Q_2(S',\argmax_aQ_1(S',a))$</td><td>off</td><td>$q_*$</td><td>Removes maximization bias; 2× memory</td></tr>
+</table></div>
+<div class="table-wrap"><table>
+  <tr><th></th><th>DP</th><th>MC</th><th>TD</th></tr>
+  <tr><td>Model needed</td><td class="no">Yes</td><td class="yes">No</td><td class="yes">No</td></tr>
+  <tr><td>Bootstraps</td><td>Yes</td><td>No</td><td>Yes</td></tr>
+  <tr><td>Samples</td><td>No (expected)</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Online / step-by-step</td><td>—</td><td>No (end of episode)</td><td><strong>Yes</strong></td></tr>
+  <tr><td>Continuing tasks</td><td>Yes</td><td>No</td><td>Yes</td></tr>
+  <tr><td>Target variance</td><td>none</td><td>High (whole return)</td><td>Low (one reward + estimate)</td></tr>
+  <tr><td>Bias</td><td>—</td><td>Unbiased target</td><td>Biased target (depends on current V)</td></tr>
+  <tr><td>Batch solution</td><td>—</td><td>Min. training MSE</td><td>Certainty equivalence</td></tr>
+  <tr><td>Sensitive to non-Markov states</td><td>Yes</td><td>Less</td><td>More</td></tr>
+</table></div>
+
+<h2 id="hyperparams">Hyperparameters in this chapter</h2>
+<div class="table-wrap"><table>
+  <tr><th>Parameter</th><th>Effect</th><th>Notes from the book</th></tr>
+  <tr><td>α</td><td>Large: fast but noisy; small: slow but accurate. Constant α ⇒ convergence only in the mean; decreasing per (2.7) ⇒ w.p. 1.</td><td>Random walk: TD best around 0.05–0.1, MC needs smaller (0.01–0.04). Batch TD answer is independent of α. Expected Sarsa can use α = 1 in deterministic tasks; Sarsa cannot.</td></tr>
+  <tr><td>ε</td><td>Exploration of the behaviour policy</td><td>Causes Q-learning's cliff falls; Sarsa adapts its path to ε. Decay ε → 0 (GLIE) for convergence to optimal.</td></tr>
+  <tr><td>Initial Q / V</td><td>Starting estimates; bias that decays</td><td>Random walk init 0.5. Optimistic Q drives exploration (Ch 2).</td></tr>
+  <tr><td>γ</td><td>Horizon of the target</td><td>Most examples undiscounted episodic.</td></tr>
+</table></div>
+
+<h2 id="selftest">Self-test</h2>
+<div class="quiz">
+  <details><summary>Why is TD called a bootstrapping method, and why is the TD target an estimate for two reasons?</summary><div class="ans"><p>Its target uses the current estimate $V(S_{t+1})$ (bootstrapping). It samples the expectation (one transition instead of the full distribution) and it uses $V$ instead of the true $v_\pi$.</p></div></details>
+  <details><summary>When is the TD error $\delta_t$ available, and what is it the error in?</summary><div class="ans"><p>It is the error in $V(S_t)$, but it depends on $R_{t+1}$ and $S_{t+1}$, so it is available only at time $t+1$.</p></div></details>
+  <details><summary>Ex 6.8 — Show the action-value version of (6.6).</summary><div class="ans"><p>With $\delta_t=R_{t+1}+\gamma Q(S_{t+1},A_{t+1})-Q(S_t,A_t)$ and fixed Q: $G_t-Q(S_t,A_t)=R_{t+1}+\gamma G_{t+1}-Q(S_t,A_t)+\gamma Q(S_{t+1},A_{t+1})-\gamma Q(S_{t+1},A_{t+1})=\delta_t+\gamma(G_{t+1}-Q(S_{t+1},A_{t+1}))=\dots=\sum_{k=t}^{T-1}\gamma^{k-t}\delta_k$ (with $Q(\text{terminal},\cdot)=0$).</p></div></details>
+  <details><summary>What does batch TD(0) converge to, and why is it often better than batch MC?</summary><div class="ans"><p>The certainty-equivalence estimate (correct values for the maximum-likelihood model). It exploits the Markov structure, so it generalises better to future data, whereas batch MC only minimises error on the training returns.</p></div></details>
+  <details><summary>In cliff walking, which method gets higher reward per episode during learning, and which learns the optimal policy's values?</summary><div class="ans"><p>Sarsa gets higher online reward (safe path). Q-learning learns the optimal (edge) path's values, but its ε-greedy behaviour sometimes falls off the cliff.</p></div></details>
+  <details><summary>Why can't MC be used easily on the windy gridworld?</summary><div class="ans"><p>Termination isn't guaranteed for every policy; a policy that keeps the agent in place makes an episode last forever, so MC would never get a return to learn from.</p></div></details>
+  <details><summary>What is maximization bias? Give the fix.</summary><div class="ans"><p>Positive bias from using $\max$ of noisy estimates as an estimate of the max true value. Fix: double learning — select the argmax with one estimate and evaluate it with an independent one.</p></div></details>
+  <details><summary>Under what condition is Expected Sarsa identical to Q-learning?</summary><div class="ans"><p>When its target policy π is greedy w.r.t. Q (while behaviour may be exploratory): $\sum_a\pi(a|S')Q(S',a)=\max_aQ(S',a)$.</p></div></details>
+  <details><summary>Does Double Q-learning double the computation per step?</summary><div class="ans"><p>No — it doubles memory (two tables) but updates only one of them per step.</p></div></details>
+  <details><summary>State the conditions under which Sarsa converges to the optimal policy.</summary><div class="ans"><p>Step sizes satisfy (2.7), all state–action pairs visited infinitely often, and the policy converges in the limit to greedy (e.g. ε-greedy with ε = 1/t).</p></div></details>
+  <details><summary>What is an afterstate, and when are afterstate value functions useful?</summary><div class="ans"><p>The state immediately after the agent's action, before the environment's stochastic response. Useful when the immediate effect of actions is known (games, queuing): different (state, action) pairs with the same afterstate share one value.</p></div></details>
+</div>
+
+</main>
+
+<script>
+document.addEventListener("rl:ready", function () {
+  const $ = (id) => document.getElementById(id);
+  const pct = (v) => (v * 100).toFixed(0) + "%";
+  const bind = (id, d) => { const el = $(id), out = $(id + "-v"); const f = () => (out.textContent = (+el.value).toFixed(d)); el.addEventListener("input", f); f(); };
+  bind("wind-a", 2); bind("cliff-e", 2); bind("cliff-a", 2);
+
+  /* ---------- Random walk (states 1..5, terminals 0 and 6) ---------- */
+  const TRUE = [1, 2, 3, 4, 5].map((k) => k / 6);
+  const walk = (r) => { const s = [3]; while (true) { const n = s[s.length - 1] + (r() < 0.5 ? -1 : 1); s.push(n); if (n === 0 || n === 6) return s; } };
+  const rms = (V) => Math.sqrt([1, 2, 3, 4, 5].reduce((acc, s) => acc + (V[s] - TRUE[s - 1]) ** 2, 0) / 5);
+  function runRW() {
+    const runs = +$("rw-runs").value, E = 100;
+    const cfgs = [
+      { name: "TD α=0.15", td: true, a: 0.15, color: "var(--s1)" }, { name: "TD α=0.1", td: true, a: 0.1, color: "var(--s7)" }, { name: "TD α=0.05", td: true, a: 0.05, color: "var(--s3)" },
+      { name: "MC α=0.01", td: false, a: 0.01, color: "var(--s2)" }, { name: "MC α=0.02", td: false, a: 0.02, color: "var(--s4)" }, { name: "MC α=0.03", td: false, a: 0.03, color: "var(--s5)" }, { name: "MC α=0.04", td: false, a: 0.04, color: "var(--s8)" },
+    ];
+    const curves = cfgs.map(() => new Float64Array(E + 1));
+    cfgs.forEach((c, ci) => {
+      for (let run = 0; run < runs; run++) {
+        const r = RL.rng(1000 + run);
+        const V = [0, 0.5, 0.5, 0.5, 0.5, 0.5, 0];
+        curves[ci][0] += rms(V);
+        for (let e = 1; e <= E; e++) {
+          const s = walk(r), R = s[s.length - 1] === 6 ? 1 : 0;
+          if (c.td) { for (let t = 0; t < s.length - 1; t++) { const rew = s[t + 1] === 6 ? 1 : 0; V[s[t]] += c.a * (rew + V[s[t + 1]] - V[s[t]]); } }
+          else { for (let t = 0; t < s.length - 1; t++) V[s[t]] += c.a * (R - V[s[t]]); }
+          curves[ci][e] += rms(V);
+        }
+      }
+    });
+    const x = Array.from({ length: E + 1 }, (_, i) => i);
+    RL.lineChart($("rw-rms"), { x, xLabel: "Walks / episodes", yLabel: "RMS error", yMin: 0, yFmt: (v) => v.toFixed(2), series: cfgs.map((c, i) => ({ name: c.name, color: c.color, y: Array.from(curves[i], (v) => v / runs), dash: !c.td })) });
+    // single-run value snapshots
+    const r = RL.rng(5), V = [0, 0.5, 0.5, 0.5, 0.5, 0.5, 0], snaps = { 0: V.slice(1, 6) };
+    for (let e = 1; e <= 100; e++) { const s = walk(r); for (let t = 0; t < s.length - 1; t++) { const rew = s[t + 1] === 6 ? 1 : 0; V[s[t]] += 0.1 * (rew + V[s[t + 1]] - V[s[t]]); } if ([1, 10, 100].includes(e)) snaps[e] = V.slice(1, 6); }
+    RL.lineChart($("rw-vals"), { x: [1, 2, 3, 4, 5], xTicks: [1, 2, 3, 4, 5], xFmt: (v) => "ABCDE"[v - 1], xLabel: "State", yLabel: "Estimated value", yMin: 0, yMax: 1, height: 240, markers: true, yFmt: (v) => v.toFixed(1),
+      series: [ { name: "true values", color: "var(--text-3)", y: TRUE }, { name: "0 episodes", color: "var(--s3)", y: snaps[0] }, { name: "1", color: "var(--s2)", y: snaps[1] }, { name: "10", color: "var(--s7)", y: snaps[10] }, { name: "100", color: "var(--s1)", y: snaps[100] } ] });
+    $("rw-out").innerHTML = "Solid lines = TD(0), dashed = constant-α MC. TD is consistently better. Note how high-α TD dips and then rises (Exercise 6.5).";
+  }
+  $("rw-run").addEventListener("click", runRW);
+  runRW();
+
+  /* ---------- Batch: exact batch solutions ---------- */
+  function runBatch() {
+    const runs = 100, E = 100;
+    const mcC = new Float64Array(E + 1), tdC = new Float64Array(E + 1);
+    for (let run = 0; run < runs; run++) {
+      const r = RL.rng(77 + run);
+      const sumR = new Float64Array(7), nR = new Float64Array(7);           // MC: every-visit returns
+      const cnt = Array.from({ length: 7 }, () => new Float64Array(7)), rw = Array.from({ length: 7 }, () => new Float64Array(7));
+      mcC[0] += rms([0, 0.5, 0.5, 0.5, 0.5, 0.5, 0]); tdC[0] += rms([0, 0.5, 0.5, 0.5, 0.5, 0.5, 0]);
+      for (let e = 1; e <= E; e++) {
+        const s = walk(r), G = s[s.length - 1] === 6 ? 1 : 0;
+        for (let t = 0; t < s.length - 1; t++) { sumR[s[t]] += G; nR[s[t]]++; cnt[s[t]][s[t + 1]]++; rw[s[t]][s[t + 1]] += s[t + 1] === 6 ? 1 : 0; }
+        const Vmc = [0, 1, 2, 3, 4, 5, 0].map((s, i) => (i >= 1 && i <= 5 ? (nR[i] ? sumR[i] / nR[i] : 0.5) : 0));
+        // certainty-equivalence: solve V = r + P V on the ML model (Gauss-Seidel; 5 states)
+        const V = [0, 0.5, 0.5, 0.5, 0.5, 0.5, 0];
+        for (let it = 0; it < 400; it++) for (let i = 1; i <= 5; i++) {
+          let n = 0; for (let j = 0; j < 7; j++) n += cnt[i][j];
+          if (!n) continue;
+          let v = 0; for (let j = 0; j < 7; j++) if (cnt[i][j]) v += (cnt[i][j] / n) * (rw[i][j] / cnt[i][j] + V[j]);
+          V[i] = v;
+        }
+        mcC[e] += rms(Vmc); tdC[e] += rms(V);
+      }
+    }
+    const x = Array.from({ length: E }, (_, i) => i + 1);
+    RL.lineChart($("batch-chart"), { x, xLabel: "Walks / episodes", yLabel: "RMS error (batch)", yMin: 0, yFmt: (v) => v.toFixed(2),
+      series: [ { name: "Batch TD (certainty equivalence)", color: "var(--s1)", y: Array.from(tdC.slice(1), (v) => v / runs) }, { name: "Batch MC (sample averages)", color: "var(--s2)", y: Array.from(mcC.slice(1), (v) => v / runs) } ] });
+  }
+  $("batch-run").addEventListener("click", runBatch);
+
+  /* ---------- Generic tabular control on a grid ---------- */
+  const MOVES = { 4: [[-1, 0], [1, 0], [0, 1], [0, -1]], 8: [[-1, 0], [1, 0], [0, 1], [0, -1], [-1, 1], [-1, -1], [1, 1], [1, -1]], 9: [[-1, 0], [1, 0], [0, 1], [0, -1], [-1, 1], [-1, -1], [1, 1], [1, -1], [0, 0]] };
+  const ARW = { "-1,0": "↑", "1,0": "↓", "0,1": "→", "0,-1": "←", "-1,1": "↗", "-1,-1": "↖", "1,1": "↘", "1,-1": "↙", "0,0": "·" };
+  function egreedy(Q, s, nA, eps, r) {
+    if (r() < eps) return r.int(nA);
+    let b = -Infinity, ties = [];
+    for (let a = 0; a < nA; a++) { const v = Q[s * nA + a]; if (v > b) { b = v; ties = [a]; } else if (v === b) ties.push(a); }
+    return ties[r.int(ties.length)];
+  }
+  function drawGridPath(el, H, W, path, special) {
+    const on = new Map(path.map((p, i) => [p[0] * W + p[1], i]));
+    let h = '<div class="mini" style="grid-template-columns:repeat(' + W + ',26px)">';
+    for (let i = 0; i < H; i++) for (let j = 0; j < W; j++) {
+      const k = i * W + j, sp = special(i, j);
+      h += '<div class="' + (sp.cls || (on.has(k) ? "path" : "")) + '">' + (sp.txt || (on.has(k) && path[on.get(k)][2] ? path[on.get(k)][2] : "")) + "</div>";
+    }
+    el.innerHTML = h + "</div>";
+  }
+
+  /* windy gridworld */
+  const WIND = [0, 0, 0, 1, 1, 1, 2, 2, 1, 0], WH = 7, WW = 10, WS = [3, 0], WG = [3, 7];
+  function windStep(s, a, moves, stoch, r) {
+    const i = Math.floor(s / WW), j = s % WW, [di, dj] = moves[a];
+    let w = WIND[j]; if (stoch && w) w += r.int(3) - 1;
+    const ni = Math.max(0, Math.min(WH - 1, i + di - w)), nj = Math.max(0, Math.min(WW - 1, j + dj));
+    return ni * WW + nj;
+  }
+  function runWind() {
+    const moves = MOVES[$("wind-moves").value], nA = moves.length, stoch = $("wind-stoch").value === "1", alpha = +$("wind-a").value;
+    const r = RL.rng(3), Q = new Float64Array(WH * WW * nA), goal = WG[0] * WW + WG[1];
+    const xs = [0], ys = [0]; let t = 0, ep = 0;
+    while (t < 8000) {
+      let s = WS[0] * WW + WS[1], a = egreedy(Q, s, nA, 0.1, r);
+      while (s !== goal && t < 8000) {
+        const s2 = windStep(s, a, moves, stoch, r), a2 = egreedy(Q, s2, nA, 0.1, r);
+        const target = s2 === goal ? -1 : -1 + Q[s2 * nA + a2];
+        Q[s * nA + a] += alpha * (target - Q[s * nA + a]);
+        s = s2; a = a2; t++;
+      }
+      if (s === goal) { ep++; xs.push(t); ys.push(ep); }
+    }
+    RL.lineChart($("wind-chart"), { x: xs, xLabel: "Time steps", yLabel: "Episodes completed", yMin: 0, height: 260, yFmt: (v) => v.toFixed(0), series: [{ name: "Sarsa", color: "var(--s1)", y: ys }] });
+    // greedy trajectory with mean wind; ties broken by lowest action index
+    const greedyPath = () => {
+      let s = WS[0] * WW + WS[1]; const path = []; let steps = 0;
+      while (s !== goal && steps < 60) {
+        let a = 0; for (let b = 1; b < nA; b++) if (Q[s * nA + b] > Q[s * nA + a]) a = b;
+        path.push([Math.floor(s / WW), s % WW, ARW[moves[a].join(",")]]); s = windStep(s, a, moves, false, r); steps++;
+      }
+      return { path, steps, reached: s === goal };
+    };
+    let g = greedyPath();
+    const reachedAt8000 = g.reached, len8000 = g.steps;
+    // With Q = 0 initially (optimistic, since rewards are −1), a few rarely tried actions can still look
+    // attractive after 8000 steps and the greedy policy may loop. Keep learning until it reaches the goal.
+    let extra = 0;
+    while (!g.reached && extra < 20000) {
+      let s = WS[0] * WW + WS[1], a = egreedy(Q, s, nA, 0.1, r);
+      while (s !== goal) {
+        const s2 = windStep(s, a, moves, stoch, r), a2 = egreedy(Q, s2, nA, 0.1, r);
+        Q[s * nA + a] += alpha * ((s2 === goal ? -1 : -1 + Q[s2 * nA + a2]) - Q[s * nA + a]);
+        s = s2; a = a2; extra++;
+      }
+      g = greedyPath();
+    }
+    drawGridPath($("wind-grid"), WH, WW, g.path, (i, j) => (i === WS[0] && j === WS[1] ? { cls: "sg", txt: "S" } : i === WG[0] && j === WG[1] ? { cls: "sg", txt: "G" } : {}));
+    const lastEps = ys.length > 20 ? (xs[xs.length - 1] - xs[xs.length - 21]) / 20 : NaN;
+    $("wind-out").innerHTML = "<p>Episodes completed in 8000 steps: <strong>" + ep + "</strong>. Average length of the last 20 episodes: <strong>" + lastEps.toFixed(1) + "</strong> steps (ε-greedy).</p>" +
+      "<p>Greedy path at 8000 steps: <strong>" + (reachedAt8000 ? len8000 + " steps" : "loops (an under-explored action still looks optimistic)") + "</strong>" +
+      (reachedAt8000 ? "" : "; after <strong>" + extra + "</strong> more learning steps: <strong>" + (g.reached ? g.steps + " steps" : "still looping") + "</strong>") + (stoch ? " (drawn with mean wind)" : "") + ".</p>" +
+      "<p class='muted'>Book: 4 moves → optimal 15 steps; King's moves → 7. Results vary from run to run.</p><p class='muted'>Wind per column: " + WIND.join(" ") + "</p>";
+  }
+  $("wind-run").addEventListener("click", runWind);
+  runWind();
+
+  /* cliff walking */
+  const CH = 4, CW = 12, CS = 3 * CW, CG = 3 * CW + 11, M4 = MOVES[4];
+  const isCliff = (s) => Math.floor(s / CW) === 3 && s % CW >= 1 && s % CW <= 10;
+  function cliffStep(s, a) {
+    const i = Math.floor(s / CW), j = s % CW;
+    const ni = Math.max(0, Math.min(CH - 1, i + M4[a][0])), nj = Math.max(0, Math.min(CW - 1, j + M4[a][1]));
+    const n = ni * CW + nj;
+    return isCliff(n) ? [CS, -100] : [n, -1];
+  }
+  function cliffRun(kind, alpha, eps, episodes, r) {
+    const Q = new Float64Array(CH * CW * 4), rewards = new Float64Array(episodes);
+    const expQ = (s) => { let mx = -Infinity, sum = 0, nmax = 0; for (let a = 0; a < 4; a++) { const v = Q[s * 4 + a]; sum += v; if (v > mx) { mx = v; nmax = 1; } else if (v === mx) nmax++; }
+      return (eps / 4) * sum + (1 - eps) * mx; };
+    for (let e = 0; e < episodes; e++) {
+      let s = CS, a = egreedy(Q, s, 4, eps, r), total = 0, steps = 0;
+      while (s !== CG && steps < 10000) {
+        if (kind !== "sarsa") a = egreedy(Q, s, 4, eps, r);
+        const [s2, rew] = cliffStep(s, a); total += rew; steps++;
+        let target;
+        if (s2 === CG) target = rew;
+        else if (kind === "sarsa") { var a2 = egreedy(Q, s2, 4, eps, r); target = rew + Q[s2 * 4 + a2]; }
+        else if (kind === "q") { let mx = -Infinity; for (let b = 0; b < 4; b++) mx = Math.max(mx, Q[s2 * 4 + b]); target = rew + mx; }
+        else target = rew + expQ(s2);
+        Q[s * 4 + a] += alpha * (target - Q[s * 4 + a]);
+        s = s2; if (kind === "sarsa" && s !== CG) a = a2;
+      }
+      rewards[e] = total;
+    }
+    return { Q, rewards };
+  }
+  const KINDS = [ { k: "sarsa", name: "Sarsa", color: "var(--s1)" }, { k: "q", name: "Q-learning", color: "var(--s8)" }, { k: "exp", name: "Expected Sarsa", color: "var(--s3)" } ];
+  function runCliff() {
+    const eps = +$("cliff-e").value, alpha = +$("cliff-a").value, runs = +$("cliff-runs").value, E = 500;
+    const btn = $("cliff-run"); btn.disabled = true; btn.textContent = "Running…";
+    setTimeout(() => {
+      const res = KINDS.map((K) => { const acc = new Float64Array(E); let lastQ;
+        for (let run = 0; run < runs; run++) { const o = cliffRun(K.k, alpha, eps, E, RL.rng(500 + run)); o.rewards.forEach((v, i) => (acc[i] += v)); lastQ = o.Q; }
+        return { acc: Array.from(acc, (v) => v / runs), Q: lastQ }; });
+      const sm = (y) => y.map((_, i) => { let s = 0, c = 0; for (let j = Math.max(0, i - 9); j <= i; j++) { s += y[j]; c++; } return s / c; });
+      RL.lineChart($("cliff-chart"), { x: Array.from({ length: E }, (_, i) => i + 1), xLabel: "Episodes", yLabel: "Sum of rewards during episode", yMin: -100, yMax: 0, yFmt: (v) => v.toFixed(0),
+        series: KINDS.map((K, i) => ({ name: K.name, color: K.color, y: sm(res[i].acc) })) });
+      let html = "";
+      KINDS.forEach((K, i) => {
+        const Q = res[i].Q; let s = CS; const path = []; let n = 0;
+        while (s !== CG && n < 60) { let b = 0; for (let a = 1; a < 4; a++) if (Q[s * 4 + a] > Q[s * 4 + b]) b = a; path.push([Math.floor(s / CW), s % CW, ARW[M4[b].join(",")]]); s = cliffStep(s, b)[0]; n++; }
+        html += '<div><div class="lbl">' + K.name + " — greedy path (" + (s === CG ? n + " steps" : "loops") + ')</div><div id="cp-' + K.k + '"></div></div>';
+        setTimeout(() => drawGridPath($("cp-" + K.k), CH, CW, path, (r_, c) => (r_ === 3 && c === 0 ? { cls: "sg", txt: "S" } : r_ === 3 && c === 11 ? { cls: "sg", txt: "G" } : isCliff(r_ * CW + c) ? { cls: "cliff" } : {})), 0);
+      });
+      $("cliff-paths").innerHTML = html;
+      btn.disabled = false; btn.textContent = "Run 500 episodes";
+    }, 20);
+  }
+  $("cliff-run").addEventListener("click", runCliff);
+  runCliff();
+
+  function runAlpha() {
+    const runs = +$("alpha-runs").value, alphas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+    const btn = $("alpha-run"); btn.disabled = true; btn.textContent = "Running…";
+    setTimeout(() => {
+      const ys = KINDS.map((K) => alphas.map((a) => { let s = 0; for (let run = 0; run < runs; run++) { const o = cliffRun(K.k, a, 0.1, 100, RL.rng(900 + run)); s += o.rewards.reduce((x, y) => x + y, 0) / 100; } return s / runs; }));
+      RL.lineChart($("alpha-chart"), { x: alphas, xTicks: alphas, xFmt: (v) => v.toFixed(1), xLabel: "α", yLabel: "Avg reward per episode (first 100)", markers: true, yFmt: (v) => v.toFixed(0),
+        series: KINDS.map((K, i) => ({ name: K.name, color: K.color, y: ys[i] })) });
+      btn.disabled = false; btn.textContent = "Run parameter study";
+    }, 20);
+  }
+  $("alpha-run").addEventListener("click", runAlpha);
+
+  /* maximization bias */
+  function runMB() {
+    const k = +$("mb-k").value, runs = +$("mb-runs").value, E = 300, eps = 0.1, alpha = 0.1;
+    const btn = $("mb-run"); btn.disabled = true; btn.textContent = "Running…";
+    setTimeout(() => {
+      const leftQ = new Float64Array(E), leftD = new Float64Array(E);
+      // state A: actions 0 = left, 1 = right. state B: k actions.
+      const pick = (vals, r) => { if (r() < eps) return r.int(vals.length); let b = -Infinity, t = []; vals.forEach((v, i) => { if (v > b) { b = v; t = [i]; } else if (v === b) t.push(i); }); return t[r.int(t.length)]; };
+      for (let run = 0; run < runs; run++) {
+        const r = RL.rng(31 + run);
+        let QA = [0, 0], QB = new Float64Array(k);
+        let A1 = [0, 0], A2 = [0, 0], B1 = new Float64Array(k), B2 = new Float64Array(k);
+        for (let e = 0; e < E; e++) {
+          // Q-learning
+          let a = pick(QA, r);
+          if (a === 0) { leftQ[e]++; QA[0] += alpha * (0 + Math.max(...QB) - QA[0]); const b = pick(Array.from(QB), r); QB[b] += alpha * (-0.1 + r.normal() - QB[b]); }
+          else QA[1] += alpha * (0 - QA[1]);
+          // Double Q-learning
+          a = pick([A1[0] + A2[0], A1[1] + A2[1]], r);
+          const argmax = (arr) => { let b = -Infinity, t = []; arr.forEach((v, i) => { if (v > b) { b = v; t = [i]; } else if (v === b) t.push(i); }); return t[r.int(t.length)]; };
+          if (a === 0) {
+            leftD[e]++;
+            if (r() < 0.5) A1[0] += alpha * (B2[argmax(Array.from(B1))] - A1[0]); else A2[0] += alpha * (B1[argmax(Array.from(B2))] - A2[0]);
+            const b = pick(Array.from(B1, (v, i) => v + B2[i]), r), rew = -0.1 + r.normal();
+            if (r() < 0.5) B1[b] += alpha * (rew - B1[b]); else B2[b] += alpha * (rew - B2[b]);
+          } else { if (r() < 0.5) A1[1] += alpha * (0 - A1[1]); else A2[1] += alpha * (0 - A2[1]); }
+        }
+      }
+      const x = Array.from({ length: E }, (_, i) => i + 1);
+      RL.lineChart($("mb-chart"), { x, xLabel: "Episodes", yLabel: "% left actions from A", yMin: 0, yMax: 1, yFmt: pct,
+        series: [ { name: "Q-learning", color: "var(--s8)", y: Array.from(leftQ, (v) => v / runs) }, { name: "Double Q-learning", color: "var(--s1)", y: Array.from(leftD, (v) => v / runs) },
+                  { name: "optimal (ε-greedy minimum 5%)", color: "var(--text-3)", y: x.map(() => 0.05), dash: true } ] });
+      btn.disabled = false; btn.textContent = "Run 300 episodes";
+    }, 20);
+  }
+  $("mb-run").addEventListener("click", runMB);
+});
+</script>
+</body>
+</html>
