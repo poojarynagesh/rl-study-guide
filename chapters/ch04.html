@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 4 · Dynamic Programming — RL Study Guide</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/site.js"></script>
+</head>
+<body data-page="ch04" data-root="..">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Chapter 4 · Book pp. 73–90</div>
+  <h1>Dynamic Programming</h1>
+  <p class="lead">Algorithms that compute optimal policies <em>given a perfect model</em> of the MDP. Of limited direct use (perfect model, heavy computation) but the theoretical foundation for everything after: every later method tries to achieve the same effect as DP with less computation and no model.</p>
+  <div class="meta">
+    <span class="chip">Policy evaluation</span>
+    <span class="chip">Policy improvement theorem</span>
+    <span class="chip">Policy iteration</span>
+    <span class="chip">Value iteration</span>
+    <span class="chip">Asynchronous DP</span>
+    <span class="chip">GPI</span>
+    <span class="chip">Bootstrapping</span>
+  </div>
+</div>
+
+<div class="box exam">
+  <span class="box-title">Exam focus for this chapter</span>
+  <ul>
+    <li>DP = Bellman equations turned into <strong>update rules</strong> (assignments). Expected updates vs sample updates.</li>
+    <li>Iterative policy evaluation (4.5): in-place vs two-array, the stopping threshold θ.</li>
+    <li>Policy improvement theorem (4.7)–(4.8) and why greedy improvement can only fail to improve when already optimal.</li>
+    <li>Policy iteration vs value iteration — what each sweep does, pros/cons, convergence.</li>
+    <li>Asynchronous DP and generalized policy iteration (GPI).</li>
+    <li>Computational efficiency: polynomial in $n$ states and $k$ actions vs $k^n$ policies; the curse of dimensionality.</li>
+    <li><strong>Bootstrapping</strong> — DP updates estimates from other estimates.</li>
+  </ul>
+</div>
+
+<p>Assume a finite MDP with known dynamics $p(s',r\mid s,a)$. DP algorithms are obtained by turning the Bellman optimality equations into assignments:</p>
+<div class="eq">
+$$v_*(s)=\max_a\sum_{s',r}p(s',r\mid s,a)\big[r+\gamma v_*(s')\big] \qquad q_*(s,a)=\sum_{s',r}p(s',r\mid s,a)\big[r+\gamma\max_{a'}q_*(s',a')\big]$$
+<div class="eq-name"><span>Bellman optimality equations — DP's targets</span><span class="ref">(4.1), (4.2)</span></div>
+</div>
+
+<h2 id="evaluation">4.1 Policy evaluation (prediction)</h2>
+<p><strong>Policy evaluation</strong> (the <strong>prediction problem</strong>): compute $v_\pi$ for a given π. $v_\pi$ exists and is unique if $\gamma<1$ or termination is guaranteed from all states under π. With known dynamics, (4.4) is a system of $|\mathcal S|$ linear equations — solvable directly, but iterative methods suit us better:</p>
+<div class="eq">
+$$v_{k+1}(s) \doteq \E_\pi[R_{t+1}+\gamma v_k(S_{t+1})\mid S_t=s] = \sum_a\pi(a\mid s)\sum_{s',r}p(s',r\mid s,a)\big[r+\gamma v_k(s')\big]$$
+<div class="eq-name"><span>Iterative policy evaluation update</span><span class="ref">(4.5)</span></div>
+</div>
+<ul>
+  <li>$v_0$ arbitrary (terminal state = 0). $v_\pi$ is a <strong>fixed point</strong>; $\{v_k\}\to v_\pi$ as $k\to\infty$ under the same conditions that guarantee existence of $v_\pi$.</li>
+  <li>This is an <strong>expected update</strong>: it uses an expectation over <em>all</em> possible next states (vs. a sample next state in MC/TD).</li>
+  <li><strong>Two-array</strong> (Jacobi, synchronous) version keeps old $v_k$ and new $v_{k+1}$. <strong>In-place</strong> (Gauss–Seidel) overwrites immediately — also converges, <strong>usually faster</strong> (uses new data as soon as available); the <strong>sweep order</strong> then matters. DP usually means in-place.</li>
+</ul>
+
+<div class="algo">
+  <div class="algo-head"><span class="name">Iterative Policy Evaluation, for estimating V ≈ vπ</span><span class="tags"><span class="tag model">needs model</span><span class="tag boot">bootstraps</span><span class="tag">expected update</span></span></div>
+<pre><span class="k">Input</span> π, the policy to be evaluated
+<span class="k">Algorithm parameter</span>: a small threshold θ &gt; 0 determining accuracy of estimation
+Initialize V(s) arbitrarily, for s ∈ S, and V(terminal) to 0
+<span class="k">Loop</span>:
+    Δ ← 0
+    <span class="k">Loop for each</span> s ∈ S:
+        v ← V(s)
+        V(s) ← Σ_a π(a|s) Σ_{s',r} p(s',r|s,a) [r + γ V(s')]
+        Δ ← max(Δ, |v − V(s)|)
+<span class="k">until</span> Δ &lt; θ</pre>
+  <div class="algo-foot">Converges only in the limit; stopped when the largest change in a sweep falls below <strong>θ</strong>. Smaller θ → more accurate, more sweeps.</div>
+</div>
+
+<h3>Example 4.1 — the 4×4 gridworld</h3>
+<p>Non-terminal states 1–14; the two shaded corners are one terminal state. Actions up/down/left/right move deterministically (off-grid = stay). <strong>Reward −1 on every transition</strong>, undiscounted, episodic. Under the equiprobable random policy, $v_\pi(s)$ = −(expected number of steps to termination).</p>
+
+<div class="demo" id="pe-demo">
+  <div class="demo-title">Try it: Figure 4.1 — iterative policy evaluation and greedy policies</div>
+  <div class="controls">
+    <label class="control">Sweep k <span class="val" id="pe-k-v">0</span><input type="range" id="pe-k" min="0" max="200" step="1" value="0"></label>
+    <label class="control">Update style
+      <select id="pe-mode"><option value="two">Two-array (synchronous) — matches Fig 4.1</option><option value="inplace">In-place</option></select></label>
+    <button class="btn ghost" type="button" data-k="1">k=1</button>
+    <button class="btn ghost" type="button" data-k="2">k=2</button>
+    <button class="btn ghost" type="button" data-k="3">k=3</button>
+    <button class="btn ghost" type="button" data-k="10">k=10</button>
+    <button class="btn ghost" type="button" data-k="200">k=∞</button>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+    <div><div class="small muted" style="margin-bottom:4px">v<sub>k</sub> for the random policy</div><div class="gw" id="pe-v" style="grid-template-columns:repeat(4,56px)"></div></div>
+    <div><div class="small muted" style="margin-bottom:4px">greedy policy w.r.t. v<sub>k</sub></div><div class="gw" id="pe-p" style="grid-template-columns:repeat(4,56px)"></div></div>
+    <div class="small" id="pe-out" style="flex:1;min-width:200px"></div>
+  </div>
+</div>
+
+<div class="box key"><span class="box-title">What Figure 4.1 teaches</span>
+<p>The greedy policy w.r.t. $v_k$ is already optimal from <strong>k = 3</strong>, long before $v_k$ converges. Evaluation beyond that point does not change the greedy policy — motivation for <strong>truncating</strong> policy evaluation (value iteration, §4.4).</p></div>
+
+<h2 id="improvement">4.2 Policy improvement</h2>
+<p>Given $v_\pi$, is it better to pick $a\ne\pi(s)$ in $s$ and follow π thereafter?</p>
+<div class="eq">
+$$q_\pi(s,a)\doteq\E[R_{t+1}+\gamma v_\pi(S_{t+1})\mid S_t=s,A_t=a] = \sum_{s',r}p(s',r\mid s,a)\big[r+\gamma v_\pi(s')\big]$$
+<div class="eq-name"><span>Value of deviating once</span><span class="ref">(4.6)</span></div>
+</div>
+<div class="box def">
+  <span class="box-title">Policy improvement theorem</span>
+  <p>For deterministic policies π, π′: if $\;q_\pi(s,\pi'(s))\ge v_\pi(s)\;$ for all $s\in\mathcal S$ (4.7), then $\;v_{\pi'}(s)\ge v_\pi(s)\;$ for all $s$ (4.8). Strict inequality in (4.7) at any state ⇒ strict inequality in (4.8) at that state.</p>
+</div>
+<p><strong>Proof idea:</strong> keep expanding $q_\pi$ with (4.6) and reapplying (4.7):</p>
+<div class="eq">
+$$\begin{aligned}
+v_\pi(s) &\le q_\pi(s,\pi'(s)) = \E_{\pi'}[R_{t+1}+\gamma v_\pi(S_{t+1})\mid S_t=s]\\
+&\le \E_{\pi'}[R_{t+1}+\gamma q_\pi(S_{t+1},\pi'(S_{t+1}))\mid S_t=s] = \E_{\pi'}[R_{t+1}+\gamma R_{t+2}+\gamma^2 v_\pi(S_{t+2})\mid S_t=s]\\
+&\le \dots \le \E_{\pi'}[R_{t+1}+\gamma R_{t+2}+\gamma^2R_{t+3}+\dots\mid S_t=s] = v_{\pi'}(s)
+\end{aligned}$$
+<div class="eq-name"><span>Proof of the policy improvement theorem</span><span class="ref">§4.2</span></div>
+</div>
+<p>Applying this at <em>every</em> state gives the <strong>greedy policy</strong>:</p>
+<div class="eq">
+$$\pi'(s)\doteq\argmax_a q_\pi(s,a) = \argmax_a\sum_{s',r}p(s',r\mid s,a)\big[r+\gamma v_\pi(s')\big]$$
+<div class="eq-name"><span>Policy improvement (greedification)</span><span class="ref">(4.9)</span></div>
+</div>
+<ul>
+  <li>By construction π′ satisfies (4.7), so it is as good as or better than π.</li>
+  <li>If π′ is <em>no better</em> ($v_{\pi'}=v_\pi$), then $v_{\pi'}(s)=\max_a\sum p[r+\gamma v_{\pi'}(s')]$ — the Bellman <strong>optimality</strong> equation — so both are optimal. <strong>Policy improvement gives a strictly better policy unless the original is already optimal.</strong></li>
+  <li>Extends to <strong>stochastic</strong> policies; with ties, any split of probability among maximising actions is allowed, as long as sub-maximal actions get 0.</li>
+</ul>
+
+<h2 id="pi">4.3 Policy iteration</h2>
+<div class="eq">
+$$\pi_0\xrightarrow{E}v_{\pi_0}\xrightarrow{I}\pi_1\xrightarrow{E}v_{\pi_1}\xrightarrow{I}\pi_2\xrightarrow{E}\cdots\xrightarrow{I}\pi_*\xrightarrow{E}v_*$$
+<div class="eq-name"><span>Policy iteration: alternate Evaluation and Improvement</span><span class="ref">§4.3</span></div>
+</div>
+<p>Each policy is a strict improvement (unless optimal). A finite MDP has finitely many deterministic policies ⇒ convergence to $\pi_*$ and $v_*$ in a <strong>finite number of iterations</strong>. Starting each evaluation from the previous $V$ greatly speeds things up.</p>
+
+<div class="algo">
+  <div class="algo-head"><span class="name">Policy Iteration (using iterative policy evaluation) for estimating π ≈ π*</span><span class="tags"><span class="tag model">needs model</span><span class="tag boot">bootstraps</span></span></div>
+<pre><span class="k">1. Initialization</span>
+   V(s) ∈ ℝ and π(s) ∈ A(s) arbitrarily for all s ∈ S;  V(terminal) ≐ 0
+
+<span class="k">2. Policy Evaluation</span>
+   Loop:
+       Δ ← 0
+       Loop for each s ∈ S:
+           v ← V(s)
+           V(s) ← Σ_{s',r} p(s',r|s,π(s)) [r + γ V(s')]
+           Δ ← max(Δ, |v − V(s)|)
+   until Δ &lt; θ   <span class="c">(a small positive number determining the accuracy of estimation)</span>
+
+<span class="k">3. Policy Improvement</span>
+   policy-stable ← true
+   For each s ∈ S:
+       old-action ← π(s)
+       π(s) ← argmax_a Σ_{s',r} p(s',r|s,a) [r + γ V(s')]
+       If old-action ≠ π(s), then policy-stable ← false
+   If policy-stable, then stop and return V ≈ v* and π ≈ π*; else go to 2</pre>
+  <div class="algo-foot">
+    <strong>Exercise 4.4 — the bug:</strong> if several actions tie, π may keep switching between equally good policies and never become "stable". Fix: only change π(s) if the old action is <em>not</em> among the maximising actions (or break ties in a fixed order), or stop when V stops changing.
+  </div>
+</div>
+
+<h3>Example 4.2 — Jack's car rental</h3>
+<p>Two locations, ≤ 20 cars each; rent = +$\$10$; moving a car overnight = −$\$2$ (≤ 5 cars). Requests and returns are <strong>Poisson</strong> ($\lambda$ = 3, 4 requests; 3, 2 returns). γ = 0.9, continuing. State = cars at each location at day's end; action = net cars moved (−5…+5). Policy iteration from "never move" finds the optimal policy in <strong>4 improvements</strong> ($\pi_0\to\pi_4$). Moral: <strong>policy iteration often converges in surprisingly few iterations</strong>. (Exercise 4.7 adds a free shuttle and a parking cost — nonlinearities DP handles easily but other optimisers do not.)</p>
+
+<h2 id="vi">4.4 Value iteration</h2>
+<p>Policy evaluation inside policy iteration may need many sweeps. It can be <strong>truncated</strong> without losing convergence. Stopping after <strong>one sweep</strong> gives <strong>value iteration</strong>:</p>
+<div class="eq">
+$$v_{k+1}(s)\doteq\max_a\E[R_{t+1}+\gamma v_k(S_{t+1})\mid S_t=s,A_t=a]=\max_a\sum_{s',r}p(s',r\mid s,a)\big[r+\gamma v_k(s')\big]$$
+<div class="eq-name"><span>Value iteration update</span><span class="ref">(4.10)</span></div>
+</div>
+<ul>
+  <li>= the Bellman optimality equation turned into an update rule; identical to (4.5) except for the <strong>max</strong>.</li>
+  <li>For arbitrary $v_0$, $v_k\to v_*$ under the conditions that guarantee $v_*$ exists.</li>
+  <li>Each sweep combines one sweep of evaluation and one of improvement. <strong>Truncated policy iteration</strong> = sequences of sweeps, some with max (VI) and some without (PE). All converge for discounted finite MDPs.</li>
+</ul>
+<div class="algo">
+  <div class="algo-head"><span class="name">Value Iteration, for estimating π ≈ π*</span><span class="tags"><span class="tag model">needs model</span><span class="tag boot">bootstraps</span></span></div>
+<pre><span class="k">Algorithm parameter</span>: a small threshold θ &gt; 0 determining accuracy of estimation
+Initialize V(s), for all s ∈ S⁺, arbitrarily except that V(terminal) = 0
+<span class="k">Loop</span>:
+    Δ ← 0
+    <span class="k">Loop for each</span> s ∈ S:
+        v ← V(s)
+        V(s) ← max_a Σ_{s',r} p(s',r|s,a) [r + γ V(s')]
+        Δ ← max(Δ, |v − V(s)|)
+<span class="k">until</span> Δ &lt; θ
+<span class="k">Output</span> a deterministic policy, π ≈ π*, such that
+    π(s) = argmax_a Σ_{s',r} p(s',r|s,a) [r + γ V(s')]</pre>
+</div>
+<div class="eq">
+$$q_{k+1}(s,a) = \sum_{s',r}p(s',r\mid s,a)\Big[r+\gamma\max_{a'}q_k(s',a')\Big]$$
+<div class="eq-name"><span>Value iteration for action values</span><span class="ref">Ex 4.10</span></div>
+</div>
+
+<h3>Policy iteration vs value iteration</h3>
+<div class="table-wrap"><table>
+  <tr><th></th><th>Policy iteration</th><th>Value iteration</th></tr>
+  <tr><td>Each iteration</td><td>Full policy evaluation (many sweeps) + one improvement</td><td>One sweep with a max = truncated evaluation + improvement</td></tr>
+  <tr><td>Update used</td><td>Bellman expectation (4.5) for current π</td><td>Bellman optimality (4.10)</td></tr>
+  <tr><td>Explicit policy during run?</td><td>Yes</td><td>No — extracted at the end</td></tr>
+  <tr><td>Number of iterations</td><td>Few (finite: policies strictly improve)</td><td>Many cheap sweeps; converges in the limit</td></tr>
+  <tr><td>Cost per iteration</td><td>High</td><td>Low ($O(|\mathcal S|^2|\mathcal A|)$ per sweep)</td></tr>
+  <tr><td>Which is better?</td><td colspan="2">Neither in general; both widely used. Interposing several PE sweeps between improvements (modified/truncated PI) is often fastest.</td></tr>
+</table></div>
+
+<h3>Example 4.3 — the gambler's problem</h3>
+<p>Capital $s\in\{1,\dots,99\}$; stake $a\in\{0,\dots,\min(s,100-s)\}$. Heads (prob. $p_h$) wins the stake, tails loses it. Reward +1 only on reaching $\$100$; undiscounted, episodic. So $v_*(s)$ = probability of winning from $s$, and the optimal policy maximises that probability.</p>
+
+<div class="demo" id="gb-demo">
+  <div class="demo-title">Try it: value iteration on the gambler's problem (Figure 4.3, Exercise 4.9)</div>
+  <div class="controls">
+    <label class="control">p<sub>h</sub> (probability of heads) <span class="val" id="gb-p-v">0.40</span><input type="range" id="gb-p" min="0.05" max="0.95" step="0.01" value="0.4"></label>
+    <label class="control">θ <select id="gb-t"><option value="1e-4">1e-4</option><option value="1e-8" selected>1e-8</option><option value="1e-12">1e-12</option></select></label>
+  </div>
+  <h4>Value estimates after successive sweeps</h4>
+  <div id="gb-v"></div>
+  <h4>Final policy (stake)</h4><p class="small muted">Many policies are optimal (ties in the argmax). This plot breaks ties toward the <em>smallest</em> stake; the book's Figure 4.3 shows another member of the same optimal family.</p>
+  <div id="gb-pol"></div>
+  <div class="demo-out" id="gb-out"></div>
+</div>
+<div class="box exam"><span class="box-title">Exercise 4.8 — why such a curious policy?</span>
+<p>With $p_h&lt;0.5$ every bet has negative expected value, so the gambler wants to reach $\$100$ in <strong>as few flips as possible</strong> ("bold play"). At $\$50$, one all-in bet wins with probability $p_h$ directly. At $\$51$, betting $\$1$ keeps a chance to reach a better position (e.g. $\$52$, or back to $\$50$ where the all-in option still exists) — so betting all $\$49$ needed would waste the extra dollar. The spikes at 25, 50, 75 reflect positions from which one or two bold bets reach the goal. Many optimal policies exist (ties). With $p_h&gt;0.5$ the game is favourable and small "timid" bets become optimal. As θ → 0 the value function is stable, but the plotted policy may flicker among tied actions due to floating-point ties.</p></div>
+
+<h2 id="async">4.5 Asynchronous dynamic programming</h2>
+<ul>
+  <li>Major drawback of the methods above: they <strong>sweep the entire state set</strong>. Backgammon (10<sup>20</sup> states) at a million updates/s would take over a thousand years per sweep.</li>
+  <li><strong>Asynchronous DP</strong>: in-place updates in <em>any order</em>, using whatever values are available; some states updated many times before others once.</li>
+  <li>To converge, it must <strong>keep updating all states</strong> (cannot ignore any after some point). E.g. asynchronous VI updating one state $s_k$ per step converges (for $0\le\gamma&lt;1$) if every state appears in $\{s_k\}$ infinitely often.</li>
+  <li>Doesn't necessarily reduce total computation, but avoids being locked into long sweeps; lets us <strong>order updates</strong> to propagate value efficiently and <strong>skip irrelevant states</strong>.</li>
+  <li>Easy to <strong>intermix with real-time interaction</strong>: update the states the agent actually visits — focusing computation on relevant parts of the state space (a recurring RL theme).</li>
+</ul>
+
+<h2 id="gpi">4.6 Generalized policy iteration (GPI)</h2>
+<figure class="diagram">
+  <svg viewBox="0 0 520 210" width="520" role="img" aria-label="Generalized policy iteration: evaluation and improvement">
+    <defs><marker id="ah4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text)"/></marker></defs>
+    <text x="70" y="108" text-anchor="middle" font-size="22" font-style="italic">π</text>
+    <text x="250" y="108" text-anchor="middle" font-size="22" font-style="italic">V</text>
+    <path d="M90 86 C 140 40, 190 40, 236 84" fill="none" stroke="var(--s1)" stroke-width="2" marker-end="url(#ah4)"/>
+    <text x="160" y="38" text-anchor="middle" font-size="13">evaluation: V → v<tspan baseline-shift="sub" font-size="10">π</tspan></text>
+    <path d="M236 116 C 190 160, 140 160, 90 118" fill="none" stroke="var(--s2)" stroke-width="2" marker-end="url(#ah4)"/>
+    <text x="160" y="180" text-anchor="middle" font-size="13">improvement: π → greedy(V)</text>
+    <line x1="300" y1="190" x2="500" y2="40" stroke="var(--text-3)" stroke-width="1.5"/>
+    <text x="452" y="30" font-size="12" class="muted-t">v = v<tspan baseline-shift="sub" font-size="9">π</tspan></text>
+    <line x1="300" y1="40" x2="500" y2="190" stroke="var(--text-3)" stroke-width="1.5"/>
+    <text x="430" y="200" font-size="12" class="muted-t">π = greedy(v)</text>
+    <circle cx="400" cy="115" r="5" fill="var(--pit)"/>
+    <text x="410" y="120" font-size="12">v<tspan baseline-shift="sub" font-size="9">*</tspan>, π<tspan baseline-shift="sub" font-size="9">*</tspan></text>
+    <path d="M318 60 L 362 60 L 340 92 L 390 92 L 372 106" fill="none" stroke="var(--text)" stroke-width="1.3" marker-end="url(#ah4)"/>
+  </svg>
+  <figcaption>GPI: evaluation drives V toward $v_\pi$; improvement makes π greedy w.r.t. V. They compete (each change invalidates the other) yet cooperate to reach the single joint solution $v_*,\pi_*$.</figcaption>
+</figure>
+<p><strong>GPI</strong> = letting policy-evaluation and policy-improvement processes interact, <strong>independent of their granularity</strong>. Policy iteration (each process runs to completion), value iteration (one evaluation sweep), asynchronous DP (single-state interleaving) are all GPI — and so are <strong>almost all RL methods</strong>. If both processes stabilise, the policy is greedy w.r.t. its own value function ⇒ Bellman optimality holds ⇒ both are optimal.</p>
+
+<h2 id="efficiency">4.7 Efficiency of dynamic programming</h2>
+<ul>
+  <li>Worst-case time to find an optimal policy is <strong>polynomial</strong> in $n$ (states) and $k$ (actions), although there are $k^n$ deterministic policies — <strong>exponentially faster</strong> than direct policy search.</li>
+  <li>Linear programming can also solve MDPs (sometimes better worst-case guarantees) but becomes impractical at ~100× fewer states. For the largest problems only DP is feasible.</li>
+  <li>The <strong>curse of dimensionality</strong> (states grow exponentially with state variables) is a property of the <em>problem</em>, not of DP; DP handles large spaces better than direct search or LP. Millions of states are solvable today.</li>
+  <li>In practice both PI and VI converge much faster than worst case, especially from good initial values or policies. For very large problems, <strong>asynchronous</strong> methods are preferred.</li>
+</ul>
+
+<h2 id="summary">4.8 Summary — and the key idea of bootstrapping</h2>
+<div class="box key"><span class="box-title">Bootstrapping</span>
+<p>All DP methods update estimates of state values based on <strong>estimates</strong> of successor-state values — "updating estimates on the basis of other estimates". Chapter 5 (Monte Carlo) needs <em>no model</em> and does <em>not</em> bootstrap; Chapter 6 (TD) needs no model but <em>does</em> bootstrap. These properties are separable and can be mixed.</p></div>
+<div class="table-wrap"><table>
+  <tr><th>Value function</th><th>Bellman equation</th><th>Corresponding DP expected update</th></tr>
+  <tr><td>$v_\pi$</td><td>$v_\pi(s)=\sum_a\pi(a|s)\sum_{s',r}p\,[r+\gamma v_\pi(s')]$</td><td>Iterative policy evaluation</td></tr>
+  <tr><td>$v_*$</td><td>$v_*(s)=\max_a\sum_{s',r}p\,[r+\gamma v_*(s')]$</td><td>Value iteration</td></tr>
+  <tr><td>$q_\pi$</td><td>$q_\pi(s,a)=\sum_{s',r}p\,[r+\gamma\sum_{a'}\pi(a'|s')q_\pi(s',a')]$</td><td>Q-policy evaluation</td></tr>
+  <tr><td>$q_*$</td><td>$q_*(s,a)=\sum_{s',r}p\,[r+\gamma\max_{a'}q_*(s',a')]$</td><td>Q-value iteration</td></tr>
+</table></div>
+
+<h2 id="hyperparams">Parameters in this chapter</h2>
+<div class="table-wrap"><table>
+  <tr><th>Parameter</th><th>Role</th><th>Effect</th></tr>
+  <tr><td>θ (threshold)</td><td>Stop evaluation / VI when the max change in a sweep is below θ</td><td>Smaller θ → more accurate, more sweeps. A loose θ in PI is fine because improvement only needs the greedy policy to be right (Fig 4.1: k = 3 already suffices).</td></tr>
+  <tr><td>γ</td><td>Problem's discount</td><td>Smaller γ → faster convergence (contraction factor γ); γ = 1 requires guaranteed termination.</td></tr>
+  <tr><td>Number of evaluation sweeps per improvement</td><td>1 = VI, ∞ = PI, in between = truncated / modified PI</td><td>Trade-off between cost per iteration and number of iterations.</td></tr>
+  <tr><td>Sweep order (in-place)</td><td>Order in which states are updated</td><td>Strongly affects convergence speed (e.g. backward from goal propagates fastest).</td></tr>
+  <tr><td>Initial V / π</td><td>Starting point</td><td>Good starts converge much faster; terminal must be 0.</td></tr>
+</table></div>
+
+<h2 id="selftest">Self-test</h2>
+<div class="quiz">
+  <details><summary>Ex 4.1 — In Example 4.1 (random policy), what is $q_\pi(11,\text{down})$? $q_\pi(7,\text{down})$?</summary><div class="ans"><p>$q_\pi(11,\text{down}) = -1 + v_\pi(\text{terminal}) = \mathbf{-1}$. $q_\pi(7,\text{down}) = -1 + v_\pi(11) = -1 + (-14) = \mathbf{-15}$.</p></div></details>
+  <details><summary>Ex 4.2 — Add state 15 below 13 (left→12, up→13, right→14, down→15). What is $v_\pi(15)$? What if 13's "down" now leads to 15?</summary><div class="ans"><p>$v(15) = -1 + \tfrac14[v(12)+v(13)+v(14)+v(15)] = -1+\tfrac14[-22-20-14+v(15)]$ ⇒ $\tfrac34v(15)=-15$ ⇒ $v(15)=\mathbf{-20}$. If 13's down goes to 15: since $v(15)=-20=v(13)$, state 13's equation is unchanged (down used to keep it at 13 with value −20), so all values stay the same: $v(15)=-20$.</p></div></details>
+  <details><summary>Ex 4.3 — Equations analogous to (4.3)–(4.5) for action values.</summary><div class="ans"><p>$q_\pi(s,a)=\E_\pi[R_{t+1}+\gamma q_\pi(S_{t+1},A_{t+1})\mid S_t=s,A_t=a]=\sum_{s',r}p(s',r|s,a)[r+\gamma\sum_{a'}\pi(a'|s')q_\pi(s',a')]$; update: $q_{k+1}(s,a)=\sum_{s',r}p(s',r|s,a)[r+\gamma\sum_{a'}\pi(a'|s')q_k(s',a')]$.</p></div></details>
+  <details><summary>Ex 4.5 — Policy iteration for action values (computing $q_*$).</summary><div class="ans"><p>Init $Q(s,a)$, π arbitrarily. <strong>Evaluation</strong>: repeat $Q(s,a)\leftarrow\sum_{s',r}p(s',r|s,a)[r+\gamma Q(s',\pi(s'))]$ for all $(s,a)$ until Δ &lt; θ. <strong>Improvement</strong>: $\pi(s)\leftarrow\argmax_aQ(s,a)$; if unchanged for all $s$, stop. Note improvement needs <em>no model</em> once Q is known — this is why later model-free control methods learn Q.</p></div></details>
+  <details><summary>Ex 4.6 — If restricted to ε-soft policies, what changes in steps 3, 2, 1 of policy iteration?</summary><div class="ans"><p><strong>Step 3</strong>: improvement makes π ε-greedy: each action gets $\varepsilon/|\mathcal A(s)|$, the greedy action gets the rest $1-\varepsilon+\varepsilon/|\mathcal A(s)|$. <strong>Step 2</strong>: evaluation must use the stochastic policy: $V(s)\leftarrow\sum_a\pi(a|s)\sum p[r+\gamma V(s')]$. <strong>Step 1</strong>: initialise π to any ε-soft policy. (The result is the best ε-soft policy, cf. §5.4.)</p></div></details>
+  <details><summary>Why does the in-place version of policy evaluation usually converge faster than the two-array version?</summary><div class="ans"><p>It uses newly computed values immediately within the same sweep, so information propagates further per sweep. The order of updates then matters.</p></div></details>
+  <details><summary>State the policy improvement theorem and explain why policy iteration terminates.</summary><div class="ans"><p>If $q_\pi(s,\pi'(s))\ge v_\pi(s)\ \forall s$, then $v_{\pi'}\ge v_\pi$. Greedy improvement satisfies this; each new policy is strictly better unless optimal; finitely many deterministic policies ⇒ finite termination.</p></div></details>
+  <details><summary>What exactly is the difference between the policy-evaluation update and the value-iteration update?</summary><div class="ans"><p>PE averages over actions with π(a|s); VI takes the max over actions. Everything else is identical.</p></div></details>
+  <details><summary>What two conditions must asynchronous DP satisfy to converge?</summary><div class="ans"><p>Updates may be in any order, but every state must continue to be updated (infinitely often in the limit); for single-state async VI, $0\le\gamma&lt;1$ (undiscounted episodic needs care with ordering).</p></div></details>
+  <details><summary>Define GPI and explain "competing and cooperating".</summary><div class="ans"><p>GPI: any interleaving of evaluation (V → $v_\pi$) and improvement (π → greedy(V)). They compete: improving π makes V wrong for the new π; evaluating makes π no longer greedy. They cooperate: jointly they converge to the unique fixed point where π is greedy w.r.t. its own value — optimal.</p></div></details>
+  <details><summary>Why is DP said to be exponentially faster than direct policy search?</summary><div class="ans"><p>DP is polynomial in $n$ and $k$; direct search must examine up to $k^n$ policies for the same guarantee.</p></div></details>
+  <details><summary>What two properties of DP do MC and TD methods each drop?</summary><div class="ans"><p>DP needs a model and bootstraps. MC needs no model and does not bootstrap. TD needs no model but bootstraps.</p></div></details>
+</div>
+
+</main>
+
+<script>
+document.addEventListener("rl:ready", function () {
+  const $ = (id) => document.getElementById(id);
+
+  /* 4x4 gridworld, states 0..15, terminal at 0 and 15 */
+  const ARROWS = ["↑", "↓", "→", "←"], MV = [[-1, 0], [1, 0], [0, 1], [0, -1]];
+  const term = (s) => s === 0 || s === 15;
+  const next = (s, a) => { const r = Math.floor(s / 4), c = s % 4; const nr = r + MV[a][0], nc = c + MV[a][1]; return nr < 0 || nr > 3 || nc < 0 || nc > 3 ? s : nr * 4 + nc; };
+  function evalSeq(mode, K) {
+    const seq = [new Array(16).fill(0)];
+    let V = new Array(16).fill(0);
+    for (let k = 1; k <= K; k++) {
+      const src = mode === "two" ? V.slice() : V;
+      const W = mode === "two" ? V.slice() : V;
+      for (let s = 0; s < 16; s++) {
+        if (term(s)) continue;
+        let v = 0; for (let a = 0; a < 4; a++) v += 0.25 * (-1 + src[next(s, a)]);
+        W[s] = v;
+      }
+      V = W; seq.push(V.slice());
+    }
+    return seq;
+  }
+  function sweepsToConverge(mode) {
+    let V = new Array(16).fill(0), k = 0;
+    while (true) {
+      k++; let d = 0; const src = mode === "two" ? V.slice() : V;
+      for (let s = 0; s < 16; s++) { if (term(s)) continue; let v = 0; for (let a = 0; a < 4; a++) v += 0.25 * (-1 + src[next(s, a)]); d = Math.max(d, Math.abs(v - V[s])); V[s] = v; }
+      if (d < 1e-4) return k;
+    }
+  }
+  const conv = { two: sweepsToConverge("two"), inplace: sweepsToConverge("inplace") };
+  const cache = { two: evalSeq("two", 200), inplace: evalSeq("inplace", 200) };
+  function drawPE() {
+    const k = +$("pe-k").value, mode = $("pe-mode").value, V = cache[mode][k];
+    $("pe-k-v").textContent = k === 200 ? "∞ (200)" : k;
+    let hv = "", hp = "", optimal = true;
+    for (let s = 0; s < 16; s++) {
+      if (term(s)) { hv += '<div class="cell term">0.0</div>'; hp += '<div class="cell term"></div>'; continue; }
+      hv += '<div class="cell">' + (Math.abs(V[s]) >= 10 ? V[s].toFixed(0) : V[s].toFixed(1)) + "</div>";
+      const qs = [0, 1, 2, 3].map((a) => V[next(s, a)]);
+      const m = Math.max(...qs);
+      const best = qs.map((q, a) => (Math.abs(q - m) < 1e-9 ? ARROWS[a] : "")).join("");
+      hp += '<div class="cell" style="font-size:16px;font-family:var(--font);color:var(--accent)">' + best + "</div>";
+      // optimal iff every greedy action reduces Manhattan distance to a corner
+      const r = Math.floor(s / 4), c = s % 4, dist = (x) => Math.min(Math.floor(x / 4) + (x % 4), (3 - Math.floor(x / 4)) + (3 - (x % 4)));
+      [0, 1, 2, 3].forEach((a) => { if (Math.abs(qs[a] - m) < 1e-9 && !(dist(next(s, a)) < dist(s) || term(next(s, a)))) optimal = false; });
+    }
+    $("pe-v").innerHTML = hv; $("pe-p").innerHTML = hp;
+    $("pe-out").innerHTML = "<p>Greedy policy at k = " + k + " is " + (optimal ? "<strong>optimal</strong>" : "<strong>not yet optimal</strong>") + ".</p>" +
+      "<p>Sweeps to converge (θ = 10⁻⁴): two-array <strong>" + conv.two + "</strong>, in-place <strong>" + conv.inplace + "</strong>.</p>" +
+      "<p class='muted'>In-place uses fresh values within a sweep, so it converges in fewer sweeps.</p>";
+  }
+  $("pe-k").addEventListener("input", drawPE); $("pe-mode").addEventListener("change", drawPE);
+  document.querySelectorAll("#pe-demo [data-k]").forEach((b) => b.addEventListener("click", () => { $("pe-k").value = b.dataset.k; drawPE(); }));
+  drawPE();
+
+  /* gambler's problem */
+  function gambler(ph, theta) {
+    const V = new Float64Array(101); V[100] = 1;
+    const snaps = [], sweepsToKeep = [1, 2, 3];
+    let sweep = 0;
+    while (true) {
+      sweep++; let d = 0;
+      for (let s = 1; s < 100; s++) {
+        let best = 0;
+        for (let a = 1; a <= Math.min(s, 100 - s); a++) { const q = ph * V[s + a] + (1 - ph) * V[s - a]; if (q > best) best = q; }
+        d = Math.max(d, Math.abs(best - V[s])); V[s] = best;
+      }
+      if (sweepsToKeep.includes(sweep)) snaps.push({ sweep, v: Array.from(V) });
+      if (d < theta || sweep > 10000) break;
+    }
+    snaps.push({ sweep, v: Array.from(V), final: true });
+    const pol = new Array(101).fill(null);
+    for (let s = 1; s < 100; s++) {
+      let bq = -1, ba = 0;
+      for (let a = 1; a <= Math.min(s, 100 - s); a++) { const q = ph * V[s + a] + (1 - ph) * V[s - a]; if (q > bq + 1e-9) { bq = q; ba = a; } }
+      pol[s] = ba;
+    }
+    return { snaps, pol, sweeps: sweep };
+  }
+  function drawPolicy(el, pol) {
+    const W = 720, H = 220, m = { l: 52, r: 16, t: 10, b: 36 };
+    const maxA = Math.max(...pol.filter((v) => v != null), 1);
+    const X = (s) => m.l + ((s - 0.5) / 100) * (W - m.l - m.r), bw = (W - m.l - m.r) / 100 - 1;
+    const Y = (v) => m.t + (1 - v / maxA) * (H - m.t - m.b);
+    const ticks = RL.niceTicks(0, maxA, 5);
+    let g = ticks.map((t) => '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + Y(t) + '" y2="' + Y(t) + '" stroke="var(--grid)"/><text x="' + (m.l - 8) + '" y="' + (Y(t) + 4) + '" text-anchor="end" font-size="11" fill="var(--text-3)">' + t + "</text>").join("");
+    g += [1, 25, 50, 75, 99].map((s) => '<text x="' + (X(s) + bw / 2) + '" y="' + (H - m.b + 16) + '" text-anchor="middle" font-size="11" fill="var(--text-3)">' + s + "</text>").join("");
+    g += '<text x="' + ((m.l + W - m.r) / 2) + '" y="' + (H - 4) + '" text-anchor="middle" font-size="12" fill="var(--text-2)">Capital</text>';
+    g += '<text transform="translate(13,' + ((m.t + H - m.b) / 2) + ') rotate(-90)" text-anchor="middle" font-size="12" fill="var(--text-2)">Stake</text>';
+    let bars = "";
+    for (let s = 1; s < 100; s++) { const v = pol[s]; const y = Y(v), h = H - m.b - y; bars += '<rect x="' + X(s) + '" y="' + y + '" width="' + Math.max(1, bw) + '" height="' + h + '" rx="1" fill="var(--s1)"><title>capital ' + s + ": stake " + v + "</title></rect>"; }
+    el.classList.add("chart");
+    el.innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '">' + g + bars + "</svg>";
+  }
+  function drawGb() {
+    const ph = +$("gb-p").value; $("gb-p-v").textContent = ph.toFixed(2);
+    const r = gambler(ph, +$("gb-t").value);
+    const x = Array.from({ length: 99 }, (_, i) => i + 1);
+    const colors = ["var(--s3)", "var(--s2)", "var(--s7)", "var(--s1)"];
+    RL.lineChart($("gb-v"), {
+      x, xLabel: "Capital", yLabel: "Value (P(win))", yMin: 0, yMax: 1, height: 260, xTicks: [1, 25, 50, 75, 99], yFmt: (v) => v.toFixed(1),
+      series: r.snaps.map((sn, i) => ({ name: sn.final ? "final (sweep " + sn.sweep + ")" : "sweep " + sn.sweep, color: colors[i % 4], y: sn.v.slice(1, 100) })),
+    });
+    drawPolicy($("gb-pol"), r.pol);
+    $("gb-out").innerHTML = "Converged in <strong>" + r.sweeps + "</strong> sweeps. " + (ph < 0.5 ? "Unfavourable coin → bold play: big stakes, spikes at 25/50/75." : ph > 0.5 ? "Favourable coin → timid play: stake 1 is (near-)optimal almost everywhere." : "Fair coin: every policy that never stakes 0 is optimal (values are linear).");
+  }
+  $("gb-p").addEventListener("input", drawGb); $("gb-t").addEventListener("change", drawGb);
+  drawGb();
+});
+</script>
+</body>
+</html>
