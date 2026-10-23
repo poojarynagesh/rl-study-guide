@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formula sheet — RL Study Guide</title>
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="assets/search-index.js"></script>
+<script defer src="assets/site.js"></script>
+<style>
+  .fs { display: grid; grid-template-columns: minmax(170px, 0.9fr) 2.4fr 96px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); margin: 10px 0 18px; }
+  .fs > div { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 14px; overflow-x: auto; }
+  .fs > div:nth-last-child(-n+3) { border-bottom: 0; }
+  .fs .k { font-weight: 600; color: var(--text-2); }
+  .fs .r { font-family: var(--mono); font-size: 12px; color: var(--text-3); text-align: right; }
+  .fs .katex { font-size: 1.02em; }
+  @media (max-width: 700px) { .fs { grid-template-columns: 1fr; } .fs .r { text-align: left; } .fs > div { border-bottom: 0; } .fs .r { border-bottom: 1px solid var(--border) !important; } }
+  @media print { .fs { break-inside: auto; } h2 { break-after: avoid; margin-top: 18px; } }
+</style>
+</head>
+<body data-page="formulas" data-root=".">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Revision</div>
+  <h1>Formula sheet</h1>
+  <p class="lead">All key equations of Chapters 2–9 with their book numbers. Print with <kbd>Ctrl</kbd>+<kbd>P</kbd>.</p>
+</div>
+
+<h2 id="general">General</h2>
+<div class="fs">
+  <div class="k">Incremental rule</div><div>$\textit{New}\leftarrow\textit{Old}+\textit{StepSize}\,[\textit{Target}-\textit{Old}]$</div><div class="r">2.4</div>
+  <div class="k">Step-size conditions</div><div>$\sum_n\alpha_n=\infty,\quad\sum_n\alpha_n^2\lt\infty$</div><div class="r">2.7</div>
+  <div class="k">Return</div><div>$G_t=\sum_{k=0}^\infty\gamma^kR_{t+k+1}=R_{t+1}+\gamma G_{t+1}$</div><div class="r">3.8, 3.9</div>
+  <div class="k">Unified return</div><div>$G_t=\sum_{k=t+1}^{T}\gamma^{k-t-1}R_k$</div><div class="r">3.11</div>
+</div>
+
+<h2 id="ch2">Chapter 2 — Bandits</h2>
+<div class="fs">
+  <div class="k">Action value</div><div>$q_*(a)=\E[R_t\mid A_t=a]$</div><div class="r">§2.1</div>
+  <div class="k">Sample average</div><div>$Q_t(a)=\dfrac{\sum_{i\lt t}R_i\mathbb 1_{A_i=a}}{\sum_{i\lt t}\mathbb 1_{A_i=a}}$</div><div class="r">2.1</div>
+  <div class="k">Greedy</div><div>$A_t=\argmax_aQ_t(a)$; ε-greedy picks greedy w.p. $1-\varepsilon+\varepsilon/k$</div><div class="r">2.2</div>
+  <div class="k">Incremental mean</div><div>$Q_{n+1}=Q_n+\frac1n[R_n-Q_n]$</div><div class="r">2.3</div>
+  <div class="k">Constant α</div><div>$Q_{n+1}=Q_n+\alpha[R_n-Q_n]=(1-\alpha)^nQ_1+\sum_{i=1}^n\alpha(1-\alpha)^{n-i}R_i$</div><div class="r">2.5, 2.6</div>
+  <div class="k">Unbiased constant step</div><div>$\beta_n=\alpha/\bar o_n,\ \ \bar o_n=\bar o_{n-1}+\alpha(1-\bar o_{n-1}),\ \bar o_0=0$</div><div class="r">2.8, 2.9</div>
+  <div class="k">UCB</div><div>$A_t=\argmax_a\Big[Q_t(a)+c\sqrt{\ln t/N_t(a)}\Big]$</div><div class="r">2.10</div>
+  <div class="k">Soft-max</div><div>$\pi_t(a)=e^{H_t(a)}/\sum_be^{H_t(b)}$</div><div class="r">2.11</div>
+  <div class="k">Gradient bandit</div><div>$H_{t+1}(a)=H_t(a)+\alpha(R_t-\bar R_t)(\mathbb 1_{a=A_t}-\pi_t(a))$</div><div class="r">2.12</div>
+</div>
+
+<h2 id="ch3">Chapter 3 — Finite MDPs</h2>
+<div class="fs">
+  <div class="k">Dynamics</div><div>$p(s',r\mid s,a)=\Pr\{S_t=s',R_t=r\mid S_{t-1}=s,A_{t-1}=a\}$</div><div class="r">3.2</div>
+  <div class="k">Derived quantities</div><div>$p(s'|s,a)=\sum_rp(s',r|s,a)$, $\ r(s,a)=\sum_rr\sum_{s'}p(s',r|s,a)$</div><div class="r">3.4, 3.5</div>
+  <div class="k">Constant reward</div><div>$\sum_k\gamma^k=1/(1-\gamma)$</div><div class="r">3.10</div>
+  <div class="k">State value</div><div>$v_\pi(s)=\E_\pi[G_t\mid S_t=s]$</div><div class="r">3.12</div>
+  <div class="k">Action value</div><div>$q_\pi(s,a)=\E_\pi[G_t\mid S_t=s,A_t=a]$</div><div class="r">3.13</div>
+  <div class="k">v ↔ q</div><div>$v_\pi(s)=\sum_a\pi(a|s)q_\pi(s,a)$; $\ q_\pi(s,a)=\sum_{s',r}p(s',r|s,a)[r+\gamma v_\pi(s')]$</div><div class="r">Ex 3.12–13</div>
+  <div class="k">Bellman for $v_\pi$</div><div>$v_\pi(s)=\sum_a\pi(a|s)\sum_{s',r}p(s',r|s,a)[r+\gamma v_\pi(s')]$</div><div class="r">3.14</div>
+  <div class="k">Bellman for $q_\pi$</div><div>$q_\pi(s,a)=\sum_{s',r}p(s',r|s,a)[r+\gamma\sum_{a'}\pi(a'|s')q_\pi(s',a')]$</div><div class="r">Ex 3.17</div>
+  <div class="k">Optimal values</div><div>$v_*(s)=\max_\pi v_\pi(s)$, $\ q_*(s,a)=\max_\pi q_\pi(s,a)=\E[R_{t+1}+\gamma v_*(S_{t+1})\mid s,a]$</div><div class="r">3.15–3.17</div>
+  <div class="k">Bellman optimality $v_*$</div><div>$v_*(s)=\max_a\sum_{s',r}p(s',r|s,a)[r+\gamma v_*(s')]$</div><div class="r">3.19</div>
+  <div class="k">Bellman optimality $q_*$</div><div>$q_*(s,a)=\sum_{s',r}p(s',r|s,a)[r+\gamma\max_{a'}q_*(s',a')]$</div><div class="r">3.20</div>
+  <div class="k">Optimal policy</div><div>$\pi_*(s)=\argmax_aq_*(s,a)$; $\ v_*(s)=\max_aq_*(s,a)$</div><div class="r">Ex 3.25–27</div>
+  <div class="k">Reward shift (continuing)</div><div>$v_c=c/(1-\gamma)$ added to every value</div><div class="r">Ex 3.15</div>
+</div>
+
+<h2 id="ch4">Chapter 4 — Dynamic programming</h2>
+<div class="fs">
+  <div class="k">Policy evaluation</div><div>$v_{k+1}(s)=\sum_a\pi(a|s)\sum_{s',r}p(s',r|s,a)[r+\gamma v_k(s')]$</div><div class="r">4.5</div>
+  <div class="k">Deviate once</div><div>$q_\pi(s,a)=\sum_{s',r}p(s',r|s,a)[r+\gamma v_\pi(s')]$</div><div class="r">4.6</div>
+  <div class="k">Improvement theorem</div><div>$q_\pi(s,\pi'(s))\ge v_\pi(s)\ \forall s\ \Rightarrow\ v_{\pi'}(s)\ge v_\pi(s)\ \forall s$</div><div class="r">4.7, 4.8</div>
+  <div class="k">Greedy improvement</div><div>$\pi'(s)=\argmax_a\sum_{s',r}p(s',r|s,a)[r+\gamma v_\pi(s')]$</div><div class="r">4.9</div>
+  <div class="k">Value iteration</div><div>$v_{k+1}(s)=\max_a\sum_{s',r}p(s',r|s,a)[r+\gamma v_k(s')]$</div><div class="r">4.10</div>
+  <div class="k">Q value iteration</div><div>$q_{k+1}(s,a)=\sum_{s',r}p(s',r|s,a)[r+\gamma\max_{a'}q_k(s',a')]$</div><div class="r">Ex 4.10</div>
+</div>
+
+<h2 id="ch5">Chapter 5 — Monte Carlo</h2>
+<div class="fs">
+  <div class="k">Greedy from q</div><div>$\pi(s)=\argmax_aq(s,a)$</div><div class="r">5.1</div>
+  <div class="k">ε-greedy improvement</div><div>$q_\pi(s,\pi'(s))=\frac{\varepsilon}{|\mathcal A|}\sum_aq_\pi(s,a)+(1-\varepsilon)\max_aq_\pi(s,a)\ge v_\pi(s)$</div><div class="r">5.2</div>
+  <div class="k">IS ratio</div><div>$\rho_{t:T-1}=\prod_{k=t}^{T-1}\dfrac{\pi(A_k|S_k)}{b(A_k|S_k)}$</div><div class="r">5.3</div>
+  <div class="k">IS expectation</div><div>$\E[\rho_{t:T-1}G_t\mid S_t=s]=v_\pi(s)$</div><div class="r">5.4</div>
+  <div class="k">Ordinary IS</div><div>$V(s)=\sum_{t\in\mathcal T(s)}\rho_{t:T(t)-1}G_t\,/\,|\mathcal T(s)|$</div><div class="r">5.5</div>
+  <div class="k">Weighted IS</div><div>$V(s)=\sum_{t\in\mathcal T(s)}\rho_{t:T(t)-1}G_t\,/\,\sum_{t\in\mathcal T(s)}\rho_{t:T(t)-1}$</div><div class="r">5.6</div>
+  <div class="k">Incremental weighted</div><div>$V_{n+1}=V_n+\frac{W_n}{C_n}[G_n-V_n],\ \ C_{n+1}=C_n+W_{n+1}$</div><div class="r">5.8</div>
+  <div class="k">Per-decision IS</div><div>$\tilde G_t=\rho_{t:t}R_{t+1}+\gamma\rho_{t:t+1}R_{t+2}+\dots+\gamma^{T-t-1}\rho_{t:T-1}R_T$</div><div class="r">5.14–15</div>
+  <div class="k">Flat partial return</div><div>$\bar G_{t:h}=R_{t+1}+\dots+R_h$; $\ G_t=(1-\gamma)\sum_{h=t+1}^{T-1}\gamma^{h-t-1}\bar G_{t:h}+\gamma^{T-t-1}\bar G_{t:T}$</div><div class="r">§5.8</div>
+</div>
+
+<h2 id="ch6">Chapter 6 — TD learning</h2>
+<div class="fs">
+  <div class="k">Constant-α MC</div><div>$V(S_t)\leftarrow V(S_t)+\alpha[G_t-V(S_t)]$</div><div class="r">6.1</div>
+  <div class="k">TD(0)</div><div>$V(S_t)\leftarrow V(S_t)+\alpha[R_{t+1}+\gamma V(S_{t+1})-V(S_t)]$</div><div class="r">6.2</div>
+  <div class="k">TD error</div><div>$\delta_t=R_{t+1}+\gamma V(S_{t+1})-V(S_t)$</div><div class="r">6.5</div>
+  <div class="k">MC error = Σ TD errors</div><div>$G_t-V(S_t)=\sum_{k=t}^{T-1}\gamma^{k-t}\delta_k$ (V fixed)</div><div class="r">6.6</div>
+  <div class="k">Sarsa</div><div>$Q(S_t,A_t)\leftarrow Q+\alpha[R_{t+1}+\gamma Q(S_{t+1},A_{t+1})-Q(S_t,A_t)]$</div><div class="r">6.7</div>
+  <div class="k">Q-learning</div><div>$Q(S_t,A_t)\leftarrow Q+\alpha[R_{t+1}+\gamma\max_aQ(S_{t+1},a)-Q(S_t,A_t)]$</div><div class="r">6.8</div>
+  <div class="k">Expected Sarsa</div><div>$Q(S_t,A_t)\leftarrow Q+\alpha[R_{t+1}+\gamma\sum_a\pi(a|S_{t+1})Q(S_{t+1},a)-Q(S_t,A_t)]$</div><div class="r">6.9</div>
+  <div class="k">Double Q-learning</div><div>$Q_1(S_t,A_t)\leftarrow Q_1+\alpha[R_{t+1}+\gamma Q_2(S_{t+1},\argmax_aQ_1(S_{t+1},a))-Q_1(S_t,A_t)]$</div><div class="r">6.10</div>
+  <div class="k">Off-policy TD(0)</div><div>$V(S_t)\leftarrow V(S_t)+\alpha\rho_{t:t}[R_{t+1}+\gamma V(S_{t+1})-V(S_t)]$</div><div class="r">Ex 6.7</div>
+</div>
+
+<h2 id="ch7">Chapter 7 — n-step bootstrapping</h2>
+<div class="fs">
+  <div class="k">n-step return</div><div>$G_{t:t+n}=R_{t+1}+\gamma R_{t+2}+\dots+\gamma^{n-1}R_{t+n}+\gamma^nV_{t+n-1}(S_{t+n})$</div><div class="r">7.1</div>
+  <div class="k">n-step TD</div><div>$V_{t+n}(S_t)=V_{t+n-1}(S_t)+\alpha[G_{t:t+n}-V_{t+n-1}(S_t)]$</div><div class="r">7.2</div>
+  <div class="k">Error reduction</div><div>$\max_s|\E_\pi[G_{t:t+n}|S_t=s]-v_\pi(s)|\le\gamma^n\max_s|V_{t+n-1}(s)-v_\pi(s)|$</div><div class="r">7.3</div>
+  <div class="k">n-step Sarsa return</div><div>$G_{t:t+n}=R_{t+1}+\dots+\gamma^{n-1}R_{t+n}+\gamma^nQ_{t+n-1}(S_{t+n},A_{t+n})$</div><div class="r">7.4, 7.5</div>
+  <div class="k">n-step Expected Sarsa</div><div>$G_{t:t+n}=R_{t+1}+\dots+\gamma^{n-1}R_{t+n}+\gamma^n\bar V_{t+n-1}(S_{t+n})$, $\ \bar V(s)=\sum_a\pi(a|s)Q(s,a)$</div><div class="r">7.7, 7.8</div>
+  <div class="k">Off-policy n-step TD</div><div>$V(S_t)\leftarrow V(S_t)+\alpha\rho_{t:t+n-1}[G_{t:t+n}-V(S_t)]$</div><div class="r">7.9</div>
+  <div class="k">IS ratio span</div><div>$\rho_{t:h}=\prod_{k=t}^{\min(h,T-1)}\pi(A_k|S_k)/b(A_k|S_k)$</div><div class="r">7.10</div>
+  <div class="k">Off-policy n-step Sarsa</div><div>$Q(S_t,A_t)\leftarrow Q+\alpha\rho_{t+1:t+n}[G_{t:t+n}-Q(S_t,A_t)]$</div><div class="r">7.11</div>
+  <div class="k">Control variate (v)</div><div>$G_{t:h}=\rho_t(R_{t+1}+\gamma G_{t+1:h})+(1-\rho_t)V_{h-1}(S_t)$</div><div class="r">7.13</div>
+  <div class="k">Control variate (q)</div><div>$G_{t:h}=R_{t+1}+\gamma\rho_{t+1}(G_{t+1:h}-Q_{h-1}(S_{t+1},A_{t+1}))+\gamma\bar V_{h-1}(S_{t+1})$</div><div class="r">7.14</div>
+  <div class="k">Tree backup</div><div>$G_{t:t+n}=R_{t+1}+\gamma\sum_{a\ne A_{t+1}}\pi(a|S_{t+1})Q(S_{t+1},a)+\gamma\pi(A_{t+1}|S_{t+1})G_{t+1:t+n}$</div><div class="r">7.16</div>
+  <div class="k">Q(σ)</div><div>$G_{t:h}=R_{t+1}+\gamma(\sigma_{t+1}\rho_{t+1}+(1-\sigma_{t+1})\pi(A_{t+1}|S_{t+1}))(G_{t+1:h}-Q_{h-1}(S_{t+1},A_{t+1}))+\gamma\bar V_{h-1}(S_{t+1})$</div><div class="r">7.17</div>
+</div>
+
+<h2 id="ch9">Chapter 9 — On-policy prediction with approximation</h2>
+<div class="fs">
+  <div class="k">Value error</div><div>$\overline{\mathrm{VE}}(\mathbf w)=\sum_s\mu(s)[v_\pi(s)-\hat v(s,\mathbf w)]^2$</div><div class="r">9.1</div>
+  <div class="k">On-policy distribution</div><div>$\eta(s)=h(s)+\sum_{\bar s}\eta(\bar s)\sum_a\pi(a|\bar s)p(s|\bar s,a)$, $\ \mu(s)=\eta(s)/\sum_{s'}\eta(s')$</div><div class="r">9.2, 9.3</div>
+  <div class="k">SGD</div><div>$\mathbf w_{t+1}=\mathbf w_t+\alpha[v_\pi(S_t)-\hat v(S_t,\mathbf w_t)]\nabla\hat v(S_t,\mathbf w_t)$</div><div class="r">9.5</div>
+  <div class="k">General SGD target</div><div>$\mathbf w_{t+1}=\mathbf w_t+\alpha[U_t-\hat v(S_t,\mathbf w_t)]\nabla\hat v(S_t,\mathbf w_t)$</div><div class="r">9.7</div>
+  <div class="k">Linear</div><div>$\hat v(s,\mathbf w)=\mathbf w^\top\mathbf x(s)$, $\ \nabla\hat v=\mathbf x(s)$</div><div class="r">9.8</div>
+  <div class="k">Linear TD(0)</div><div>$\mathbf w_{t+1}=\mathbf w_t+\alpha(R_{t+1}+\gamma\mathbf w_t^\top\mathbf x_{t+1}-\mathbf w_t^\top\mathbf x_t)\mathbf x_t$</div><div class="r">9.9</div>
+  <div class="k">A and b</div><div>$\mathbf A=\E[\mathbf x_t(\mathbf x_t-\gamma\mathbf x_{t+1})^\top]$, $\ \mathbf b=\E[R_{t+1}\mathbf x_t]$</div><div class="r">9.11</div>
+  <div class="k">TD fixed point</div><div>$\mathbf w_{TD}=\mathbf A^{-1}\mathbf b$</div><div class="r">9.12</div>
+  <div class="k">Error bound</div><div>$\overline{\mathrm{VE}}(\mathbf w_{TD})\le\frac1{1-\gamma}\min_\mathbf w\overline{\mathrm{VE}}(\mathbf w)$</div><div class="r">9.14</div>
+  <div class="k">n-step semi-gradient</div><div>$\mathbf w_{t+n}=\mathbf w_{t+n-1}+\alpha[G_{t:t+n}-\hat v(S_t,\mathbf w_{t+n-1})]\nabla\hat v(S_t,\mathbf w_{t+n-1})$</div><div class="r">9.15</div>
+  <div class="k">Polynomial basis</div><div>$x_i(s)=\prod_{j=1}^ks_j^{c_{i,j}}$, $\ (n+1)^k$ features</div><div class="r">9.17</div>
+  <div class="k">Fourier basis</div><div>$x_i(s)=\cos(\pi\,\mathbf s^\top\mathbf c^i)$; $\ \alpha_i=\alpha/\|\mathbf c^i\|$</div><div class="r">9.18</div>
+  <div class="k">RBF</div><div>$x_i(s)=\exp(-\|s-c_i\|^2/2\sigma_i^2)$</div><div class="r">§9.5.5</div>
+  <div class="k">Step-size rule</div><div>$\alpha=(\tau\E[\mathbf x^\top\mathbf x])^{-1}$; tile coding: $\alpha=1/(\tau n)$</div><div class="r">9.19</div>
+  <div class="k">LSTD</div><div>$\hat{\mathbf A}_t=\sum_k\mathbf x_k(\mathbf x_k-\gamma\mathbf x_{k+1})^\top+\varepsilon\mathbf I$, $\ \hat{\mathbf b}_t=\sum_kR_{k+1}\mathbf x_k$, $\ \mathbf w_t=\hat{\mathbf A}_t^{-1}\hat{\mathbf b}_t$</div><div class="r">9.20, 9.21</div>
+  <div class="k">Kernel regression</div><div>$\hat v(s,\mathcal D)=\sum_{s'\in\mathcal D}k(s,s')g(s')$; linear ⇔ $k(s,s')=\mathbf x(s)^\top\mathbf x(s')$</div><div class="r">9.23, 9.24</div>
+  <div class="k">Emphatic update</div><div>$\mathbf w_{t+n}=\mathbf w_{t+n-1}+\alpha M_t[G_{t:t+n}-\hat v(S_t)]\nabla\hat v(S_t)$, $\ M_t=I_t+\gamma^nM_{t-n}$</div><div class="r">9.25, 9.26</div>
+</div>
+
+</main>
+</body>
+</html>

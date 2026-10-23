@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mixed exam practice — RL Study Guide</title>
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="assets/search-index.js"></script>
+<script defer src="assets/site.js"></script>
+</head>
+<body data-page="quiz" data-root=".">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Revision</div>
+  <h1>Mixed exam practice</h1>
+  <p class="lead">Cross-chapter questions in the styles examiners use: numerical updates worked by hand, true/false with justification, compare-and-contrast, and "explain why". Attempt each before revealing the model answer.</p>
+</div>
+
+<h2 id="numerical">A. Numerical problems</h2>
+<div class="quiz">
+  <details><summary>[Ch 2] Constant step size: $Q_n=2$, α = 0.25, new reward $R_n=4$. What is $Q_{n+1}$?</summary><div class="ans"><p>$Q_{n+1}=2+0.25(4-2)=\mathbf{2.5}$.</p></div></details>
+  <details><summary>[Ch 2] With α = 0.2, what weight does the reward received 3 steps ago carry in the current estimate?</summary><div class="ans"><p>$\alpha(1-\alpha)^3=0.2\times0.8^3=\mathbf{0.1024}$. (Most recent reward: 0.2; initial estimate after $n$ updates: $0.8^n$.)</p></div></details>
+  <details><summary>[Ch 2] k = 5 actions, ε = 0.2. Probability of selecting the greedy action? A particular non-greedy action?</summary><div class="ans"><p>Greedy: $1-0.2+0.2/5=\mathbf{0.84}$. Each non-greedy: $0.2/5=\mathbf{0.04}$. (Check: $0.84+4\times0.04=1$.)</p></div></details>
+  <details><summary>[Ch 2] UCB with c = 2 at t = 10: $Q=(1.0,1.2)$, $N=(6,3)$. Which action is selected?</summary><div class="ans"><p>$\ln10=2.3026$. Action 1: $1.0+2\sqrt{2.3026/6}=1.0+2(0.6195)=2.239$. Action 2: $1.2+2\sqrt{2.3026/3}=1.2+2(0.8761)=2.952$. Select <strong>action 2</strong> (higher value <em>and</em> more uncertain).</p></div></details>
+  <details><summary>[Ch 2] Gradient bandit, 2 actions, $H=(0,0)$, α = 0.1, baseline $\bar R=0.5$. Action 1 is taken, $R=1$. New preferences?</summary><div class="ans"><p>$\pi=(0.5,0.5)$. $H(1)\leftarrow0+0.1(1-0.5)(1-0.5)=0.025$; $H(2)\leftarrow0-0.1(1-0.5)(0.5)=-0.025$. So $H=(\mathbf{0.025},\mathbf{-0.025})$.</p></div></details>
+  <details><summary>[Ch 3] γ = 0.9, rewards $R_1=1, R_2=0, R_3=10$, then termination. Compute $G_0, G_1, G_2$.</summary><div class="ans"><p>$G_3=0$; $G_2=10$; $G_1=0+0.9(10)=9$; $G_0=1+0.9(9)=\mathbf{9.1}$.</p></div></details>
+  <details><summary>[Ch 3] Effective horizon for γ = 0.95? Value of a constant reward +2 forever?</summary><div class="ans"><p>$1/(1-0.95)=\mathbf{20}$ steps. Value $=2/(1-0.95)=\mathbf{40}$.</p></div></details>
+  <details><summary>[Ch 4] 4×4 gridworld (Ex 4.1), random policy, $v_1=-1$ everywhere (non-terminal). Compute $v_2$ for state 1 (next to the top-left terminal).</summary><div class="ans"><p>Actions: left → terminal (0), up → stays (−1), right → state 2 (−1), down → state 5 (−1). $v_2(1)=\tfrac14\sum(-1+v_1(s'))=\tfrac14[(-1+0)+3(-1-1)]=\tfrac14(-7)=\mathbf{-1.75}$ (Fig 4.1 shows −1.7).</p></div></details>
+  <details><summary>[Ch 5] Two returns from state s: $G=2$ with ρ = 1 and $G=0$ with ρ = 3. Ordinary and weighted IS estimates?</summary><div class="ans"><p>Ordinary: $(1\cdot2+3\cdot0)/2=\mathbf{1}$. Weighted: $(1\cdot2+3\cdot0)/(1+3)=\mathbf{0.5}$.</p></div></details>
+  <details><summary>[Ch 5] Target π deterministic; behaviour $b$ took π's action at both steps with $b=0.25$ then $b=0.5$. Importance-sampling ratio? What if the second action differed from π's?</summary><div class="ans"><p>$\rho=\frac{1}{0.25}\cdot\frac{1}{0.5}=\mathbf 8$. If any action differs from π's choice, $\pi(A|S)=0$ ⇒ $\rho=\mathbf 0$.</p></div></details>
+  <details><summary>[Ch 6] TD(0): $V(s)=0.5$, $R=1$, γ = 0.9, $V(s')=2$, α = 0.1. TD error and new $V(s)$?</summary><div class="ans"><p>$\delta=1+0.9(2)-0.5=\mathbf{2.3}$; $V(s)=0.5+0.1(2.3)=\mathbf{0.73}$.</p></div></details>
+  <details><summary>[Ch 6] $Q(s,a)=1$, $R=-1$, γ = 1, α = 0.5. In $s'$: $Q(s',a_1)=2$, $Q(s',a_2)=5$; the behaviour policy (ε-greedy, ε = 0.2) actually picks $A'=a_1$. Compute the Sarsa, Q-learning and Expected Sarsa updates.</summary><div class="ans">
+    <p><strong>Sarsa</strong>: target $-1+2=1$ ⇒ $Q=1+0.5(1-1)=\mathbf{1}$.</p>
+    <p><strong>Q-learning</strong>: target $-1+\max(2,5)=4$ ⇒ $Q=1+0.5(3)=\mathbf{2.5}$.</p>
+    <p><strong>Expected Sarsa</strong>: with 2 actions and ε = 0.2, the greedy action $a_2$ has probability $1-0.2+0.2/2=0.9$ and $a_1$ has $0.1$. Expectation $0.1(2)+0.9(5)=4.7$; target 3.7 ⇒ $Q=1+0.5(2.7)=\mathbf{2.35}$.</p></div></details>
+  <details><summary>[Ch 7] n = 2, γ = 0.5: $R_{t+1}=1$, $R_{t+2}=2$, $V(S_{t+2})=4$. Compute $G_{t:t+2}$. If the episode had terminated at $t+2$?</summary><div class="ans"><p>$G_{t:t+2}=1+0.5(2)+0.25(4)=\mathbf 3$. If terminated at $t+2$, no bootstrap: $1+0.5(2)=\mathbf 2$.</p></div></details>
+  <details><summary>[Ch 9] Linear semi-gradient TD(0): $\mathbf x(s)=(1,0)$, $\mathbf x(s')=(0,1)$, $\mathbf w=(0.5,1)$, $R=0$, γ = 1, α = 0.1. New $\mathbf w$?</summary><div class="ans"><p>$\hat v(s)=0.5$, $\hat v(s')=1$, $\delta=0+1-0.5=0.5$; $\mathbf w\leftarrow\mathbf w+0.1(0.5)(1,0)=(\mathbf{0.55},\mathbf 1)$. Only the active feature's weight changes.</p></div></details>
+  <details><summary>[Ch 9] Tile coding with 10 tilings; you want each update to move the trained state's estimate one-tenth of the way to its target. α?</summary><div class="ans"><p>$\alpha=1/(\tau n)=1/(10\times10)=\mathbf{0.01}$.</p></div></details>
+  <details><summary>[Ch 9] γ = 0.9. By what factor can the $\overline{\mathrm{VE}}$ of linear TD's fixed point exceed the best possible?</summary><div class="ans"><p>$1/(1-\gamma)=\mathbf{10}$.</p></div></details>
+</div>
+
+<h2 id="truefalse">B. True or false? (justify)</h2>
+<div class="quiz">
+  <details><summary>A sample-average step size is the best choice for nonstationary bandits.</summary><div class="ans"><p><strong>False.</strong> It weights all past rewards equally and adapts ever more slowly; constant α (recency weighting) tracks change.</p></div></details>
+  <details><summary>Constant-α TD(0) converges to $v_\pi$ with probability 1.</summary><div class="ans"><p><strong>False.</strong> With sufficiently small constant α it converges <em>in the mean</em>; w.p. 1 requires decreasing α satisfying (2.7).</p></div></details>
+  <details><summary>Optimistic initial values are an effective way to explore in nonstationary problems.</summary><div class="ans"><p><strong>False.</strong> Their drive to explore is temporary — "the beginning of time occurs only once".</p></div></details>
+  <details><summary>The UCB exploration bonus of an action that is not selected decreases over time.</summary><div class="ans"><p><strong>False.</strong> $t$ grows while $N_t(a)$ stays fixed, so $\sqrt{\ln t/N_t(a)}$ increases (slowly, but unboundedly).</p></div></details>
+  <details><summary>The baseline in the gradient bandit changes the expected update.</summary><div class="ans"><p><strong>False.</strong> Any action-independent baseline leaves the expected update equal to the gradient; it only affects variance.</p></div></details>
+  <details><summary>The optimal value function is unique but there can be several optimal policies.</summary><div class="ans"><p><strong>True.</strong> Ties among maximising actions give multiple optimal policies sharing $v_*$ and $q_*$.</p></div></details>
+  <details><summary>Value iteration performs a complete policy evaluation between improvements.</summary><div class="ans"><p><strong>False.</strong> That's policy iteration. Value iteration does one sweep with a max (truncated evaluation).</p></div></details>
+  <details><summary>Monte Carlo methods bootstrap.</summary><div class="ans"><p><strong>False.</strong> They use actual returns; each state's estimate is independent of others.</p></div></details>
+  <details><summary>Weighted importance sampling is unbiased.</summary><div class="ans"><p><strong>False.</strong> It is biased (bias → 0 asymptotically) but has much lower (bounded) variance than ordinary IS, which is unbiased.</p></div></details>
+  <details><summary>Q-learning needs importance sampling to learn off-policy.</summary><div class="ans"><p><strong>False.</strong> Its target uses $\max_aQ(S',a)$, not a sampled next action, so no ratio is needed.</p></div></details>
+  <details><summary>Expected Sarsa with a greedy target policy is Q-learning.</summary><div class="ans"><p><strong>True.</strong> $\sum_a\pi(a|S')Q(S',a)=\max_aQ(S',a)$ when π is greedy.</p></div></details>
+  <details><summary>Batch TD(0) minimises the mean-square error on the training data.</summary><div class="ans"><p><strong>False.</strong> Batch MC does; batch TD finds the certainty-equivalence estimate (maximum-likelihood model).</p></div></details>
+  <details><summary>Off-policy MC control learns from every step of every episode.</summary><div class="ans"><p><strong>False.</strong> It learns only from episode tails after the last non-greedy action (W becomes 0 / loop exits).</p></div></details>
+  <details><summary>Semi-gradient TD is stochastic gradient descent on $\overline{\mathrm{VE}}$.</summary><div class="ans"><p><strong>False.</strong> It ignores the dependence of the target on $\mathbf w$; it is only part of the gradient.</p></div></details>
+  <details><summary>With linear function approximation there is essentially a single optimum of $\overline{\mathrm{VE}}$.</summary><div class="ans"><p><strong>True.</strong> One optimum (or a set of equally good optima in degenerate cases), so local = global.</p></div></details>
+  <details><summary>In n-step TD, larger n always learns faster.</summary><div class="ans"><p><strong>False.</strong> Intermediate n is usually best; large n has high variance and needs small α (Fig 7.2).</p></div></details>
+</div>
+
+<h2 id="compare">C. Compare and contrast</h2>
+<div class="quiz">
+  <details><summary>Compare DP, Monte Carlo and TD on: model requirement, bootstrapping, sampling, and when they can update.</summary><div class="ans"><p><strong>DP</strong>: needs full model; bootstraps; expected (no sampling); sweeps. <strong>MC</strong>: no model; no bootstrapping; samples whole episodes; updates at episode end (episodic only). <strong>TD</strong>: no model; bootstraps; samples one step; updates every step (online, continuing tasks OK). TD combines MC's sampling with DP's bootstrapping.</p></div></details>
+  <details><summary>Contrast on-policy and off-policy learning. Give one algorithm of each from Chapters 5 and 6.</summary><div class="ans"><p>On-policy evaluates/improves the policy that generates the data (a compromise: learns the best policy that still explores). Off-policy learns a target policy π from data of a behaviour policy b (needs coverage; usually IS or max/expectation targets; higher variance; more general). Ch 5: on-policy first-visit MC control vs off-policy MC control (weighted IS). Ch 6: Sarsa vs Q-learning.</p></div></details>
+  <details><summary>Why does Sarsa outperform Q-learning online in cliff walking, even though Q-learning learns the optimal policy?</summary><div class="ans"><p>Sarsa's target includes its actual (ε-greedy) next action, so its values reflect the risk of exploratory falls; it chooses the safe path. Q-learning's values assume greedy future behaviour, so it walks the edge — but its behaviour is ε-greedy, so it occasionally steps off the cliff (−100). With ε → 0 both become optimal.</p></div></details>
+  <details><summary>Explain bias vs variance across TD(0), n-step TD and MC targets.</summary><div class="ans"><p>MC target $G_t$ is unbiased but its variance accumulates over every random reward/action to the end. TD(0) target $R+\gamma V(S')$ has low variance (one random step) but is biased by the current estimate $V$. n-step targets interpolate: more real rewards (less bias), more variance. Best usually in between.</p></div></details>
+  <details><summary>Compare ε-greedy, optimistic initial values, UCB and gradient bandits as exploration strategies.</summary><div class="ans"><p>ε-greedy: random, indiscriminate, simple, extends to full RL; caps optimal-action rate. Optimistic: deterministic early exploration via disappointment; temporary. UCB: deterministic, prefers uncertain near-greedy actions; best on the testbed but hard with nonstationarity/large states. Gradient: stochastic soft-max over preferences, SGA with baseline; invariant to reward shift. All show inverted-U parameter sensitivity.</p></div></details>
+  <details><summary>Contrast state aggregation, tile coding and Fourier features for a 1-D continuous state.</summary><div class="ans"><p>State aggregation: one tiling, piecewise constant (staircase), no generalisation between groups. Tile coding: several offset tilings — coarse coding with local, overlapping binary features, fine resolution ($w/n$), cheap, easy α; keeps improving past aggregation's plateau. Fourier: global smooth cosine features, good for smooth functions, ringing at discontinuities, per-feature α_i.</p></div></details>
+  <details><summary>Compare ordinary importance sampling, control variates and tree backup for multi-step off-policy learning.</summary><div class="ans"><p>Ordinary IS: multiply by ρ; unbiased but high variance (ρ products). Control variates: per-decision ratios plus $(1-\rho)V$ term — same expectation, lower variance, no shrink when ρ = 0. Tree backup: no ratios; weights future by π(A|S) and bootstraps on untaken actions — low variance but effective horizon short when π and b differ.</p></div></details>
+  <details><summary>Gradient MC vs semi-gradient TD with linear function approximation: where does each converge, and which learns faster?</summary><div class="ans"><p>Gradient MC: global minimum of $\overline{\mathrm{VE}}$ (decreasing α). Semi-gradient TD: TD fixed point $\mathbf A^{-1}\mathbf b$, with $\overline{\mathrm{VE}}\le\frac1{1-\gamma}\min$. TD usually learns faster (lower variance) but may end with larger asymptotic error.</p></div></details>
+</div>
+
+<h2 id="explain">D. Explain why…</h2>
+<div class="quiz">
+  <details><summary>…action values rather than state values are learned for model-free control.</summary><div class="ans"><p>Choosing actions from $v$ requires a one-step lookahead with the model $p(s',r|s,a)$; $q(s,a)$ ranks actions directly.</p></div></details>
+  <details><summary>…the importance-sampling ratio does not depend on the MDP's dynamics.</summary><div class="ans"><p>Both trajectory probabilities contain the same transition factors $p(S_{k+1}|S_k,A_k)$, which cancel.</p></div></details>
+  <details><summary>…an ε-greedy policy w.r.t. $q_\pi$ is at least as good as any ε-soft π.</summary><div class="ans"><p>$q_\pi(s,\pi'(s))=\frac{\varepsilon}{|\mathcal A|}\sum_aq_\pi+(1-\varepsilon)\max_aq_\pi$, and the max is ≥ the weighted average $\sum_a\frac{\pi(a|s)-\varepsilon/|\mathcal A|}{1-\varepsilon}q_\pi(s,a)$, which makes the whole thing ≥ $v_\pi(s)$; the policy improvement theorem then applies.</p></div></details>
+  <details><summary>…Q-learning overestimates in Example 6.7 and how Double Q-learning fixes it.</summary><div class="ans"><p>$\max_aQ(B,a)$ over many noisy estimates (all true means −0.1) is positively biased, making "left" look good. Double Q uses one estimate to choose the argmax and an independent one to evaluate it, giving an unbiased value.</p></div></details>
+  <details><summary>…n-step methods speed up learning when rewards are sparse.</summary><div class="ans"><p>A one-step update only credits the last action before a reward; an n-step update credits the last n actions from a single episode (Fig 7.4), so value information propagates n steps per update.</p></div></details>
+  <details><summary>…on-policy state distribution matters for linear TD convergence.</summary><div class="ans"><p>Positive-definiteness of $\mathbf A=\mathbf X^\top\mathbf D(\mathbf I-\gamma\mathbf P)\mathbf X$ relies on $\boldsymbol\mu$ being stationary under π (column sums $(1-\gamma)\boldsymbol\mu^\top&gt;0$). Other distributions can make TD diverge.</p></div></details>
+  <details><summary>…in a parameter study, a method's sensitivity matters as much as its peak.</summary><div class="ans"><p>In practice the best value is unknown; a method that performs well over a wide range (order of magnitude) is more robust than one that is best only at a narrow, tuned setting.</p></div></details>
+  <details><summary>…TD can be used for continuing tasks but MC cannot.</summary><div class="ans"><p>MC needs complete returns, which only exist when episodes terminate; TD updates from one-step transitions.</p></div></details>
+</div>
+
+</main>
+</body>
+</html>

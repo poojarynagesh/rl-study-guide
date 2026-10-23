@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Algorithm catalogue — RL Study Guide</title>
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="assets/search-index.js"></script>
+<script defer src="assets/site.js"></script>
+<style>
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  .filters button { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; }
+  .filters button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #cat td:first-child { white-space: nowrap; }
+  #cat td { font-size: 13.5px; }
+  .y { color: var(--def); font-weight: 650; } .n { color: var(--text-3); }
+</style>
+</head>
+<body data-page="algorithms" data-root=".">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Revision</div>
+  <h1>Algorithm catalogue &amp; comparisons</h1>
+  <p class="lead">Every algorithm from Chapters 2–9 in one place: what it estimates, its update target, whether it needs a model, bootstraps, or learns off-policy — and how it differs from its neighbours.</p>
+</div>
+
+<h2 id="catalogue">The catalogue</h2>
+<p class="small muted">Filter by property (filters combine). Click a name to jump to its chapter section.</p>
+<div class="filters" id="filters">
+  <button data-f="all" class="on">All</button>
+  <button data-f="pred">Prediction</button>
+  <button data-f="ctrl">Control</button>
+  <button data-f="mf">Model-free</button>
+  <button data-f="model">Needs model</button>
+  <button data-f="boot">Bootstraps</button>
+  <button data-f="off">Off-policy</button>
+  <button data-f="fa">Function approx.</button>
+</div>
+<div class="table-wrap"><table id="cat">
+  <thead><tr><th>Algorithm</th><th>Ch</th><th>Estimates</th><th>Update target / rule</th><th>Model</th><th>Boot-straps</th><th>Policy</th><th>Key hyper&shy;parameters</th></tr></thead>
+  <tbody></tbody>
+</table></div>
+
+<h2 id="dimensions">The dimensions that classify methods</h2>
+<div class="table-wrap"><table>
+  <tr><th>Dimension</th><th>Options</th><th>What it means</th></tr>
+  <tr><td><strong>Prediction vs control</strong></td><td>estimate $v_\pi$/$q_\pi$ · find $\pi_*$</td><td>Control is GPI: prediction + improvement.</td></tr>
+  <tr><td><strong>Model</strong></td><td>full distribution (DP) · sample model (MC simulation) · none</td><td>DP needs $p(s',r|s,a)$; MC/TD learn from experience.</td></tr>
+  <tr><td><strong>Update width</strong></td><td>expected (all successors) · sample (one successor)</td><td>Expected updates need a model; sample updates add variance.</td></tr>
+  <tr><td><strong>Update depth</strong></td><td>1 step (TD) · n steps · whole episode (MC)</td><td>Bootstrapping depth: bias ↔ variance trade-off.</td></tr>
+  <tr><td><strong>On- vs off-policy</strong></td><td>learn about the behaviour policy · about a different target policy</td><td>Off-policy needs coverage, and IS or max/expectation targets.</td></tr>
+  <tr><td><strong>Representation</strong></td><td>tabular · linear · nonlinear</td><td>Function approximation generalises; changes convergence guarantees.</td></tr>
+</table></div>
+
+<h2 id="pairs">Head-to-head comparisons</h2>
+
+<h3>DP vs MC vs TD</h3>
+<div class="table-wrap"><table>
+  <tr><th></th><th>DP</th><th>Monte Carlo</th><th>TD</th></tr>
+  <tr><td>Target</td><td>$\E_\pi[R+\gamma V(S')]$ (model)</td><td>$G_t$</td><td>$R+\gamma V(S')$ (sample)</td></tr>
+  <tr><td>Needs model</td><td class="no">yes</td><td class="yes">no</td><td class="yes">no</td></tr>
+  <tr><td>Bootstraps</td><td>yes</td><td>no</td><td>yes</td></tr>
+  <tr><td>Bias / variance of target</td><td>no sampling noise</td><td>unbiased, high variance</td><td>biased, low variance</td></tr>
+  <tr><td>Online, continuing tasks</td><td>—</td><td class="no">no (episodic, end of episode)</td><td class="yes">yes</td></tr>
+  <tr><td>Batch solution</td><td>—</td><td>min. training MSE</td><td>certainty equivalence (ML model)</td></tr>
+  <tr><td>Non-Markov robustness</td><td>low</td><td>higher</td><td>lower</td></tr>
+</table></div>
+
+<h3>Policy iteration vs value iteration</h3>
+<div class="table-wrap"><table>
+  <tr><th></th><th>Policy iteration</th><th>Value iteration</th></tr>
+  <tr><td>Sweep update</td><td>Bellman expectation (evaluate π fully)</td><td>Bellman optimality (max) — one sweep of evaluation + improvement</td></tr>
+  <tr><td>Iterations</td><td>Few, finite (strict improvement)</td><td>Many cheap sweeps; converges in the limit</td></tr>
+  <tr><td>Policy during run</td><td>explicit</td><td>implicit; extract at end</td></tr>
+</table></div>
+
+<h3>Sarsa vs Q-learning vs Expected Sarsa vs Double Q-learning</h3>
+<div class="table-wrap"><table>
+  <tr><th></th><th>Sarsa</th><th>Q-learning</th><th>Expected Sarsa</th><th>Double Q</th></tr>
+  <tr><td>Target</td><td>$R+\gamma Q(S',A')$</td><td>$R+\gamma\max_aQ(S',a)$</td><td>$R+\gamma\sum_a\pi(a|S')Q(S',a)$</td><td>$R+\gamma Q_2(S',\argmax_aQ_1(S',a))$</td></tr>
+  <tr><td>Policy</td><td>on</td><td>off</td><td>on or off</td><td>off</td></tr>
+  <tr><td>Learns</td><td>$q$ of ε-greedy π</td><td>$q_*$</td><td>$q_\pi$ (greedy π ⇒ $q_*$)</td><td>$q_*$</td></tr>
+  <tr><td>Cliff walking</td><td>safe path, better online reward</td><td>optimal edge path, falls off</td><td>like Sarsa, better; α = 1 ok</td><td>—</td></tr>
+  <tr><td>Variance from $A'$</td><td>yes</td><td>no</td><td>no</td><td>no</td></tr>
+  <tr><td>Maximization bias</td><td>some (ε-greedy max)</td><td class="no">yes</td><td>some</td><td class="yes">removed</td></tr>
+  <tr><td>Cost</td><td>low</td><td>low</td><td>sum over actions</td><td>2× memory</td></tr>
+</table></div>
+
+<h3>First-visit vs every-visit MC · ordinary vs weighted IS</h3>
+<div class="grid-2">
+<div class="table-wrap"><table>
+  <tr><th></th><th>First-visit</th><th>Every-visit</th></tr>
+  <tr><td>Uses</td><td>first visit per episode</td><td>all visits</td></tr>
+  <tr><td>Bias</td><td>unbiased</td><td>biased (→ 0)</td></tr>
+  <tr><td>Best for</td><td>theory</td><td>FA, eligibility traces</td></tr>
+</table></div>
+<div class="table-wrap"><table>
+  <tr><th></th><th>Ordinary IS</th><th>Weighted IS</th></tr>
+  <tr><td>Estimate</td><td>$\sum\rho G/|\mathcal T|$</td><td>$\sum\rho G/\sum\rho$</td></tr>
+  <tr><td>Bias</td><td>unbiased</td><td>biased (→ 0)</td></tr>
+  <tr><td>Variance</td><td class="no">can be infinite</td><td class="yes">bounded</td></tr>
+</table></div>
+</div>
+
+<h3>Exploration mechanisms</h3>
+<div class="table-wrap"><table>
+  <tr><th>Mechanism</th><th>Where</th><th>How</th><th>Drawback</th></tr>
+  <tr><td>ε-greedy / ε-soft</td><td>Ch 2, 5, 6</td><td>random action with prob. ε</td><td>indiscriminate; caps performance</td></tr>
+  <tr><td>Optimistic initial values</td><td>Ch 2</td><td>disappointment drives trying everything</td><td>temporary; stationary only</td></tr>
+  <tr><td>UCB</td><td>Ch 2</td><td>uncertainty bonus $c\sqrt{\ln t/N}$</td><td>hard beyond bandits</td></tr>
+  <tr><td>Soft-max (gradient bandit)</td><td>Ch 2</td><td>sample from $\pi\propto e^H$</td><td>α-sensitive; needs baseline</td></tr>
+  <tr><td>Exploring starts</td><td>Ch 5</td><td>random start (s, a)</td><td>unrealistic in real interaction</td></tr>
+  <tr><td>Off-policy behaviour policy</td><td>Ch 5–7</td><td>explore with b, learn greedy π</td><td>variance (IS) / slow tails</td></tr>
+</table></div>
+
+<h3>Multi-step off-policy options (Ch 7)</h3>
+<div class="table-wrap"><table>
+  <tr><th>Approach</th><th>Mechanism</th><th>Pro</th><th>Con</th></tr>
+  <tr><td>n-step with IS</td><td>multiply update by $\rho$</td><td>simple, sound</td><td>high variance</td></tr>
+  <tr><td>Control variates</td><td>per-decision ρ + $(1-\rho)V$ term</td><td>same expectation, less variance</td><td>more complex</td></tr>
+  <tr><td>Tree backup</td><td>weight branches by π; no ρ</td><td>no IS at all</td><td>short effective span if π ≠ b</td></tr>
+  <tr><td>Q(σ)</td><td>mix sampling (σ=1) and expectation (σ=0)</td><td>unifies all</td><td>choose σ</td></tr>
+</table></div>
+
+<h3>Gradient MC vs semi-gradient TD vs LSTD (Ch 9)</h3>
+<div class="table-wrap"><table>
+  <tr><th></th><th>Gradient MC</th><th>Semi-gradient TD(0)</th><th>LSTD</th></tr>
+  <tr><td>True gradient?</td><td class="yes">yes</td><td class="no">no (ignores target's dependence on w)</td><td>closed form</td></tr>
+  <tr><td>Linear convergence</td><td>global optimum of VE</td><td>TD fixed point; $\overline{\mathrm{VE}}\le\frac{1}{1-\gamma}\min$</td><td>TD fixed point directly</td></tr>
+  <tr><td>Cost per step</td><td>$O(d)$</td><td>$O(d)$</td><td>$O(d^2)$</td></tr>
+  <tr><td>Speed / data efficiency</td><td>slow (variance)</td><td>fast</td><td>most data-efficient</td></tr>
+  <tr><td>Step size</td><td>α</td><td>α</td><td>none (ε regulariser), never forgets</td></tr>
+</table></div>
+
+<h2 id="which">Which algorithm when?</h2>
+<div class="table-wrap"><table>
+  <tr><th>Situation</th><th>Reasonable choice</th><th>Why</th></tr>
+  <tr><td>Full, accurate model; small state space</td><td>Policy / value iteration</td><td>Exact, polynomial-time</td></tr>
+  <tr><td>Model but huge state space</td><td>Asynchronous DP on visited states</td><td>No full sweeps</td></tr>
+  <tr><td>No model, episodic, need values of a few states</td><td>Monte Carlo</td><td>Independent of other states, no bootstrapping</td></tr>
+  <tr><td>Simulator easy but distributions hard (blackjack)</td><td>MC (ES or ε-soft)</td><td>Only needs sample episodes</td></tr>
+  <tr><td>Continuing task or very long episodes</td><td>TD (Sarsa / Q-learning / Expected Sarsa)</td><td>Online, step-by-step</td></tr>
+  <tr><td>Exploration is costly (online performance matters)</td><td>Sarsa / Expected Sarsa</td><td>Accounts for its own exploration</td></tr>
+  <tr><td>Want the optimal greedy policy while exploring</td><td>Q-learning (Double Q if noisy rewards)</td><td>Off-policy max target</td></tr>
+  <tr><td>Learning from another agent's / logged data</td><td>Off-policy MC with weighted IS, tree backup</td><td>Separate behaviour and target</td></tr>
+  <tr><td>Sparse delayed reward, slow credit propagation</td><td>n-step methods (intermediate n)</td><td>Propagates credit n steps per update</td></tr>
+  <tr><td>Large/continuous state</td><td>Semi-gradient TD with tile coding or Fourier features; LSTD if d small</td><td>Generalisation with linear guarantees</td></tr>
+</table></div>
+
+</main>
+<script>
+document.addEventListener("rl:ready", function () {
+  // [name, chapter page#anchor, ch, estimates, target, model, boot, policy, hyper, tags]
+  const A = [
+    ["ε-greedy action-value (sample avg)", "chapters/ch02.html#action-value", "2", "q*(a)", "$Q\\leftarrow Q+\\frac1N(R-Q)$", "no", "no", "on", "ε", "ctrl mf"],
+    ["Constant-α bandit", "chapters/ch02.html#stepsize", "2", "q*(a) (tracking)", "$Q\\leftarrow Q+\\alpha(R-Q)$", "no", "no", "on", "α, ε", "ctrl mf"],
+    ["Optimistic initial values", "chapters/ch02.html#optimistic", "2", "q*(a)", "greedy with $Q_1\\gg q_*$", "no", "no", "on", "Q₁, α", "ctrl mf"],
+    ["UCB", "chapters/ch02.html#ucb", "2", "q*(a)", "$\\argmax_a Q+c\\sqrt{\\ln t/N}$", "no", "no", "on", "c", "ctrl mf"],
+    ["Gradient bandit", "chapters/ch02.html#gradient", "2", "preferences H", "$H\\mathrel{+}=\\alpha(R-\\bar R)(\\mathbb 1-\\pi)$", "no", "no", "on", "α, baseline", "ctrl mf"],
+    ["Iterative policy evaluation", "chapters/ch04.html#evaluation", "4", "vπ", "$\\sum_a\\pi\\sum p[r+\\gamma V(s')]$", "yes", "yes", "—", "θ", "pred model boot"],
+    ["Policy iteration", "chapters/ch04.html#pi", "4", "π*, v*", "evaluate, then greedify", "yes", "yes", "—", "θ", "ctrl model boot"],
+    ["Value iteration", "chapters/ch04.html#vi", "4", "v*", "$\\max_a\\sum p[r+\\gamma V(s')]$", "yes", "yes", "—", "θ", "ctrl model boot"],
+    ["Asynchronous DP", "chapters/ch04.html#async", "4", "v*/vπ", "in-place, any order", "yes", "yes", "—", "state order", "ctrl pred model boot"],
+    ["First-visit MC prediction", "chapters/ch05.html#prediction", "5", "vπ", "average of $G_t$", "no", "no", "on", "—", "pred mf"],
+    ["Monte Carlo ES", "chapters/ch05.html#control", "5", "q*, π*", "average $G_t$; greedy π", "no", "no", "on", "—", "ctrl mf"],
+    ["On-policy first-visit MC control", "chapters/ch05.html#on-policy", "5", "best ε-soft π", "average $G_t$; ε-greedy π", "no", "no", "on", "ε", "ctrl mf"],
+    ["Off-policy MC prediction (weighted IS)", "chapters/ch05.html#incremental", "5", "qπ", "$Q\\mathrel{+}=\\frac{W}{C}(G-Q)$", "no", "no", "off", "b", "pred mf off"],
+    ["Off-policy MC control", "chapters/ch05.html#off-control", "5", "q*, π*", "weighted IS, $W\\leftarrow W/b$", "no", "no", "off", "b (soft)", "ctrl mf off"],
+    ["TD(0)", "chapters/ch06.html#td-prediction", "6", "vπ", "$R+\\gamma V(S')$", "no", "yes", "on", "α", "pred mf boot"],
+    ["Sarsa", "chapters/ch06.html#sarsa", "6", "qπ → q*", "$R+\\gamma Q(S',A')$", "no", "yes", "on", "α, ε", "ctrl mf boot"],
+    ["Q-learning", "chapters/ch06.html#qlearning", "6", "q*", "$R+\\gamma\\max_aQ(S',a)$", "no", "yes", "off", "α, ε", "ctrl mf boot off"],
+    ["Expected Sarsa", "chapters/ch06.html#expected-sarsa", "6", "qπ", "$R+\\gamma\\sum_a\\pi Q(S',a)$", "no", "yes", "on/off", "α, ε", "ctrl mf boot off"],
+    ["Double Q-learning", "chapters/ch06.html#max-bias", "6", "q*", "$R+\\gamma Q_2(S',\\argmax Q_1)$", "no", "yes", "off", "α, ε", "ctrl mf boot off"],
+    ["n-step TD", "chapters/ch07.html#nstep-td", "7", "vπ", "$G_{t:t+n}$", "no", "yes", "on", "n, α", "pred mf boot"],
+    ["n-step Sarsa", "chapters/ch07.html#nstep-sarsa", "7", "qπ → q*", "$G_{t:t+n}$ with $Q(S_{t+n},A_{t+n})$", "no", "yes", "on", "n, α, ε", "ctrl mf boot"],
+    ["n-step Expected Sarsa", "chapters/ch07.html#nstep-sarsa", "7", "qπ", "$G_{t:t+n}$ with $\\bar V(S_{t+n})$", "no", "yes", "on/off", "n, α", "ctrl mf boot off"],
+    ["Off-policy n-step Sarsa", "chapters/ch07.html#offpolicy", "7", "qπ / q*", "$\\alpha\\rho_{t+1:t+n}[G-Q]$", "no", "yes", "off", "n, α, b", "ctrl mf boot off"],
+    ["n-step tree backup", "chapters/ch07.html#tree-backup", "7", "qπ / q*", "(7.16), no IS", "no", "yes", "off", "n, α", "ctrl mf boot off"],
+    ["n-step Q(σ)", "chapters/ch07.html#qsigma", "7", "qπ / q*", "(7.17)", "no", "yes", "off", "n, α, σ", "ctrl mf boot off"],
+    ["Gradient Monte Carlo", "chapters/ch09.html#sgd", "9", "v̂ ≈ vπ", "$\\mathbf w\\mathrel{+}=\\alpha[G_t-\\hat v]\\nabla\\hat v$", "no", "no", "on", "α, features", "pred mf fa"],
+    ["Semi-gradient TD(0)", "chapters/ch09.html#sgd", "9", "v̂ ≈ vπ", "$\\mathbf w\\mathrel{+}=\\alpha\\delta\\nabla\\hat v$", "no", "yes", "on", "α, features", "pred mf boot fa"],
+    ["n-step semi-gradient TD", "chapters/ch09.html#linear", "9", "v̂ ≈ vπ", "$\\alpha[G_{t:t+n}-\\hat v]\\nabla\\hat v$", "no", "yes", "on", "n, α", "pred mf boot fa"],
+    ["LSTD", "chapters/ch09.html#lstd", "9", "w_TD", "$\\hat{\\mathbf A}^{-1}\\hat{\\mathbf b}$", "no", "yes", "on", "ε", "pred mf boot fa"],
+    ["Emphatic n-step TD", "chapters/ch09.html#interest", "9", "v̂ (interest-weighted)", "$\\alpha M_t[G-\\hat v]\\nabla\\hat v$", "no", "yes", "on", "I_t, n, α", "pred mf boot fa"],
+  ];
+  const tb = document.querySelector("#cat tbody");
+  tb.innerHTML = A.map((r) => '<tr data-tags="' + r[9] + '"><td><a href="' + r[1] + '">' + r[0] + "</a></td><td>" + r[2] + "</td><td>" + r[3] + "</td><td>" + r[4] + '</td><td class="' + (r[5] === "yes" ? "y" : "n") + '">' + r[5] + '</td><td class="' + (r[6] === "yes" ? "y" : "n") + '">' + r[6] + "</td><td>" + r[7] + "</td><td>" + r[8] + "</td></tr>").join("");
+  if (window.renderMathInElement) renderMathInElement(tb, { delimiters: [{ left: "$", right: "$", display: false }], macros: { "\\argmax": "\\operatorname*{arg\\,max}" }, throwOnError: false });
+  const active = new Set();
+  document.getElementById("filters").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    const f = b.dataset.f;
+    if (f === "all") active.clear(); else active.has(f) ? active.delete(f) : active.add(f);
+    document.querySelectorAll("#filters button").forEach((x) => x.classList.toggle("on", x.dataset.f === "all" ? !active.size : active.has(x.dataset.f)));
+    tb.querySelectorAll("tr").forEach((tr) => { const t = tr.dataset.tags.split(" "); tr.hidden = [...active].some((f) => !t.includes(f)); });
+  });
+});
+</script>
+</body>
+</html>

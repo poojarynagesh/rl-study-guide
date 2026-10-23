@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hyperparameters &amp; step sizes — RL Study Guide</title>
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="assets/search-index.js"></script>
+<script defer src="assets/site.js"></script>
+</head>
+<body data-page="hyper" data-root=".">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Revision</div>
+  <h1>Hyperparameters &amp; step sizes</h1>
+  <p class="lead">What each hyperparameter in Chapters 2–9 controls, what happens when it is too small or too large, and the book's guidance — with a special focus on <strong>constant vs varying step sizes</strong>.</p>
+</div>
+
+<h2 id="stepsize">1. The step size α — constant vs varying</h2>
+<p>Nearly every method uses the rule $\textit{New}\leftarrow\textit{Old}+\alpha[\textit{Target}-\textit{Old}]$ (2.4). The step size decides <strong>how much each new target moves the estimate</strong>, and therefore how the estimate weights old vs new data.</p>
+
+<div class="table-wrap"><table>
+  <tr><th>Schedule</th><th>Formula</th><th>Satisfies (2.7)?</th><th>Behaviour</th><th>Where in the book</th></tr>
+  <tr><td><strong>Sample average</strong></td><td>$\alpha_n=1/n$</td><td class="yes">yes</td><td>Equal weight to all targets; converges to the mean; initial bias vanishes after one update; adapts ever more slowly</td><td>Ch 2 (2.3), Ch 5 MC averages</td></tr>
+  <tr><td><strong>Constant</strong></td><td>$\alpha_n=\alpha$</td><td class="no">no ($\sum\alpha^2=\infty$)</td><td>Exponential recency weighting $\alpha(1-\alpha)^{n-i}$; never fully converges; tracks nonstationary targets; permanent (decaying) initial bias</td><td>Ch 2 (2.5), constant-α MC (6.1), TD, Sarsa, Q-learning, Ch 9</td></tr>
+  <tr><td><strong>Polynomial decay</strong></td><td>$\alpha_n=1/n^p,\ \tfrac12\lt p\le1$</td><td class="yes">yes</td><td>Between the two; still converges</td><td>Stochastic approximation theory</td></tr>
+  <tr><td><strong>Too-fast decay</strong></td><td>$\alpha_n=1/n^2$</td><td class="no">no ($\sum\alpha_n\lt\infty$)</td><td>Steps die out before overcoming the initial value — may stall short of the target</td><td>Pitfall</td></tr>
+  <tr><td><strong>Unbiased constant trick</strong></td><td>$\beta_n=\alpha/\bar o_n,\ \bar o_n=\bar o_{n-1}+\alpha(1-\bar o_{n-1})$</td><td>no (→ α)</td><td>$\beta_1=1$ removes initial bias; then behaves like constant α</td><td>Ex 2.7</td></tr>
+  <tr><td><strong>Weighted IS step</strong></td><td>$W_n/C_n$</td><td>data-dependent</td><td>Weighted average of returns; bounded variance</td><td>Ch 5 (5.8)</td></tr>
+  <tr><td><strong>Tile-coding step</strong></td><td>$\alpha=1/(\tau n)$ for $n$ tilings</td><td>constant</td><td>$\tau=1$ ⇒ one-trial learning; $\tau=10$ ⇒ ~10 presentations</td><td>Ch 9 §9.5.4</td></tr>
+  <tr><td><strong>General linear rule</strong></td><td>$\alpha=(\tau\E[\mathbf x^\top\mathbf x])^{-1}$</td><td>constant</td><td>Learn in ≈ τ experiences with similar features</td><td>Ch 9 (9.19)</td></tr>
+  <tr><td><strong>Fourier per-feature</strong></td><td>$\alpha_i=\alpha/\|\mathbf c^i\|$</td><td>constant</td><td>Smaller steps for high-frequency features</td><td>Ch 9 §9.5.2</td></tr>
+  <tr><td><strong>No step size</strong></td><td>LSTD: $\mathbf w=\hat{\mathbf A}^{-1}\hat{\mathbf b}$</td><td>—</td><td>Needs ε; never forgets (bad when π changes)</td><td>Ch 9 §9.8</td></tr>
+</table></div>
+
+<div class="eq">
+$$\begin{aligned}\sum_{n=1}^\infty\alpha_n&=\infty&&\text{steps large enough to overcome initial conditions and noise}\\ \sum_{n=1}^\infty\alpha_n^2&\lt\infty&&\text{steps eventually small enough to converge}\end{aligned}$$
+<div class="eq-name"><span>Robbins–Monro conditions — convergence with probability 1</span><span class="ref">(2.7)</span></div>
+</div>
+
+<div class="box key"><span class="box-title">The core trade-off in one sentence</span>
+<p><strong>Decreasing</strong> step sizes (meeting 2.7) <strong>converge</strong> on stationary problems; <strong>constant</strong> step sizes keep <strong>tracking</strong> on nonstationary ones — and since RL targets are effectively nonstationary (the policy changes in GPI; bootstrapped targets change even for a fixed policy), the book mostly uses constant α. Decreasing sequences "often converge very slowly or need considerable tuning" and "are seldom used in applications".</p></div>
+
+<div class="demo" id="ss-demo">
+  <div class="demo-title">Try it: step-size schedules on a noisy target</div>
+  <p class="small muted">Targets are drawn from $\mathcal N(\mu_t, \sigma^2)$. With "jump", the true mean changes from 1 to 3 halfway (a nonstationary problem). Every estimator starts at $Q_1=0$.</p>
+  <div class="controls">
+    <label class="control">Problem <select id="ss-mode"><option value="jump" selected>Nonstationary (mean jumps at step 500)</option><option value="stat">Stationary (mean = 1)</option><option value="walk">Random-walk mean</option></select></label>
+    <label class="control">Constant α <span class="val" id="ss-a-v">0.05</span><input type="range" id="ss-a" min="0.01" max="0.5" step="0.01" value="0.05"></label>
+    <label class="control">Decay exponent p (α = 1/nᵖ) <span class="val" id="ss-p-v">0.70</span><input type="range" id="ss-p" min="0.3" max="1" step="0.05" value="0.7"></label>
+    <label class="control">Noise σ <span class="val" id="ss-s-v">1.00</span><input type="range" id="ss-s" min="0" max="3" step="0.1" value="1"></label>
+    <button class="btn ghost" id="ss-re" type="button">New noise</button>
+  </div>
+  <h4>Estimates</h4>
+  <div id="ss-est"></div>
+  <h4>Step size used at each step</h4>
+  <div id="ss-alpha"></div>
+  <div class="demo-out" id="ss-out"></div>
+</div>
+
+<h3>Step size by chapter — quick reference</h3>
+<div class="table-wrap"><table>
+  <tr><th>Chapter</th><th>Typical choice in the book</th><th>Notes</th></tr>
+  <tr><td>2 Bandits</td><td>1/n (stationary) or α = 0.1</td><td>Gradient bandit α ≈ 0.1–0.4; Fig 2.6 sweeps 1/32 … 4</td></tr>
+  <tr><td>4 DP</td><td>none (expected updates assign the target exactly)</td><td>Accuracy via θ</td></tr>
+  <tr><td>5 MC</td><td>sample averages; weighted IS $W/C$</td><td>Constant-α MC (6.1) for nonstationary</td></tr>
+  <tr><td>6 TD</td><td>random walk TD α = 0.05–0.15 vs MC 0.01–0.04; windy α = 0.5; cliff α = 0.5 (Expected Sarsa fine at 1)</td><td>Batch TD answer independent of α</td></tr>
+  <tr><td>7 n-step</td><td>best α shrinks as n grows (Fig 7.2)</td><td>n and α must be tuned together</td></tr>
+  <tr><td>9 Approx.</td><td>2×10⁻⁵ (gradient MC, 100k episodes), 10⁻⁴ / 5×10⁻⁵ (poly / Fourier), $1/(10n)$ tile coding</td><td>(9.19) rule of thumb</td></tr>
+</table></div>
+
+<h2 id="exploration">2. Exploration parameters</h2>
+<div class="table-wrap"><table>
+  <tr><th>Parameter</th><th>Controls</th><th>Too small</th><th>Too large</th><th>Notes</th></tr>
+  <tr><td>ε (ε-greedy)</td><td>Fraction of random actions</td><td>Stuck on sub-optimal actions; slow discovery</td><td>Wasted steps; caps $P(\text{greedy})=1-\varepsilon+\varepsilon/k$; in cliff walking Q-learning falls off more</td><td>Decay (e.g. ε = 1/t) for GLIE convergence. On-policy MC/Sarsa converge to the best ε-soft policy for fixed ε</td></tr>
+  <tr><td>$Q_1$ (initial values)</td><td>Optimism ⇒ early exploration</td><td>No exploration bonus</td><td>Long initial exploration</td><td>Temporary; useless for nonstationary tasks; with −1 rewards, Q = 0 is already optimistic (windy gridworld)</td></tr>
+  <tr><td>$c$ (UCB)</td><td>Weight of the uncertainty bonus</td><td>≈ greedy</td><td>Over-explores; spike/dip at step k+1</td><td>Best ≈ 1–2 on the testbed</td></tr>
+  <tr><td>Baseline $\bar R_t$</td><td>Variance of gradient-bandit updates</td><td colspan="2">No effect on expected update; missing baseline with large rewards ⇒ slow</td><td>Running average of rewards</td></tr>
+  <tr><td>Behaviour policy $b$</td><td>Off-policy exploration</td><td colspan="2">The more it differs from π, the larger IS ratios (variance) or shorter tree-backup spans</td><td>Must satisfy coverage</td></tr>
+</table></div>
+
+<h2 id="gamma">3. Discount rate γ</h2>
+<ul>
+  <li>Defines the problem: present value of a reward $k$ steps ahead is $\gamma^{k}$ (relative to the next reward). Effective horizon ≈ $1/(1-\gamma)$.</li>
+  <li>γ = 0 myopic; γ → 1 far-sighted. Can change the optimal policy (Ex 3.22: left vs right flips at γ = 0.5).</li>
+  <li>Needed (γ &lt; 1) for continuing tasks to keep returns finite; episodic tasks may use γ = 1.</li>
+  <li>DP convergence rate ∝ γ (contraction). Linear TD error bound $\frac{1}{1-\gamma}$ grows as γ → 1.</li>
+  <li>Adding a constant $c$ to rewards adds $c/(1-\gamma)$ to all values (continuing) — but can change behaviour in episodic tasks.</li>
+</ul>
+
+<h2 id="nstep">4. Bootstrapping depth n (and σ)</h2>
+<div class="table-wrap"><table>
+  <tr><th>n</th><th>Method</th><th>Bias</th><th>Variance</th><th>Delay / memory</th></tr>
+  <tr><td>1</td><td>TD(0)</td><td>High (relies on V)</td><td>Low</td><td>None</td></tr>
+  <tr><td>intermediate</td><td>n-step TD</td><td>Medium</td><td>Medium</td><td>n steps, n transitions stored</td></tr>
+  <tr><td>∞</td><td>MC</td><td>None</td><td>High</td><td>Whole episode</td></tr>
+</table></div>
+<p>Intermediate n is usually best (Figs 7.2, 9.2), and the best α decreases as n increases. In Q(σ), σ = 1 samples (Sarsa-like, needs IS off-policy) and σ = 0 takes expectations (tree backup, no IS).</p>
+
+<h2 id="dp">5. DP parameters</h2>
+<ul>
+  <li><strong>θ</strong>: stop when the largest change in a sweep &lt; θ. Policy iteration tolerates loose θ (greedy policy is often right early — Fig 4.1).</li>
+  <li><strong>Evaluation sweeps per improvement</strong>: 1 = value iteration, ∞ = policy iteration, between = truncated PI.</li>
+  <li><strong>Sweep order</strong> (in-place / asynchronous): strongly affects speed.</li>
+</ul>
+
+<h2 id="fa">6. Function-approximation design choices</h2>
+<div class="table-wrap"><table>
+  <tr><th>Choice</th><th>Effect</th></tr>
+  <tr><td>Number of features $d$ / order $n$</td><td>Resolution (acuity); polynomial and Fourier grow as $(n+1)^k$</td></tr>
+  <tr><td>Receptive-field width (coarse coding)</td><td>Breadth of early generalisation; little effect on final accuracy</td></tr>
+  <tr><td>Tile width $w$, number of tilings $n$</td><td>Resolution unit $w/n$; active features = $n$ ⇒ set $\alpha=1/(\tau n)$</td></tr>
+  <tr><td>Tile offsets</td><td>Asymmetric (1, 3, 5, …) avoids diagonal artifacts; $n=2^m\ge4k$</td></tr>
+  <tr><td>Tile shape</td><td>Stripes generalise along a dimension; conjunctive tiles learn interactions</td></tr>
+  <tr><td>RBF width σ</td><td>Smoothness / breadth</td></tr>
+  <tr><td>ε in LSTD</td><td>Too small ⇒ unstable inverses; too large ⇒ slow</td></tr>
+  <tr><td>Interest $I_t$</td><td>Which states the objective cares about (emphasis $M_t$)</td></tr>
+</table></div>
+
+<h2 id="tuning">7. How to read a parameter study</h2>
+<ul>
+  <li>Plot a summary of performance (e.g. average reward over the first 1000 steps, or RMS error over the first 10 episodes) against the parameter on a <strong>log scale</strong> (Figs 2.6, 6.3, 7.2, 9.2).</li>
+  <li>Expect an <strong>inverted U</strong> (reward) or <strong>U</strong> (error): too small learns or explores too little; too large is noisy or unstable.</li>
+  <li>Judge a method by its best value <em>and</em> by its <strong>sensitivity</strong> (width of the good region).</li>
+  <li>Distinguish <strong>interim</strong> (early learning) from <strong>asymptotic</strong> performance — e.g. Sarsa's asymptotic return collapses at large α in cliff walking while Expected Sarsa's does not.</li>
+</ul>
+
+</main>
+<script>
+document.addEventListener("rl:ready", function () {
+  const $ = (id) => document.getElementById(id);
+  let seed = 1;
+  ["a", "p", "s"].forEach((k) => $("ss-" + k).addEventListener("input", draw));
+  $("ss-mode").addEventListener("change", draw);
+  $("ss-re").addEventListener("click", () => { seed++; draw(); });
+  function draw() {
+    const a = +$("ss-a").value, p = +$("ss-p").value, sig = +$("ss-s").value, mode = $("ss-mode").value, T = 1000;
+    $("ss-a-v").textContent = a.toFixed(2); $("ss-p-v").textContent = p.toFixed(2); $("ss-s-v").textContent = sig.toFixed(2);
+    const r = RL.rng(seed);
+    const mean = [], est = { avg: [], con: [], pol: [], unb: [] }, al = { avg: [], con: [], pol: [], unb: [] };
+    let m = 1, Q = { avg: 0, con: 0, pol: 0, unb: 0 }, o = 0;
+    const err = { avg: 0, con: 0, pol: 0, unb: 0 };
+    for (let n = 1; n <= T; n++) {
+      if (mode === "jump") m = n <= 500 ? 1 : 3; else if (mode === "walk") m += 0.05 * r.normal();
+      const target = m + sig * r.normal();
+      o = o + a * (1 - o);
+      const steps = { avg: 1 / n, con: a, pol: 1 / Math.pow(n, p), unb: a / o };
+      for (const k in Q) { Q[k] += steps[k] * (target - Q[k]); est[k].push(Q[k]); al[k].push(steps[k]); if (n > T / 2) err[k] += (Q[k] - m) ** 2; }
+      mean.push(m);
+    }
+    const x = Array.from({ length: T }, (_, i) => i + 1);
+    const S = [ ["avg", "sample average 1/n", "var(--s2)"], ["con", "constant α = " + a.toFixed(2), "var(--s1)"], ["pol", "1/n^" + p.toFixed(2), "var(--s3)"], ["unb", "unbiased constant (Ex 2.7)", "var(--s7)"] ];
+    RL.lineChart($("ss-est"), { x, xLabel: "Step n", yLabel: "Estimate", height: 280, yFmt: (v) => v.toFixed(1),
+      series: [{ name: "true mean", color: "var(--text-3)", y: mean, dash: true }].concat(S.map(([k, n, c]) => ({ name: n, color: c, y: est[k] }))) });
+    RL.lineChart($("ss-alpha"), { x, xLabel: "Step n", yLabel: "α_n", yMin: 0, yMax: Math.min(1, Math.max(0.2, a * 2)), height: 200, yFmt: (v) => v.toFixed(2),
+      series: S.map(([k, n, c]) => ({ name: n, color: c, y: al[k] })) });
+    $("ss-out").innerHTML = "Mean-square error over the second half — " + S.map(([k, n]) => n + ": <strong>" + (err[k] / (T / 2)).toFixed(3) + "</strong>").join(" · ") +
+      ". " + (mode === "stat" ? "Stationary: 1/n wins — it converges while constant α keeps jittering." : "Nonstationary: 1/n reacts ever more slowly; constant α tracks the change.");
+  }
+  draw();
+});
+</script>
+</body>
+</html>
