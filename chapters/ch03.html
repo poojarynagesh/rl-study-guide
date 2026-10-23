@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 3 · Finite Markov Decision Processes — RL Study Guide</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/site.js"></script>
+</head>
+<body data-page="ch03" data-root="..">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Chapter 3 · Book pp. 47–71</div>
+  <h1>Finite Markov Decision Processes</h1>
+  <p class="lead">The formal problem the rest of the book solves. MDPs add the <em>associative</em> aspect (different actions in different situations) and <em>delayed</em> consequences: actions influence the next state and, through it, future rewards.</p>
+  <div class="meta">
+    <span class="chip">Dynamics p(s′,r|s,a)</span>
+    <span class="chip">Markov property</span>
+    <span class="chip">Return &amp; discount γ</span>
+    <span class="chip">Episodic vs continuing</span>
+    <span class="chip">v<sub>π</sub>, q<sub>π</sub>, v<sub>*</sub>, q<sub>*</sub></span>
+    <span class="chip">Bellman equations</span>
+  </div>
+</div>
+
+<div class="box exam">
+  <span class="box-title">Exam focus for this chapter</span>
+  <ul>
+    <li>Write the four-argument dynamics $p(s',r\mid s,a)$ and derive $p(s'\mid s,a)$, $r(s,a)$, $r(s,a,s')$ from it.</li>
+    <li>State the Markov property and where the agent–environment boundary goes.</li>
+    <li>Compute returns by hand (work backwards with $G_t = R_{t+1}+\gamma G_{t+1}$).</li>
+    <li>Define $v_\pi, q_\pi, v_*, q_*$; write all four <strong>Bellman equations</strong> and their backup diagrams; convert between $v$ and $q$.</li>
+    <li>Why a greedy policy w.r.t. $v_*$ (or $q_*$) is optimal, and why $q_*$ needs no model.</li>
+    <li>Effect of the discount rate γ and of adding a constant to rewards (continuing vs episodic).</li>
+  </ul>
+</div>
+
+<h2 id="interface">3.1 The agent–environment interface</h2>
+<figure class="diagram">
+  <svg viewBox="0 0 560 210" width="560" role="img" aria-label="Agent–environment interaction in an MDP">
+    <defs><marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text)"/></marker></defs>
+    <rect x="210" y="14" width="140" height="46" rx="10" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+    <text x="280" y="43" text-anchor="middle" font-size="16" font-weight="600">Agent</text>
+    <rect x="190" y="146" width="180" height="46" rx="10" fill="var(--surface-2)" stroke="var(--text-3)" stroke-width="1.5"/>
+    <text x="280" y="175" text-anchor="middle" font-size="16" font-weight="600">Environment</text>
+    <path d="M350 37 H460 V169 H372" fill="none" stroke="var(--text)" stroke-width="1.5" marker-end="url(#ah3)"/>
+    <text x="470" y="108" font-size="14">action Aₜ</text>
+    <path d="M190 160 H120 V30 H208" fill="none" stroke="var(--text)" stroke-width="1.5" marker-end="url(#ah3)"/>
+    <path d="M190 180 H80 V46 H208" fill="none" stroke="var(--text)" stroke-width="1.5" marker-end="url(#ah3)"/>
+    <text x="126" y="100" font-size="13">Sₜ₊₁</text>
+    <text x="40" y="128" font-size="13">Rₜ₊₁</text>
+    <text x="140" y="24" font-size="13" class="muted-t">state Sₜ</text>
+    <text x="84" y="64" font-size="13" class="muted-t">reward Rₜ</text>
+  </svg>
+  <figcaption>Figure 3.1: at each step $t=0,1,2,\dots$ the agent sees $S_t\in\mathcal S$, picks $A_t\in\mathcal A(s)$, and one step later receives $R_{t+1}\in\mathcal R\subset\mathbb R$ and finds itself in $S_{t+1}$.</figcaption>
+</figure>
+<div class="eq">
+$$S_0, A_0, R_1, S_1, A_1, R_2, S_2, A_2, R_3, \dots$$
+<div class="eq-name"><span>Trajectory of an MDP</span><span class="ref">(3.1)</span></div>
+</div>
+<p class="small muted">Note the indexing: $R_{t+1}$ (not $R_t$) is the reward due to $A_t$ — it emphasises that $R_{t+1}$ and $S_{t+1}$ are jointly determined.</p>
+
+<p>In a <strong>finite</strong> MDP, $\mathcal S,\mathcal A,\mathcal R$ are finite. The <strong>dynamics</strong> are completely described by:</p>
+<div class="eq">
+$$p(s',r\mid s,a) \doteq \Pr\{S_t=s', R_t=r \mid S_{t-1}=s, A_{t-1}=a\}$$
+<div class="eq-name"><span>Four-argument dynamics function</span><span class="ref">(3.2)</span></div>
+</div>
+<div class="eq">
+$$\sum_{s'\in\mathcal S}\sum_{r\in\mathcal R} p(s',r\mid s,a) = 1, \quad \text{for all } s\in\mathcal S,\ a\in\mathcal A(s)$$
+<div class="eq-name"><span>Dynamics is a distribution for each (s, a)</span><span class="ref">(3.3)</span></div>
+</div>
+<p>Everything else follows from $p$:</p>
+<div class="eq">
+$$p(s'\mid s,a) = \sum_{r} p(s',r\mid s,a) \qquad r(s,a) = \sum_r r\sum_{s'}p(s',r\mid s,a) \qquad r(s,a,s') = \sum_r r\,\frac{p(s',r\mid s,a)}{p(s'\mid s,a)}$$
+<div class="eq-name"><span>Transition probabilities and expected rewards</span><span class="ref">(3.4)–(3.6)</span></div>
+</div>
+
+<div class="box def">
+  <span class="box-title">Definition — Markov property</span>
+  <p>The probability of each possible $S_t, R_t$ depends <strong>only</strong> on the immediately preceding state and action $S_{t-1},A_{t-1}$, not on earlier history. This is a restriction on the <em>state</em>, not the decision process: the state must include all information about the past interaction that makes a difference for the future.</p>
+</div>
+
+<h3>Where is the agent–environment boundary?</h3>
+<ul>
+  <li><strong>Anything that cannot be changed arbitrarily by the agent is part of the environment.</strong> A robot's motors, linkages and sensors — and an animal's muscles and skeleton — belong to the environment.</li>
+  <li>Rewards are computed "inside" the body but are considered <strong>external</strong> to the agent: they define the task, so the agent must not be able to change them.</li>
+  <li>The boundary is the limit of the agent's <strong>absolute control, not of its knowledge</strong> (you may know exactly how a Rubik's cube works and still find it hard).</li>
+  <li>It can be placed differently for different purposes (hierarchies of agents).</li>
+</ul>
+<p>The whole framework reduces goal-directed learning to <strong>three signals</strong>: actions (the choices), states (the basis for choices), rewards (the goal). Time steps need not be fixed real-time intervals; states and actions can be low-level (voltages, sensor readings) or high-level and even mental. Rewards are <em>always single numbers</em>; states and actions are often structured vectors (bioreactor, pick-and-place robot).</p>
+
+<h3>Example 3.3 — the recycling robot</h3>
+<p>States $\{\text{high},\text{low}\}$ (battery). $\mathcal A(\text{high})=\{\text{search},\text{wait}\}$, $\mathcal A(\text{low})=\{\text{search},\text{wait},\text{recharge}\}$. Searching from high stays high w.p. $\alpha$; from low stays low w.p. $\beta$, else the battery dies, the robot is rescued (reward $-3$) and returned to high. $r_\text{search}>r_\text{wait}$.</p>
+<div class="table-wrap"><table>
+  <tr><th>$s$</th><th>$a$</th><th>$s'$</th><th>$p(s'\mid s,a)$</th><th>$r(s,a,s')$</th></tr>
+  <tr><td>high</td><td>search</td><td>high</td><td>$\alpha$</td><td>$r_\text{search}$</td></tr>
+  <tr><td>high</td><td>search</td><td>low</td><td>$1-\alpha$</td><td>$r_\text{search}$</td></tr>
+  <tr><td>low</td><td>search</td><td>high</td><td>$1-\beta$</td><td>$-3$</td></tr>
+  <tr><td>low</td><td>search</td><td>low</td><td>$\beta$</td><td>$r_\text{search}$</td></tr>
+  <tr><td>high</td><td>wait</td><td>high</td><td>1</td><td>$r_\text{wait}$</td></tr>
+  <tr><td>low</td><td>wait</td><td>low</td><td>1</td><td>$r_\text{wait}$</td></tr>
+  <tr><td>low</td><td>recharge</td><td>high</td><td>1</td><td>0</td></tr>
+</table></div>
+<p class="small muted">Zero-probability rows (high-wait-low, low-wait-high, low-recharge-low) are omitted. In a <strong>transition graph</strong>, state nodes are large open circles, action nodes are small solid circles, and arrows out of an action node carry $p(s'\mid s,a)$ and $r(s,a,s')$ and sum to 1. Exercise 3.4 (the $p(s',r\mid s,a)$ table) has exactly these rows, with $r$ as its own column, since each $(s,a,s')$ here has a single reward.</p>
+
+<h2 id="rewards">3.2 Goals and rewards</h2>
+<div class="box def">
+  <span class="box-title">The reward hypothesis</span>
+  <p>"That all of what we mean by goals and purposes can be well thought of as the maximization of the expected value of the cumulative sum of a received scalar signal (called reward)."</p>
+</div>
+<ul>
+  <li>Walking robot: reward ∝ forward motion. Maze: $-1$ per step until escape (encourages speed). Can collector: +1 per can. Chess: +1 win, −1 loss, 0 otherwise.</li>
+  <li><strong>The reward tells the agent <em>what</em> you want achieved, not <em>how</em>.</strong> Don't reward sub-goals (e.g. capturing pieces in chess) — the agent may achieve them at the expense of the real goal. Prior knowledge belongs in the initial policy or value function.</li>
+</ul>
+
+<h2 id="returns">3.3 Returns and episodes</h2>
+<div class="eq">
+$$G_t \doteq R_{t+1} + R_{t+2} + R_{t+3} + \dots + R_T$$
+<div class="eq-name"><span>Return — episodic (undiscounted)</span><span class="ref">(3.7)</span></div>
+</div>
+<p><strong>Episodic tasks</strong> break into episodes (plays of a game, trips through a maze), each ending in a <strong>terminal state</strong> followed by a reset; $T$ is a random variable. $\mathcal S$ = non-terminal states, $\mathcal S^+$ = all states incl. terminal. <strong>Continuing tasks</strong> go on without limit ($T=\infty$) — the sum (3.7) could be infinite, so we discount:</p>
+<div class="eq">
+$$G_t \doteq R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \dots = \sum_{k=0}^{\infty}\gamma^k R_{t+k+1}, \qquad 0\le\gamma\le1$$
+<div class="eq-name"><span>Discounted return</span><span class="ref">(3.8)</span></div>
+</div>
+<div class="eq">
+$$G_t = R_{t+1} + \gamma G_{t+1}, \qquad G_T \doteq 0$$
+<div class="eq-name"><span>Recursive relation between successive returns</span><span class="ref">(3.9)</span></div>
+</div>
+<div class="eq">
+$$\text{If } R=+1 \text{ forever:}\quad G_t = \sum_{k=0}^{\infty}\gamma^k = \frac{1}{1-\gamma}$$
+<div class="eq-name"><span>Return of a constant reward stream</span><span class="ref">(3.10)</span></div>
+</div>
+
+<div class="box key">
+  <span class="box-title">The discount rate γ — a problem parameter, not just a learning parameter</span>
+  <ul>
+    <li>A reward $k$ steps in the future is worth $\gamma^{k}$ times an immediate one ($\gamma^{k-1}$ if counted from the next reward). It sets the <strong>present value</strong> of future rewards.</li>
+    <li>$\gamma=0$: <strong>myopic</strong> — maximise only $R_{t+1}$. Fine only if actions don't influence future rewards; in general, greedily grabbing immediate reward reduces later reward.</li>
+    <li>$\gamma\to1$: <strong>far-sighted</strong> — future rewards count more strongly.</li>
+    <li>$\gamma<1$ keeps the infinite sum finite for bounded rewards. Rough "effective horizon": $1/(1-\gamma)$ steps (γ = 0.9 → ~10 steps, γ = 0.99 → ~100).</li>
+    <li>Changing γ can change <strong>which policy is optimal</strong> (Exercise 3.22 below).</li>
+  </ul>
+</div>
+
+<h3>Example 3.4 — pole balancing, two formulations</h3>
+<div class="table-wrap"><table>
+  <tr><th>Formulation</th><th>Reward</th><th>Return</th></tr>
+  <tr><td>Episodic, undiscounted</td><td>+1 every step without failure</td><td>Number of steps until failure (∞ if balanced forever)</td></tr>
+  <tr><td>Continuing, discounted</td><td>−1 on failure, 0 otherwise</td><td>$-\gamma^{K-1}$ for the next failure $K$ steps away (plus later failures)</td></tr>
+</table></div>
+<p>Either way the return is maximised by balancing as long as possible.</p>
+
+<div class="demo" id="ret-demo">
+  <div class="demo-title">Returns calculator — work backwards with $G_t = R_{t+1} + \gamma G_{t+1}$</div>
+  <div class="controls">
+    <label class="control">Rewards $R_1, R_2, \dots, R_T$ (comma-separated)
+      <input type="text" id="ret-r" value="1, 2, 6, 3, 2" style="font:inherit;font-size:14px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);width:240px"></label>
+    <label class="control">γ <span class="val" id="ret-g-v">0.50</span><input type="range" id="ret-g" min="0" max="1" step="0.01" value="0.5"></label>
+  </div>
+  <div class="table-wrap" id="ret-out"></div>
+  <p class="small muted">Defaults are Exercise 3.8 (γ = 0.5, T = 5).</p>
+</div>
+
+<h2 id="unified">3.4 Unified notation for episodic and continuing tasks</h2>
+<p>Treat episode termination as entering a special <strong>absorbing state</strong> that transitions only to itself with reward 0. Then the episodic return equals the infinite sum, with or without discounting:</p>
+<div class="eq">
+$$G_t \doteq \sum_{k=t+1}^{T}\gamma^{\,k-t-1}R_k \qquad \text{(allowing } T=\infty \text{ or } \gamma=1\text{, but not both)}$$
+<div class="eq-name"><span>Unified return</span><span class="ref">(3.11)</span></div>
+</div>
+
+<h2 id="values">3.5 Policies and value functions</h2>
+<p>A <strong>policy</strong> $\pi(a\mid s)$ is a mapping from states to probabilities of selecting each action. RL methods specify how the policy changes with experience.</p>
+<div class="eq">
+$$v_\pi(s) \doteq \E_\pi[G_t\mid S_t=s] = \E_\pi\Big[\sum_{k=0}^\infty\gamma^kR_{t+k+1}\,\Big|\,S_t=s\Big]$$
+<div class="eq-name"><span>State-value function for policy π</span><span class="ref">(3.12)</span></div>
+</div>
+<div class="eq">
+$$q_\pi(s,a) \doteq \E_\pi[G_t\mid S_t=s, A_t=a] = \E_\pi\Big[\sum_{k=0}^\infty\gamma^kR_{t+k+1}\,\Big|\,S_t=s, A_t=a\Big]$$
+<div class="eq-name"><span>Action-value function for policy π</span><span class="ref">(3.13)</span></div>
+</div>
+<p>The value of a terminal state is always 0. Values can be estimated by averaging returns observed after each state (<strong>Monte Carlo</strong>, Ch 5) or, for many states, by a parameterised function (Part II).</p>
+
+<h3>Conversions between v and q (Exercises 3.12, 3.13, 3.18, 3.19)</h3>
+<div class="eq">
+$$v_\pi(s) = \sum_a \pi(a\mid s)\,q_\pi(s,a) = \E_\pi[q_\pi(S_t,A_t)\mid S_t=s]$$
+<div class="eq-name"><span>v from q</span><span class="ref">Ex 3.12 / 3.18</span></div>
+</div>
+<div class="eq">
+$$q_\pi(s,a) = \sum_{s',r}p(s',r\mid s,a)\big[r + \gamma v_\pi(s')\big] = \E[R_{t+1}+\gamma v_\pi(S_{t+1})\mid S_t=s,A_t=a]$$
+<div class="eq-name"><span>q from v (needs the model p)</span><span class="ref">Ex 3.13 / 3.19</span></div>
+</div>
+
+<h3>The Bellman equation for $v_\pi$</h3>
+<div class="eq">
+$$v_\pi(s) = \sum_a\pi(a\mid s)\sum_{s',r}p(s',r\mid s,a)\Big[r+\gamma v_\pi(s')\Big], \quad\text{for all } s\in\mathcal S$$
+<div class="eq-name"><span>Bellman equation for v<sub>π</sub></span><span class="ref">(3.14)</span></div>
+</div>
+<p>Derivation: $v_\pi(s)=\E_\pi[G_t\mid S_t=s]=\E_\pi[R_{t+1}+\gamma G_{t+1}\mid S_t=s]$, then expand the expectation over $a$ (by π), $s',r$ (by $p$). Read it as: <em>value of a state = expected immediate reward + discounted expected value of the next state</em>, averaged over all possibilities weighted by $\pi(a\mid s)p(s',r\mid s,a)$. <strong>$v_\pi$ is the unique solution</strong> of this system of $|\mathcal S|$ linear equations.</p>
+<div class="eq">
+$$q_\pi(s,a) = \sum_{s',r}p(s',r\mid s,a)\Big[r+\gamma\sum_{a'}\pi(a'\mid s')\,q_\pi(s',a')\Big]$$
+<div class="eq-name"><span>Bellman equation for q<sub>π</sub></span><span class="ref">Ex 3.17</span></div>
+</div>
+
+<figure class="diagram"><div class="backup-row">
+  <div class="bk" data-tree="s|a3|s2" data-label="v<sub>π</sub> (3.14): root state, average over π then p"></div>
+  <div class="bk" data-tree="a|s3|a2" data-label="q<sub>π</sub>: root (s,a), average over p then π"></div>
+  <div class="bk" data-tree="s|a3m|s2" data-label="v<sub>*</sub> (3.19): max over actions"></div>
+  <div class="bk" data-tree="a|s3|a2m" data-label="q<sub>*</sub> (3.20): max over next actions"></div>
+</div>
+<figcaption>Backup diagrams. Open circle = state, solid dot = state–action pair, arc = max. Updates transfer value <em>back</em> from successors to the root. Unlike transition graphs, nodes needn't be distinct states (a state can be its own successor).</figcaption></figure>
+
+<h3>Example 3.5 — gridworld</h3>
+<p>5×5 grid, actions N/S/E/W move deterministically; moving off-grid leaves you in place with reward −1; other moves give 0, except: from <strong>A</strong> every action gives +10 and teleports to <strong>A′</strong>; from <strong>B</strong> every action gives +5 and teleports to <strong>B′</strong>. With the equiprobable random policy and γ = 0.9:</p>
+<ul>
+  <li>Negative values near the lower edge — high chance of hitting the wall.</li>
+  <li>$v_\pi(A) < 10$: from A′ the agent is likely to hit the edge. $v_\pi(B) > 5$: B′ has positive value (can stumble onto A or B).</li>
+</ul>
+
+<div class="demo" id="gw-demo">
+  <div class="demo-title">Try it: solve the gridworld (Figures 3.2 and 3.5)</div>
+  <div class="controls">
+    <label class="control">Policy
+      <select id="gw-pol"><option value="random">Equiprobable random (vπ)</option><option value="opt">Optimal (v*, π*)</option></select></label>
+    <label class="control">γ <span class="val" id="gw-g-v">0.90</span><input type="range" id="gw-g" min="0" max="0.99" step="0.01" value="0.9"></label>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+    <div class="gw" id="gw-grid" style="grid-template-columns:repeat(5,56px)"></div>
+    <div class="small" id="gw-out" style="flex:1;min-width:220px"></div>
+  </div>
+</div>
+
+<div class="box exam"><span class="box-title">Exercise 3.14 — check the Bellman equation at the centre state</span>
+<p>Centre value 0.7, neighbours 2.3, 0.4, −0.4, 0.7, all rewards 0, each action prob. ¼: $\;0.9\times\tfrac14(2.3+0.4-0.4+0.7)=0.9\times0.75=0.675\approx0.7$ ✓.</p></div>
+
+<h3>Adding a constant to all rewards (Exercises 3.15, 3.16)</h3>
+<div class="eq">
+$$\text{Continuing: } G_t \to G_t + \sum_{k=0}^{\infty}\gamma^k c = G_t + \underbrace{\frac{c}{1-\gamma}}_{v_c}$$
+<div class="eq-name"><span>Reward shift in a continuing task</span><span class="ref">Ex 3.15</span></div>
+</div>
+<p><strong>Continuing</strong>: every state's value shifts by the same $v_c=c/(1-\gamma)$, so relative values and the optimal policy are unchanged — only the <em>intervals</em> between rewards matter. <strong>Episodic</strong>: the shift is $c\sum_{k=0}^{T-t-1}\gamma^k$, which depends on how long the episode lasts, so it <strong>can change the task</strong>. Example: maze with −1 per step; add $c=+2$ → +1 per step, and the agent now prefers <em>never</em> escaping.</p>
+
+<h3>Example 3.6 — golf</h3>
+<p>Reward −1 per stroke until the ball is in the hole; value = −(strokes to go). $v_\text{putt}$: −1 on the green, contours −2, −3, … outward; sand traps $-\infty$ with the putter; 6 strokes from the tee by putting only.</p>
+
+<h2 id="optimal">3.6 Optimal policies and optimal value functions</h2>
+<p>Policies are partially ordered: $\pi\ge\pi'$ iff $v_\pi(s)\ge v_{\pi'}(s)$ for <strong>all</strong> $s$. There is always at least one policy better than or equal to all others — an <strong>optimal policy</strong> $\pi_*$ (possibly several, all sharing the same value functions).</p>
+<div class="eq">
+$$v_*(s) \doteq \max_\pi v_\pi(s) \qquad\qquad q_*(s,a)\doteq\max_\pi q_\pi(s,a)$$
+<div class="eq-name"><span>Optimal state- and action-value functions</span><span class="ref">(3.15), (3.16)</span></div>
+</div>
+<div class="eq">
+$$q_*(s,a) = \E\big[R_{t+1}+\gamma v_*(S_{t+1})\mid S_t=s,A_t=a\big]$$
+<div class="eq-name"><span>q<sub>*</sub> in terms of v<sub>*</sub></span><span class="ref">(3.17)</span></div>
+</div>
+<p>The <strong>Bellman optimality equation</strong>: the value of a state under an optimal policy equals the expected return for the <em>best action</em> from that state — no reference to any specific policy.</p>
+<div class="eq">
+$$v_*(s) = \max_{a\in\mathcal A(s)} q_{\pi_*}(s,a) = \max_a\E\big[R_{t+1}+\gamma v_*(S_{t+1})\mid S_t=s,A_t=a\big] = \max_a\sum_{s',r}p(s',r\mid s,a)\big[r+\gamma v_*(s')\big]$$
+<div class="eq-name"><span>Bellman optimality equation for v<sub>*</sub></span><span class="ref">(3.18), (3.19)</span></div>
+</div>
+<div class="eq">
+$$q_*(s,a) = \E\Big[R_{t+1}+\gamma\max_{a'}q_*(S_{t+1},a')\,\Big|\,S_t=s,A_t=a\Big] = \sum_{s',r}p(s',r\mid s,a)\Big[r+\gamma\max_{a'}q_*(s',a')\Big]$$
+<div class="eq-name"><span>Bellman optimality equation for q<sub>*</sub></span><span class="ref">(3.20)</span></div>
+</div>
+<ul>
+  <li>For finite MDPs, (3.19) has a <strong>unique solution</strong> — a system of $n$ <em>nonlinear</em> (because of max) equations in $n$ unknowns.</li>
+  <li><strong>From $v_*$</strong>: any policy greedy w.r.t. $v_*$ (one-step lookahead using $p$) is optimal — because $v_*$ already accounts for all future consequences, short-term greedy = long-term optimal.</li>
+  <li><strong>From $q_*$</strong>: just pick $\argmax_a q_*(s,a)$ — no one-step search and <strong>no knowledge of the dynamics</strong> needed. $q_*$ "caches the results of all one-step-ahead searches" at the cost of representing a function of state–action pairs.</li>
+</ul>
+
+<div class="table-wrap"><table>
+  <tr><th>Goal</th><th>Formula</th><th>Needs model?</th></tr>
+  <tr><td>$v_*$ from $q_*$ (Ex 3.25)</td><td>$v_*(s)=\max_a q_*(s,a)$</td><td>No</td></tr>
+  <tr><td>$q_*$ from $v_*$ (Ex 3.26)</td><td>$q_*(s,a)=\sum_{s',r}p(s',r\mid s,a)[r+\gamma v_*(s')]$</td><td class="no">Yes</td></tr>
+  <tr><td>$\pi_*$ from $q_*$ (Ex 3.27)</td><td>$\pi_*(s)=\argmax_a q_*(s,a)$</td><td class="yes">No</td></tr>
+  <tr><td>$\pi_*$ from $v_*$ (Ex 3.28)</td><td>$\pi_*(s)=\argmax_a\sum_{s',r}p(s',r\mid s,a)[r+\gamma v_*(s')]$</td><td class="no">Yes</td></tr>
+</table></div>
+
+<h3>Exercise 3.29 — Bellman equations with $p(s'\mid s,a)$ and $r(s,a)$</h3>
+<div class="eq">
+$$\begin{aligned}
+v_\pi(s)&=\sum_a\pi(a\mid s)\Big[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v_\pi(s')\Big] &
+v_*(s)&=\max_a\Big[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v_*(s')\Big]\\
+q_\pi(s,a)&=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\sum_{a'}\pi(a'\mid s')q_\pi(s',a') &
+q_*(s,a)&=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\max_{a'}q_*(s',a')
+\end{aligned}$$
+<div class="eq-name"><span>All four Bellman equations with three-argument p and r(s,a)</span><span class="ref">Ex 3.29</span></div>
+</div>
+
+<h3>Example 3.8 — solving the gridworld</h3>
+<p>$v_*(A)=24.4$. From A the optimal policy collects +10, jumps to A′, and walks 4 steps back up to A: a 5-step cycle.</p>
+<div class="eq">
+$$v_*(A) = 10 + \gamma^5 v_*(A) \;\Rightarrow\; v_*(A)=\frac{10}{1-\gamma^5}=\frac{10}{1-0.9^5}=\frac{10}{0.40951}\approx \mathbf{24.419}$$
+<div class="eq-name"><span>Optimal value of A</span><span class="ref">Ex 3.24</span></div>
+</div>
+
+<h3>Example 3.9 — recycling robot Bellman optimality equations</h3>
+<div class="eq">
+$$\begin{aligned}
+v_*(h)&=\max\begin{cases} r_s+\gamma[\alpha v_*(h)+(1-\alpha)v_*(l)]\\ r_w+\gamma v_*(h)\end{cases}\\[4pt]
+v_*(l)&=\max\begin{cases} \beta r_s-3(1-\beta)+\gamma[(1-\beta)v_*(h)+\beta v_*(l)]\\ r_w+\gamma v_*(l)\\ \gamma v_*(h)\end{cases}
+\end{aligned}$$
+<div class="eq-name"><span>Recycling robot — two nonlinear equations, one unique solution pair</span><span class="ref">Ex 3.9</span></div>
+</div>
+
+<div class="box pitfall">
+  <span class="box-title">Why we rarely solve the Bellman optimality equation directly</span>
+  <p>It amounts to exhaustive search and relies on three assumptions rarely true together: (1) <strong>dynamics accurately known</strong>; (2) <strong>enough computation</strong>; (3) <strong>Markov states</strong>. Backgammon satisfies 1 and 3 but has ~10<sup>20</sup> states, so 2 fails. Heuristic search, DP and RL methods can all be viewed as <em>approximately</em> solving it — RL uses <em>experienced</em> transitions in place of expected ones.</p>
+</div>
+
+<h2 id="approx">3.7 Optimality and approximation</h2>
+<ul>
+  <li>Optimal policies can be computed only at extreme cost; the constraints are <strong>computation per time step</strong> and <strong>memory</strong>.</li>
+  <li><strong>Tabular</strong> case: one table entry per state (or state–action pair). Otherwise, <strong>parameterised function approximation</strong> is needed (Ch 9).</li>
+  <li>RL's online nature lets it put more effort into <strong>frequently encountered states</strong> at the expense of rare ones (TD-Gammon may play badly in positions experts never reach) — a key property distinguishing RL from other approximate MDP solvers.</li>
+</ul>
+
+<h2 id="summary">Chapter summary</h2>
+<div class="table-wrap"><table>
+  <tr><th>Concept</th><th>Summary</th></tr>
+  <tr><td>Agent / environment</td><td>Everything inside the agent is known and controllable; the environment is incompletely controllable and may or may not be known.</td></tr>
+  <tr><td>Finite MDP</td><td>Finite $\mathcal S,\mathcal A,\mathcal R$ with dynamics $p(s',r\mid s,a)$.</td></tr>
+  <tr><td>Return</td><td>Undiscounted for episodic tasks; discounted for continuing tasks; unified by an absorbing terminal state.</td></tr>
+  <tr><td>Value functions</td><td>$v_\pi,q_\pi$: expected return under π. $v_*,q_*$: the largest achievable — <strong>unique</strong>; optimal policies may be <strong>many</strong>.</td></tr>
+  <tr><td>Bellman equations</td><td>Consistency conditions; linear for $v_\pi$, nonlinear (max) for $v_*$.</td></tr>
+  <tr><td>Complete vs incomplete knowledge</td><td>Complete = the agent has the full model $p$ (DP, Ch 4). Incomplete = it doesn't (MC, TD, Ch 5–7).</td></tr>
+</table></div>
+
+<h2 id="selftest">Self-test</h2>
+<div class="quiz">
+  <details><summary>Ex 3.5 — Modify (3.3) for episodic tasks.</summary><div class="ans"><p>$\sum_{s'\in\mathcal S^+}\sum_{r\in\mathcal R}p(s',r\mid s,a)=1$ for all $s\in\mathcal S$, $a\in\mathcal A(s)$ — the next state can be the terminal state, so sum over $\mathcal S^+$.</p></div></details>
+  <details><summary>Ex 3.6 — Pole-balancing treated as episodic with discounting, reward −1 on failure, 0 otherwise. What is the return? How does it differ from the continuing formulation?</summary><div class="ans"><p>$G_t=-\gamma^{K-1}$ where $K$ is the number of steps until failure (the episode ends there). In the continuing version, $G_t=-\sum_i\gamma^{K_i-1}$ over <em>all</em> future failures — later failures also count.</p></div></details>
+  <details><summary>Ex 3.7 — Maze robot: +1 for escaping, 0 otherwise, undiscounted episodic. It shows no improvement. Why?</summary><div class="ans"><p>Every policy that eventually escapes gets return 1, so there's no incentive to escape <em>quickly</em> (and with random exploration it nearly always escapes eventually). You haven't communicated "fast". Use −1 per step or discount (γ &lt; 1).</p></div></details>
+  <details><summary>Ex 3.8 — γ = 0.5, R = 1, 2, 6, 3, 2, T = 5. Compute G₀…G₅.</summary><div class="ans"><p>Backwards: $G_5=0$; $G_4=2$; $G_3=3+0.5\cdot2=4$; $G_2=6+0.5\cdot4=8$; $G_1=2+0.5\cdot8=6$; $G_0=1+0.5\cdot6=\mathbf 4$.</p></div></details>
+  <details><summary>Ex 3.9 — γ = 0.9, R₁ = 2 then an infinite sequence of 7s. G₁ and G₀?</summary><div class="ans"><p>$G_1 = 7/(1-0.9)=70$; $G_0=2+0.9\cdot70=65$.</p></div></details>
+  <details><summary>Ex 3.10 — Prove $\sum_{k=0}^\infty\gamma^k=1/(1-\gamma)$.</summary><div class="ans"><p>Let $S=\sum_{k\ge0}\gamma^k$ (converges for $|\gamma|&lt;1$). Then $S=1+\gamma S$, so $S(1-\gamma)=1$.</p></div></details>
+  <details><summary>Ex 3.11 — Expected next reward under a stochastic policy, in terms of π and p.</summary><div class="ans"><p>$\E[R_{t+1}\mid S_t=s]=\sum_a\pi(a\mid s)\sum_{s',r}r\,p(s',r\mid s,a)$.</p></div></details>
+  <details><summary>Ex 3.22 — Top state: <em>left</em> gives +1 then 0 (and returns); <em>right</em> gives 0 then +2. Which policy is optimal for γ = 0, 0.9, 0.5?</summary><div class="ans"><p>$v_\text{left}=1+\gamma^2+\gamma^4+\dots=1/(1-\gamma^2)$; $v_\text{right}=2\gamma/(1-\gamma^2)$. Left is better iff $1&gt;2\gamma$. γ = 0: <strong>left</strong> (1 vs 0). γ = 0.9: <strong>right</strong> (9.47 vs 5.26). γ = 0.5: <strong>both</strong> equal (1.33).</p></div></details>
+  <details><summary>Why can the optimal action be chosen from $q_*$ without a model, but not from $v_*$?</summary><div class="ans"><p>$q_*(s,a)$ already includes the expected next reward and next-state value. From $v_*$ you must do a one-step lookahead $\sum_{s',r}p(s',r\mid s,a)[r+\gamma v_*(s')]$, which needs $p$.</p></div></details>
+  <details><summary>Is the optimal value function unique? Is the optimal policy unique?</summary><div class="ans"><p>$v_*$ and $q_*$ are unique for a given MDP; there can be multiple optimal policies (any policy giving non-zero probability only to maximising actions — e.g. ties in the gridworld).</p></div></details>
+  <details><summary>Ex 3.2 — Is the MDP framework adequate for all goal-directed learning? An exception?</summary><div class="ans"><p>Not always usefully: tasks where the state is not observable (non-Markov, partial observability), multiple goals that can't be reduced to a single scalar, or when the reward itself can be altered by the agent. Very long horizons or continuous time also strain it.</p></div></details>
+  <details><summary>Ex 3.3 — Driving: where should the agent–environment line go?</summary><div class="ans"><p>It's a modelling choice determined by what you can control arbitrarily and what decision problem you want to learn. Too far in (muscle twitches) makes learning the high-level task very hard; too far out (tyre torques) assumes control you don't directly have. A sensible choice is where actions are reliably executable and meaningful for the goal (e.g. accelerator/brake/steering, or route choices for a navigation agent).</p></div></details>
+</div>
+
+</main>
+
+<script>
+document.addEventListener("rl:ready", function () {
+  const $ = (id) => document.getElementById(id);
+
+  /* returns calculator */
+  function calc() {
+    const g = +$("ret-g").value; $("ret-g-v").textContent = g.toFixed(2);
+    const rs = $("ret-r").value.split(",").map((s) => parseFloat(s)).filter((v) => !isNaN(v));
+    const T = rs.length, G = new Array(T + 1).fill(0);
+    for (let t = T - 1; t >= 0; t--) G[t] = rs[t] + g * G[t + 1];
+    const fmt = (v) => (Math.abs(v - Math.round(v)) < 1e-9 ? String(Math.round(v)) : v.toFixed(3));
+    let h = "<table><tr><th>t</th>" + G.map((_, t) => "<td>" + t + "</td>").join("") + "</tr>";
+    h += "<tr><th>R<sub>t</sub></th><td>–</td>" + rs.map((r) => "<td>" + fmt(r) + "</td>").join("") + "</tr>";
+    h += "<tr><th>G<sub>t</sub></th>" + G.map((v) => "<td><strong>" + fmt(v) + "</strong></td>").join("") + "</tr></table>";
+    $("ret-out").innerHTML = h;
+  }
+  $("ret-r").addEventListener("input", calc); $("ret-g").addEventListener("input", calc); calc();
+
+  /* gridworld */
+  const N = 5, A = [0, 1], A2 = [4, 1], B = [0, 3], B2 = [2, 3];
+  const MOVES = [[-1, 0], [1, 0], [0, 1], [0, -1]]; // N S E W
+  const ARROWS = ["↑", "↓", "→", "←"];
+  function step(r, c, a) {
+    if (r === A[0] && c === A[1]) return [A2[0], A2[1], 10];
+    if (r === B[0] && c === B[1]) return [B2[0], B2[1], 5];
+    const nr = r + MOVES[a][0], nc = c + MOVES[a][1];
+    if (nr < 0 || nr >= N || nc < 0 || nc >= N) return [r, c, -1];
+    return [nr, nc, 0];
+  }
+  function solve(g, opt) {
+    let V = Array.from({ length: N }, () => new Array(N).fill(0)), it = 0;
+    while (true) {
+      let delta = 0; it++;
+      const W = V.map((row) => row.slice());
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+        const qs = MOVES.map((_, a) => { const [nr, nc, rew] = step(r, c, a); return rew + g * V[nr][nc]; });
+        W[r][c] = opt ? Math.max(...qs) : qs.reduce((s, v) => s + v, 0) / 4;
+        delta = Math.max(delta, Math.abs(W[r][c] - V[r][c]));
+      }
+      V = W;
+      if (delta < 1e-10 || it > 20000) break;
+    }
+    return { V, it };
+  }
+  function draw() {
+    const g = +$("gw-g").value, opt = $("gw-pol").value === "opt";
+    $("gw-g-v").textContent = g.toFixed(2);
+    const { V, it } = solve(g, opt);
+    let h = "";
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      let label = "";
+      if (r === A[0] && c === A[1]) label = "A"; else if (r === B[0] && c === B[1]) label = "B";
+      else if (r === A2[0] && c === A2[1]) label = "A′"; else if (r === B2[0] && c === B2[1]) label = "B′";
+      let arrows = "";
+      if (opt) {
+        const qs = MOVES.map((_, a) => { const [nr, nc, rew] = step(r, c, a); return rew + g * V[nr][nc]; });
+        const m = Math.max(...qs);
+        arrows = qs.map((q, a) => (Math.abs(q - m) < 1e-6 ? ARROWS[a] : "")).join("");
+      }
+      h += '<div class="cell" title="' + (label || "(" + r + "," + c + ")") + '">' +
+        (label ? '<span style="position:absolute;top:2px;left:4px;font-size:10px;color:var(--text-3);font-family:var(--font)">' + label + "</span>" : "") +
+        V[r][c].toFixed(1) + (arrows ? '<span class="arrow">' + arrows + "</span>" : "") + "</div>";
+    }
+    $("gw-grid").innerHTML = h;
+    const vA = V[A[0]][A[1]], vB = V[B[0]][B[1]];
+    $("gw-out").innerHTML = (opt
+      ? "<p><strong>v<sub>*</sub></strong> by value iteration (" + it + " sweeps). Arrows show all optimal actions (π<sub>*</sub>).</p><p>v<sub>*</sub>(A) = " + vA.toFixed(3) + " — compare 10/(1−γ⁵) = " + (10 / (1 - Math.pow(g, 5))).toFixed(3) + ".</p>"
+      : "<p><strong>v<sub>π</sub></strong> for the random policy by iterative evaluation (" + it + " sweeps).</p><p>v<sub>π</sub>(A) = " + vA.toFixed(2) + " (&lt; 10), v<sub>π</sub>(B) = " + vB.toFixed(2) + " (&gt; 5).</p>") +
+      "<p class='muted'>Try γ = 0: values become just the expected immediate reward. Push γ toward 1 and values grow roughly like 1/(1−γ).</p>";
+  }
+  $("gw-g").addEventListener("input", draw); $("gw-pol").addEventListener("change", draw); draw();
+});
+</script>
+</body>
+</html>
