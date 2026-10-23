@@ -2,13 +2,13 @@
    Tokens first; light is default, dark via OS setting or the theme toggle. */
 :root {
   color-scheme: light;
-  --bg: #f7f6f3;
-  --surface: #ffffff;
-  --surface-2: #f1efea;
-  --border: #e2dfd8;
-  --text: #1c1b19;
-  --text-2: #52514e;
-  --text-3: #7a7873;
+  --bg: #f8f5ef;
+  --surface: #fffdf9;
+  --surface-2: #f2ede4;
+  --border: #e6dfd3;
+  --text: #24211c;
+  --text-2: #56514a;
+  --text-3: #7d776d;
   --accent: #2a78d6;
   --accent-soft: #e3eefb;
   --key: #2a78d6;      --key-bg: #eef4fc;
@@ -23,14 +23,17 @@
   --shadow: 0 1px 2px rgba(0,0,0,.04), 0 2px 8px rgba(0,0,0,.04);
   --radius: 10px;
   --sidebar-w: 270px;
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --serif: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --read-size: 18px;
+  --chap: var(--accent);
   --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #131312; --surface: #1a1a19; --surface-2: #232321; --border: #33322f;
-    --text: #f0efec; --text-2: #c3c2b7; --text-3: #8f8e86;
+    --bg: #151412; --surface: #1c1b18; --surface-2: #252320; --border: #35322c;
+    --text: #ece7dd; --text-2: #c4beb2; --text-3: #8f897e;
     --accent: #5598e7; --accent-soft: #1c2a3d;
     --key: #5598e7;  --key-bg: #17222f;
     --exam: #e0a33a; --exam-bg: #2a2114;
@@ -39,14 +42,14 @@
     --code-bg: #202020;
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
     --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
-    --grid: #2b2b29; --node-fill: #1a1a19;
+    --grid: #2c2a26; --node-fill: #1c1b18;
     --shadow: none;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #131312; --surface: #1a1a19; --surface-2: #232321; --border: #33322f;
-  --text: #f0efec; --text-2: #c3c2b7; --text-3: #8f8e86;
+  --bg: #151412; --surface: #1c1b18; --surface-2: #252320; --border: #35322c;
+  --text: #ece7dd; --text-2: #c4beb2; --text-3: #8f897e;
   --accent: #5598e7; --accent-soft: #1c2a3d;
   --key: #5598e7;  --key-bg: #17222f;
   --exam: #e0a33a; --exam-bg: #2a2114;
@@ -55,7 +58,7 @@
   --code-bg: #202020;
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
   --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
-  --grid: #2b2b29; --node-fill: #1a1a19;
+  --grid: #2c2a26; --node-fill: #1c1b18;
   --shadow: none;
 }
 
@@ -370,9 +373,9 @@ figcaption { font-size: 14px; color: var(--text-2); margin-top: 10px; text-align
   .menu-btn { display: inline-flex; }
   .sidebar {
     position: fixed; left: 0; top: 56px; z-index: 25; height: calc(100vh - 56px);
-    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.2);
+    transform: translateX(-100%); transition: transform .2s ease;
   }
-  body.nav-open .sidebar { transform: none; }
+  body.nav-open .sidebar { transform: none; box-shadow: 0 0 24px rgba(0,0,0,.2); }
   .content { padding: 24px 16px 80px; }
   .search-input { width: 160px; }
 }
@@ -408,3 +411,161 @@ a.card.soon::after { content: "Coming soon"; display: inline-block; margin-top: 
 .katex { position: relative; }
 .table-wrap, .eq { position: relative; }
 .katex-display { overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+
+/* =====================================================================
+   Reading theme — typography, chapter accents and reading aids
+   ===================================================================== */
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight: 400; font-display: swap; src: url("vendor/fonts/source-serif-4-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Source Serif 4"; font-style: italic; font-weight: 400; font-display: swap; src: url("vendor/fonts/source-serif-4-400-italic.woff2") format("woff2"); }
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight: 600; font-display: swap; src: url("vendor/fonts/source-serif-4-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Source Serif 4"; font-style: italic; font-weight: 600; font-display: swap; src: url("vendor/fonts/source-serif-4-600-italic.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 400; font-display: swap; src: url("vendor/fonts/inter-400.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 500; font-display: swap; src: url("vendor/fonts/inter-500.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 600; font-display: swap; src: url("vendor/fonts/inter-600.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 700; font-display: swap; src: url("vendor/fonts/inter-700.woff2") format("woff2"); }
+
+/* One accent hue per chapter (categorical palette), used for the hero,
+   section markers and the reading-progress bar. Links stay blue. */
+body[data-page="ch01"] { --chap: var(--s1); }
+body[data-page="ch02"] { --chap: var(--s2); }
+body[data-page="ch03"] { --chap: var(--s3); }
+body[data-page="ch04"] { --chap: var(--s7); }
+body[data-page="ch05"] { --chap: var(--s5); }
+body[data-page="ch06"] { --chap: #12864f; }
+:root[data-theme="dark"] body[data-page="ch06"] { --chap: #3fbf74; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) body[data-page="ch06"] { --chap: #3fbf74; } }
+body[data-page="ch07"] { --chap: var(--s4); }
+body[data-page="ch09"] { --chap: var(--s8); }
+
+body { text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+::selection { background: color-mix(in srgb, var(--chap) 28%, transparent); }
+
+/* Reading text in the serif; UI chrome, tables, code and controls stay in Inter. */
+.content { max-width: 880px; }
+.content > p, .content > ul > li, .content > ol > li,
+.box p, .box li, .card p, .ans p, .ans li, .algo-foot, .lead, figcaption {
+  font-family: var(--serif);
+}
+.content > p, .content > ul > li, .content > ol > li, .box p, .box li, .ans p, .ans li {
+  font-size: var(--read-size); line-height: 1.72;
+}
+.content > p { margin: 0 0 1.05em; }
+.content > ul, .content > ol { padding-left: 1.4em; margin: 0 0 1.1em; }
+.content > ul > li, .content > ol > li { margin: .32em 0; }
+.content > ul > li::marker { color: var(--chap); }
+.content > ol > li::marker { color: var(--chap); font-family: var(--font); font-weight: 600; font-size: .85em; }
+.lead { font-size: calc(var(--read-size) + 2px); line-height: 1.6; color: var(--text-2); }
+.content > p.small, .card p.small, p.small { font-size: calc(var(--read-size) - 3px); }
+a { text-underline-offset: 3px; }
+.content > p a, .box a, .ans a { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.content > p a:hover, .box a:hover { text-decoration-color: var(--accent); }
+
+/* Headings */
+h1, h2, h3, h4 { font-family: var(--font); color: var(--text); }
+h1 { font-size: 2.35rem; font-weight: 700; letter-spacing: -.022em; }
+h2 {
+  font-size: 1.55rem; font-weight: 700; letter-spacing: -.015em;
+  border-top: 0; padding-top: 0; margin-top: 64px;
+}
+h2::before {
+  content: ""; display: block; width: 44px; height: 4px; border-radius: 2px;
+  background: var(--chap); margin-bottom: 14px;
+}
+h3 { font-size: 1.2rem; font-weight: 650; letter-spacing: -.01em; margin-top: 36px; }
+h4 { font-size: 1.02rem; font-weight: 650; }
+
+/* Chapter hero */
+.hero {
+  position: relative; overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--chap) 22%, var(--border));
+  background:
+    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--chap) 13%, transparent) 0%, transparent 55%),
+    var(--surface);
+  padding: 34px 36px 30px; border-radius: 18px;
+}
+.hero .kicker { color: var(--chap); font-family: var(--font); }
+.hero::after {
+  content: attr(data-num); position: absolute; right: 26px; top: -18px;
+  font: 700 150px/1 var(--font); letter-spacing: -.06em;
+  color: color-mix(in srgb, var(--chap) 12%, transparent); pointer-events: none;
+}
+.hero > * { position: relative; z-index: 1; }
+.hero .chip { background: color-mix(in srgb, var(--chap) 7%, var(--surface)); border-color: color-mix(in srgb, var(--chap) 20%, var(--border)); }
+.hero .chip.read { background: transparent; color: var(--text-3); }
+
+/* Callouts: softer, with a small icon */
+.box { border-left-width: 3px; border-radius: 0 14px 14px 0; padding: 16px 20px; }
+.box .box-title { font-family: var(--font); font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.box .box-title::before {
+  display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  font-size: 12px; line-height: 1; color: #fff; background: var(--key); content: "✦"; flex: 0 0 22px;
+}
+.box.exam .box-title::before { background: var(--exam); content: "★"; }
+.box.pitfall .box-title::before { background: var(--pit); content: "!"; font-weight: 700; }
+.box.def .box-title::before { background: var(--def); content: "§"; }
+
+/* Equation cards */
+.eq { border-radius: 14px; padding: 12px 20px 10px; }
+.eq .eq-name { font-family: var(--font); }
+
+/* Tables: gentle zebra rows, rounded frame */
+.table-wrap { border-radius: 14px; }
+th { font-family: var(--font); font-size: 13.5px; }
+td { font-family: var(--font); }
+tr:nth-child(even) td { background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
+
+/* Cards, quiz, demos */
+.card { border-radius: 14px; }
+a.card { transition: border-color .15s, transform .15s, box-shadow .15s; }
+a.card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.06); }
+.quiz details { border-radius: 12px; transition: border-color .15s; }
+.quiz details[open] { border-color: color-mix(in srgb, var(--chap) 35%, var(--border)); }
+.quiz summary { font-family: var(--font); }
+.quiz details[open] summary::before { background: var(--chap); }
+.demo { border-radius: 18px; }
+.demo-title::before { background: var(--chap); }
+
+/* Sidebar active item follows the chapter accent */
+.sidebar a.active { background: color-mix(in srgb, var(--chap) 12%, var(--surface)); color: var(--text); }
+.sidebar a.active .num { background: var(--chap); }
+.sidebar .page-toc { border-left-color: color-mix(in srgb, var(--chap) 30%, var(--border)); }
+.sidebar .page-toc a.current { color: var(--text); font-weight: 600; box-shadow: inset 2px 0 0 var(--chap); }
+
+/* Reading progress bar */
+.read-progress { position: fixed; left: 0; top: 0; height: 3px; width: 0; z-index: 40; background: var(--chap); }
+
+/* Back to top */
+.to-top {
+  position: fixed; right: 22px; bottom: 22px; z-index: 35; width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font-size: 18px; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,.10); opacity: 0; transform: translateY(10px); pointer-events: none;
+  transition: opacity .2s, transform .2s;
+}
+.to-top.show { opacity: 1; transform: none; pointer-events: auto; }
+.to-top:hover { color: var(--text); border-color: var(--text-3); }
+
+/* Text-size and focus controls in the top bar */
+.reader-tools { display: inline-flex; gap: 4px; }
+.reader-tools .icon-btn { min-width: 34px; padding: 0 8px; font-weight: 600; }
+.reader-tools .icon-btn.on { background: var(--surface-2); color: var(--text); }
+body.focus .sidebar { display: none; }
+body.focus .content { max-width: 780px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero { animation: rise .45s ease-out both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+}
+
+@media (max-width: 980px) { .reader-tools .focus-btn { display: none; } }
+@media (max-width: 700px) {
+  :root { --read-size: 17px; }
+  .hero { padding: 24px 20px 22px; border-radius: 14px; }
+  .hero::after { font-size: 96px; right: 12px; top: -8px; }
+  h1 { font-size: 1.8rem; }
+  .reader-tools .size-btn { display: none; }
+  .to-top { right: 14px; bottom: 14px; }
+}
+@media print {
+  .read-progress, .to-top, .reader-tools { display: none !important; }
+  .hero::after { display: none; }
+}

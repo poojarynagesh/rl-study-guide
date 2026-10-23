@@ -57,6 +57,11 @@
       '<div class="spacer"></div>' +
       '<div class="search-wrap"><input class="search-input" type="search" placeholder="Search topics…" aria-label="Search">' +
       '<div class="search-results" role="listbox"></div></div>' +
+      '<span class="reader-tools">' +
+      '<button class="icon-btn size-btn" data-size="-1" aria-label="Smaller text" title="Smaller text">A−</button>' +
+      '<button class="icon-btn size-btn" data-size="1" aria-label="Larger text" title="Larger text">A+</button>' +
+      '<button class="icon-btn focus-btn" aria-label="Focus mode" title="Focus mode: hide the sidebar">⤢</button>' +
+      "</span>" +
       '<button class="icon-btn theme-btn" aria-label="Toggle dark mode" title="Toggle dark mode"></button>';
 
     const side = el("nav", { class: "sidebar", "aria-label": "Chapters" });
@@ -65,7 +70,7 @@
     PAGES.forEach((p) => {
       if (AVAILABLE && !AVAILABLE.includes(p.id)) return;
       if (p.group !== group) { group = p.group; html += "<h4>" + group + "</h4>"; }
-      const num = p.num ? '<span class="num">' + p.num + "</span>" : '<span class="num">&#8962;</span>';
+      const num = p.num ? '<span class="num">' + p.num + "</span>" : '<span class="num">•</span>';
       const dot = done[p.id] ? '<span class="done-dot" title="Marked as studied"></span>' : "";
       html += '<a href="' + url(p.href) + '" data-id="' + p.id + '"' + (p.id === PAGE ? ' class="active"' : "") + ">" +
         num + "<span>" + p.title + "</span>" + dot + "</a>";
@@ -90,13 +95,58 @@
       paintThemeBtn();
       document.dispatchEvent(new CustomEvent("themechange"));
     });
+    setupReaderTools(top);
     top.querySelector(".menu-btn").addEventListener("click", () => body.classList.toggle("nav-open"));
     side.addEventListener("click", (e) => { if (e.target.closest("a")) body.classList.remove("nav-open"); });
 
+    decorateHero();
     buildPageToc(side.querySelector(".page-toc"));
     buildPager(main);
     buildDoneToggle();
     setupSearch(top);
+  }
+
+  /* ---------- Reading aids: text size, focus mode, progress bar, back-to-top, reading time ---------- */
+  function setupReaderTools(top) {
+    const SIZES = [16, 17, 18, 19, 20, 21];
+    let size = store.get("readSize", null);
+    const apply = () => {
+      if (size) document.documentElement.style.setProperty("--read-size", size + "px");
+      else document.documentElement.style.removeProperty("--read-size");
+    };
+    apply();
+    top.querySelectorAll(".size-btn").forEach((b) => b.addEventListener("click", () => {
+      const cur = size || parseInt(getComputedStyle(document.documentElement).getPropertyValue("--read-size"), 10) || 18;
+      const i = Math.max(0, Math.min(SIZES.length - 1, SIZES.indexOf(cur) + +b.dataset.size));
+      size = SIZES[i === -1 ? 2 : i]; store.set("readSize", size); apply();
+    }));
+    const fb = top.querySelector(".focus-btn");
+    const paintFocus = () => fb.classList.toggle("on", body.classList.contains("focus"));
+    if (store.get("focus", false)) body.classList.add("focus");
+    paintFocus();
+    fb.addEventListener("click", () => { body.classList.toggle("focus"); store.set("focus", body.classList.contains("focus")); paintFocus(); });
+
+    const bar = el("div", { class: "read-progress", "aria-hidden": "true" });
+    const up = el("button", { class: "to-top", type: "button", "aria-label": "Back to top", title: "Back to top" }, "↑");
+    body.appendChild(bar); body.appendChild(up);
+    up.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+    const onScroll = () => {
+      const h = document.documentElement.scrollHeight - innerHeight;
+      bar.style.width = (h > 0 ? (scrollY / h) * 100 : 0) + "%";
+      up.classList.toggle("show", scrollY > 900);
+    };
+    document.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+  }
+
+  function decorateHero() {
+    const hero = document.querySelector(".hero");
+    if (!hero) return;
+    const page = PAGES.find((p) => p.id === PAGE);
+    if (page && page.num && /^ch/.test(PAGE)) hero.dataset.num = page.num;
+    const words = (document.querySelector("main.content").innerText || "").split(/\s+/).length;
+    const meta = hero.querySelector(".meta");
+    if (meta && /^ch/.test(PAGE)) meta.insertAdjacentHTML("beforeend", '<span class="chip read">≈ ' + Math.max(1, Math.round(words / 220)) + " min read</span>");
   }
 
   function slug(s) {

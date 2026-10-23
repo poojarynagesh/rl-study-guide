@@ -22,7 +22,11 @@ sheet and mixed exam practice.
 ## Using it
 
 Open `index.html` in a browser. No server, build step or internet connection
-is needed — KaTeX (math rendering) is vendored in `assets/vendor/katex`.
+is needed — KaTeX (math rendering) and the Source Serif 4 / Inter fonts (SIL Open
+Font License) are vendored in `assets/vendor`.
+
+Reading aids: text size (A−/A+), focus mode (hides the sidebar), light/dark
+theme, reading-progress bar and estimated reading time per chapter.
 
 Progress ("mark chapter as studied") and the theme choice are stored in your
 browser's localStorage only.
