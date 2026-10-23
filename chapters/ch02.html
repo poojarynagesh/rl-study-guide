@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 2 · Multi-armed Bandits — RL Study Guide</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/site.js"></script>
+</head>
+<body data-page="ch02" data-root="..">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Chapter 2 · Book pp. 25–45</div>
+  <h1>Multi-armed Bandits</h1>
+  <p class="lead">The exploration–exploitation trade-off in its simplest setting — one situation, k actions, evaluative feedback. This chapter introduces the incremental update rule, step-size choices, and four ways to explore that reappear throughout the book.</p>
+  <div class="meta">
+    <span class="chip">Sample average vs constant α</span>
+    <span class="chip">ε-greedy</span>
+    <span class="chip">Optimistic initial values</span>
+    <span class="chip">UCB</span>
+    <span class="chip">Gradient bandit</span>
+    <span class="chip">Contextual bandits</span>
+  </div>
+</div>
+
+<div class="box exam">
+  <span class="box-title">Exam focus for this chapter</span>
+  <ul>
+    <li>Evaluative vs instructive feedback.</li>
+    <li>Sample-average estimate (2.1), incremental form (2.3) and the general rule (2.4).</li>
+    <li><strong>Constant vs decreasing step size</strong>: exponential recency-weighted average (2.6), the convergence conditions (2.7), when each is appropriate.</li>
+    <li>Probability of choosing the greedy action under ε-greedy: $1-\varepsilon+\varepsilon/k$.</li>
+    <li>How each exploration method works, its hyperparameter, and its weaknesses (especially for nonstationary problems).</li>
+    <li>Gradient-bandit update (2.12), the role of the baseline, and why it is stochastic gradient ascent.</li>
+    <li>Reading a parameter study (inverted-U curves).</li>
+  </ul>
+</div>
+
+<h2 id="problem">2.1 The k-armed bandit problem</h2>
+<div class="box key">
+  <span class="box-title">Evaluative vs instructive feedback</span>
+  <p><strong>Evaluative</strong> feedback tells you <em>how good</em> the action you took was, but not whether it was the best — it depends entirely on the action taken. <strong>Instructive</strong> feedback tells you the correct action regardless of what you did (supervised learning). Evaluative feedback is what creates the need for <strong>active exploration</strong>.</p>
+</div>
+<p>You repeatedly choose among $k$ actions. After each choice you receive a numerical reward drawn from a <strong>stationary</strong> distribution that depends on the action. Goal: maximise expected total reward over, say, 1000 time steps. The setting is <strong>nonassociative</strong> — there is only one situation.</p>
+<div class="eq">
+$$q_*(a) \doteq \E[R_t \mid A_t = a]$$
+<div class="eq-name"><span>True action value</span><span class="ref">§2.1</span></div>
+</div>
+<p>$Q_t(a)$ is our estimate of $q_*(a)$ at time $t$. Actions with the highest estimate are <strong>greedy</strong>. Choosing one is <strong>exploiting</strong>; choosing a non-greedy action is <strong>exploring</strong>. Exploitation maximises reward on the one step; exploration may give greater total reward in the long run. You cannot do both with one selection — hence the "conflict". The book's aim is not to balance them optimally (methods that do rely on strong assumptions about stationarity and priors) but simply to <em>balance them at all</em>.</p>
+
+<h2 id="action-value">2.2 Action-value methods</h2>
+<div class="eq">
+$$Q_t(a) \doteq \frac{\text{sum of rewards when } a \text{ taken prior to } t}{\text{number of times } a \text{ taken prior to } t} = \frac{\sum_{i=1}^{t-1} R_i\,\mathbb 1_{A_i=a}}{\sum_{i=1}^{t-1}\mathbb 1_{A_i=a}}$$
+<div class="eq-name"><span>Sample-average action value</span><span class="ref">(2.1)</span></div>
+</div>
+<p>If the denominator is zero, use a default (e.g. 0). By the law of large numbers $Q_t(a)\to q_*(a)$ as the count goes to infinity.</p>
+<div class="eq">
+$$A_t \doteq \argmax_a Q_t(a)$$
+<div class="eq-name"><span>Greedy action selection (ties broken arbitrarily)</span><span class="ref">(2.2)</span></div>
+</div>
+<p><strong>ε-greedy</strong>: behave greedily with probability $1-\varepsilon$; with probability $\varepsilon$ pick an action uniformly at random (which may itself be the greedy one). In the limit every action is sampled infinitely often, so all $Q_t(a)\to q_*(a)$ and the probability of choosing the optimal action converges to more than $1-\varepsilon$.</p>
+<div class="eq">
+$$\Pr\{\text{greedy action}\} = (1-\varepsilon) + \frac{\varepsilon}{k}, \qquad \Pr\{\text{a specific non-greedy action}\} = \frac{\varepsilon}{k}$$
+<div class="eq-name"><span>ε-greedy selection probabilities</span><span class="ref">Ex 2.1</span></div>
+</div>
+<div class="box exam"><span class="box-title">Exercise 2.1</span><p>Two actions, $\varepsilon=0.5$: P(greedy) $= 0.5 + 0.5/2 = \mathbf{0.75}$.</p></div>
+
+<h2 id="testbed">2.3 The 10-armed testbed</h2>
+<ul>
+  <li>2000 randomly generated bandit problems, $k=10$. True values $q_*(a)\sim\mathcal N(0,1)$; rewards $R_t\sim\mathcal N(q_*(A_t),1)$.</li>
+  <li>Each <strong>run</strong> = 1000 steps on one problem; curves are averaged over the 2000 runs.</li>
+  <li>Best possible average reward ≈ 1.54 (the expected maximum of 10 standard normals).</li>
+</ul>
+<div class="table-wrap"><table>
+  <tr><th>Method (sample averages, $Q_1=0$)</th><th>What happens (Figure 2.2)</th></tr>
+  <tr><td>Greedy ($\varepsilon=0$)</td><td>Improves slightly faster at the very start, then levels off at reward ≈ 1. Finds the optimal action in only ~⅓ of tasks — it gets stuck after disappointing early samples of the best arm.</td></tr>
+  <tr><td>$\varepsilon=0.1$</td><td>Explores more, finds the optimal action earlier, but never selects it more than <strong>91%</strong> of the time ($0.9 + 0.1/10$).</td></tr>
+  <tr><td>$\varepsilon=0.01$</td><td>Improves more slowly, but <strong>eventually beats</strong> $\varepsilon=0.1$ on both measures (asymptotically 99.1% optimal).</td></tr>
+</table></div>
+<p>One can also <strong>reduce ε over time</strong> to get the best of both. The advantage of ε-greedy depends on the task:</p>
+<ul>
+  <li><strong>Higher reward variance</strong> (e.g. 10) → more exploration needed → ε-greedy does even better relative to greedy.</li>
+  <li><strong>Zero variance</strong> → greedy learns each value after one try and may do best.</li>
+  <li><strong>Nonstationary</strong> task → exploration is needed even in the deterministic case. Nonstationarity is the common case in RL (even a stationary task looks nonstationary while the policy is changing).</li>
+</ul>
+
+<div class="demo" id="tb-demo">
+  <div class="demo-title">Try it: the 10-armed testbed (Figures 2.2–2.5)</div>
+  <p class="small muted">Pick a preset (changing it re-runs). Each method runs on the same set of bandit problems. More runs → smoother curves (the book uses 2000).</p>
+  <div class="controls">
+    <label class="control">Preset
+      <select id="tb-preset">
+        <option value="fig22">Fig 2.2 — greedy vs ε-greedy</option>
+        <option value="fig23">Fig 2.3 — optimistic initial values</option>
+        <option value="fig24">Fig 2.4 — UCB vs ε-greedy</option>
+        <option value="fig25">Fig 2.5 — gradient bandit ± baseline (q* near +4)</option>
+        <option value="stepsize">Sample average vs constant α (stationary)</option>
+      </select></label>
+    <label class="control">Runs
+      <select id="tb-runs"><option>100</option><option selected>300</option><option>1000</option><option>2000</option></select></label>
+    <label class="control">Steps
+      <select id="tb-steps"><option>500</option><option selected>1000</option><option>2000</option></select></label>
+    <button class="btn" id="tb-run" type="button">Run</button>
+  </div>
+  <div class="small muted" id="tb-desc"></div>
+  <h4>Average reward</h4>
+  <div id="tb-chart-r"></div>
+  <h4>% optimal action</h4>
+  <div id="tb-chart-o"></div>
+</div>
+
+<h2 id="incremental">2.4 Incremental implementation</h2>
+<p>Storing every reward and re-averaging needs growing memory and computation. Instead, for one action, with $Q_n$ the estimate after $n-1$ rewards:</p>
+<div class="eq">
+$$Q_{n+1} = \frac1n\sum_{i=1}^{n}R_i = \frac1n\Big(R_n + (n-1)Q_n\Big) = Q_n + \frac1n\big[R_n - Q_n\big]$$
+<div class="eq-name"><span>Incremental sample average</span><span class="ref">(2.3)</span></div>
+</div>
+<p>It holds even for $n=1$ (giving $Q_2=R_1$ for any $Q_1$). Memory: just $Q_n$ and $n$. This is an instance of the most important pattern in the book:</p>
+<div class="eq">
+$$\textit{NewEstimate} \leftarrow \textit{OldEstimate} + \textit{StepSize}\,\big[\textit{Target} - \textit{OldEstimate}\big]$$
+<div class="eq-name"><span>General incremental update rule</span><span class="ref">(2.4)</span></div>
+</div>
+<p>$[\textit{Target}-\textit{OldEstimate}]$ is an <strong>error</strong>; we take a step toward the (possibly noisy) target. Here the step size is $1/n$, which <em>changes</em> from step to step. The book writes the step size as $\alpha$ or $\alpha_t(a)$.</p>
+
+<div class="algo">
+  <div class="algo-head"><span class="name">A simple bandit algorithm</span><span class="tags"><span class="tag">ε-greedy</span><span class="tag">sample average</span></span></div>
+<pre><span class="k">Initialize</span>, for a = 1 to k:
+    Q(a) ← 0
+    N(a) ← 0
+<span class="k">Loop forever</span>:
+    A ← argmax_a Q(a)    with probability 1 − ε   <span class="c">(breaking ties randomly)</span>
+        a random action   with probability ε
+    R ← bandit(A)
+    N(A) ← N(A) + 1
+    Q(A) ← Q(A) + (1 / N(A)) · [R − Q(A)]</pre>
+  <div class="algo-foot">Replace <code>1/N(A)</code> by a constant <code>α</code> for nonstationary problems (§2.5). Constant memory and constant per-step computation.</div>
+</div>
+
+<h2 id="stepsize">2.5 Tracking a nonstationary problem — constant vs varying step size</h2>
+<p>When reward probabilities change over time, it makes sense to weight recent rewards more heavily. The most popular way: a <strong>constant</strong> step size $\alpha\in(0,1]$.</p>
+<div class="eq">
+$$Q_{n+1} \doteq Q_n + \alpha\big[R_n - Q_n\big]$$
+<div class="eq-name"><span>Constant step-size update</span><span class="ref">(2.5)</span></div>
+</div>
+<p>Unrolling the recursion shows $Q_{n+1}$ is a <strong>weighted average</strong> of past rewards and the initial estimate:</p>
+<div class="eq">
+$$Q_{n+1} = (1-\alpha)^n Q_1 + \sum_{i=1}^{n}\alpha(1-\alpha)^{\,n-i} R_i$$
+<div class="eq-name"><span>Exponential recency-weighted average</span><span class="ref">(2.6)</span></div>
+</div>
+<p>The weights sum to 1: $(1-\alpha)^n + \sum_{i=1}^n\alpha(1-\alpha)^{n-i}=1$. The weight on $R_i$ decays <strong>exponentially</strong> with how many rewards ago ($n-i$) it was seen. If $\alpha=1$, all weight goes on the latest reward $R_n$ (using $0^0=1$).</p>
+
+<div class="demo" id="w-demo">
+  <div class="demo-title">See it: how much weight each past reward gets</div>
+  <div class="controls">
+    <label class="control">Constant α <span class="val" id="w-a-v">0.10</span><input type="range" id="w-a" min="0.02" max="0.9" step="0.01" value="0.1"></label>
+    <label class="control">Rewards seen so far, n <span class="val" id="w-n-v">40</span><input type="range" id="w-n" min="5" max="100" step="1" value="40"></label>
+  </div>
+  <div id="w-chart"></div>
+  <div class="demo-out" id="w-out"></div>
+</div>
+
+<h3>Convergence conditions (stochastic approximation)</h3>
+<p>Let $\alpha_n(a)$ be the step size used for the $n$-th reward of action $a$. Convergence with probability 1 is assured if</p>
+<div class="eq">
+$$\sum_{n=1}^{\infty}\alpha_n(a) = \infty \qquad\text{and}\qquad \sum_{n=1}^{\infty}\alpha_n^2(a) < \infty$$
+<div class="eq-name"><span>Robbins–Monro step-size conditions</span><span class="ref">(2.7)</span></div>
+</div>
+<ul>
+  <li><strong>First condition</strong>: steps are large enough to eventually overcome any initial conditions or random fluctuations.</li>
+  <li><strong>Second condition</strong>: steps eventually become small enough to assure convergence.</li>
+</ul>
+
+<div class="table-wrap"><table>
+  <tr><th></th><th>Sample average $\alpha_n = 1/n$</th><th>Constant $\alpha$</th></tr>
+  <tr><td>Satisfies (2.7)?</td><td class="yes">Both conditions ✓</td><td><span class="yes">First ✓</span>, <span class="no">second ✗</span> ($\sum\alpha^2=\infty$)</td></tr>
+  <tr><td>Converges?</td><td>Yes, to $q_*(a)$ w.p. 1 (law of large numbers)</td><td>No — keeps fluctuating in response to recent rewards</td></tr>
+  <tr><td>Weighting of past rewards</td><td>Equal weight $1/n$ to every reward</td><td>Exponentially more weight on recent rewards</td></tr>
+  <tr><td>Initial-value bias</td><td>Disappears once the action is tried (weight on $Q_1$ is 0 after one update)</td><td><strong>Permanent</strong> but decreasing: weight $(1-\alpha)^n$</td></tr>
+  <tr><td>Stationary problems</td><td class="yes">Ideal</td><td>Good but noisier asymptotically</td></tr>
+  <tr><td>Nonstationary problems</td><td class="no">Poor — reacts ever more slowly (treats the beginning of time as special)</td><td class="yes">Tracks change — what we want</td></tr>
+  <tr><td>In practice</td><td>Used in theory</td><td>Used in most applications and empirical research</td></tr>
+</table></div>
+<div class="box key">
+  <span class="box-title">Why the book mostly uses constant α</span>
+  <p>Problems that are effectively nonstationary are the most common in RL. Also, step-size sequences that meet (2.7) often converge very slowly or need considerable tuning, so they are "seldom used in applications and empirical research".</p>
+</div>
+<div class="box pitfall">
+  <span class="box-title">Common mistake</span>
+  <p>"Any decreasing step size converges." — No. $\alpha_n = 1/n^2$ decreases but violates the <em>first</em> condition ($\sum 1/n^2<\infty$): steps shrink too fast and the estimate can stall before reaching $q_*$. $\alpha_n=1/n$ and $\alpha_n = 1/n^{p}$ with $\tfrac12 \lt p\le1$ satisfy both.</p>
+</div>
+
+<h3>Exercise 2.4 — general step-size weighting</h3>
+<p>With varying step sizes $\alpha_1,\alpha_2,\dots$:</p>
+<div class="eq">
+$$Q_{n+1} = \Big[\prod_{j=1}^{n}(1-\alpha_j)\Big]Q_1 + \sum_{i=1}^{n}\alpha_i\Big[\prod_{j=i+1}^{n}(1-\alpha_j)\Big]R_i$$
+<div class="eq-name"><span>Weights for a general step-size sequence</span><span class="ref">Ex 2.4</span></div>
+</div>
+<p>With $\alpha_j=\alpha$ this reduces to (2.6); with $\alpha_j=1/j$ every weight becomes $1/n$ and the weight on $Q_1$ becomes 0.</p>
+
+<h3>Exercise 2.7 — the unbiased constant-step-size trick</h3>
+<div class="eq">
+$$\beta_n \doteq \alpha/\bar o_n, \qquad \bar o_n \doteq \bar o_{n-1} + \alpha(1-\bar o_{n-1}),\ \ \bar o_0 \doteq 0$$
+<div class="eq-name"><span>Unbiased constant step size</span><span class="ref">(2.8), (2.9)</span></div>
+</div>
+<p>$\bar o_n = 1-(1-\alpha)^n$, so $\beta_1 = 1$ — the first update sets $Q_2=R_1$ and wipes out $Q_1$ (<strong>no initial bias</strong>). As $n\to\infty$, $\bar o_n\to1$ and $\beta_n\to\alpha$ — it becomes an exponential recency-weighted average (keeps the <strong>tracking</strong> advantage).</p>
+
+<div class="demo" id="ns-demo">
+  <div class="demo-title">Try it: Exercise 2.5 — sample averages fail on a nonstationary bandit</div>
+  <p class="small muted">All $q_*(a)$ start equal (0) and take independent random walks: each step add $\mathcal N(0, 0.01^2)$. Both agents use ε = 0.1.</p>
+  <div class="controls">
+    <label class="control">Runs <select id="ns-runs"><option>50</option><option selected>200</option><option>500</option></select></label>
+    <label class="control">Steps <select id="ns-steps"><option>5000</option><option selected>10000</option></select></label>
+    <label class="control">Constant α <span class="val" id="ns-a-v">0.10</span><input type="range" id="ns-a" min="0.01" max="0.5" step="0.01" value="0.1"></label>
+    <button class="btn" id="ns-run" type="button">Run</button>
+  </div>
+  <h4>% optimal action</h4>
+  <div id="ns-chart"></div>
+  <div class="demo-out" id="ns-out"></div>
+</div>
+
+<h2 id="optimistic">2.6 Optimistic initial values</h2>
+<p>All methods so far are <strong>biased by their initial estimates</strong> $Q_1(a)$. For sample averages the bias disappears once every action is selected; for constant α it is permanent (decaying as $(1-\alpha)^n$). Usually harmless, sometimes helpful — the initial values become user-set parameters that can encode prior knowledge.</p>
+<p><strong>Trick:</strong> set $Q_1(a)=+5$ on the testbed (wildly optimistic, since $q_*\sim\mathcal N(0,1)$). Whatever is tried, the reward is "disappointing", so the learner switches to other actions. <strong>All actions are tried several times even with purely greedy selection.</strong></p>
+<ul>
+  <li>Figure 2.3 (α = 0.1): optimistic greedy ($Q_1=5,\varepsilon=0$) is worse at first (explores more) but <strong>eventually better</strong> than realistic ε-greedy ($Q_1=0,\varepsilon=0.1$) because its exploration dies out.</li>
+  <li><strong>Limitation:</strong> the drive to explore is <strong>temporary</strong>. Not suited to nonstationary problems — "the beginning of time occurs only once". (The same criticism applies to sample averages, which also treat the beginning specially.)</li>
+</ul>
+<div class="box exam"><span class="box-title">Exercise 2.6 — Mysterious spikes</span><p>Early on, every action looks great, so the optimistic greedy agent cycles through all 10 actions. After each has been tried about once, the optimal action — whose reward was the least disappointing on average — tends to have the highest estimate and is picked by many runs at the same step → a <strong>spike</strong> in % optimal. Picking it lowers its estimate below the still-optimistic others, so the agent moves away → a <strong>dip</strong>. Because all runs share this synchronised schedule, the oscillation shows up in the average.</p></div>
+
+<h2 id="ucb">2.7 Upper-confidence-bound (UCB) action selection</h2>
+<p>ε-greedy explores <em>indiscriminately</em>. Better: prefer non-greedy actions according to their <strong>potential for being optimal</strong> — how close their estimates are to maximal and how uncertain they are.</p>
+<div class="eq">
+$$A_t \doteq \argmax_a\left[\,Q_t(a) + c\sqrt{\frac{\ln t}{N_t(a)}}\,\right]$$
+<div class="eq-name"><span>UCB action selection (UCB1)</span><span class="ref">(2.10)</span></div>
+</div>
+<ul>
+  <li>$N_t(a)$ = times $a$ was selected before $t$. If $N_t(a)=0$, $a$ is treated as maximising (try every action once first).</li>
+  <li>$c>0$ controls the degree of exploration (the confidence level).</li>
+  <li>The square-root term measures <strong>uncertainty</strong>: selecting $a$ increases $N_t(a)$ → bonus shrinks; selecting other actions increases $t$ → bonus grows. Because of $\ln t$, the increases get smaller over time but are <strong>unbounded</strong> — every action is eventually selected, but low-value or frequently tried actions with decreasing frequency.</li>
+  <li><strong>Deterministic</strong> exploration (no randomness), unlike ε-greedy.</li>
+</ul>
+<div class="box pitfall">
+  <span class="box-title">Weaknesses of UCB (exam favourite)</span>
+  <p>Performs well on bandits (Fig 2.4: better than ε-greedy except in the first $k$ steps), but is <strong>hard to extend</strong> beyond bandits: (1) <strong>nonstationary</strong> problems need more complex methods than §2.5; (2) <strong>large state spaces / function approximation</strong> — counts $N_t(a)$ don't make sense. "In these more advanced settings the idea of UCB action selection is usually not practical."</p>
+</div>
+<div class="box exam"><span class="box-title">Exercise 2.8 — UCB spike at step 11</span><p>In steps 1–10 each untried action is selected once ($N=0$ counts as maximising). At step 11 all $N_t(a)=1$, so the bonuses are equal and UCB picks the action with the best single sample — often the optimal one → reward <strong>spikes</strong>. That action's $N$ becomes 2, so its bonus $c\sqrt{\ln t/2}$ falls well below the others' $c\sqrt{\ln t/1}$; with $c=2$ the bonus difference dominates the value differences, so UCB switches to other actions → reward <strong>drops</strong>. With $c=1$ the bonus matters less, so the spike (and subsequent drop) is smaller.</p></div>
+
+<h2 id="gradient">2.8 Gradient bandit algorithms</h2>
+<p>Instead of estimating action values, learn a numerical <strong>preference</strong> $H_t(a)\in\mathbb R$. Only <em>relative</em> preferences matter (adding 1000 to all changes nothing). Action probabilities follow a <strong>soft-max</strong> (Gibbs/Boltzmann) distribution:</p>
+<div class="eq">
+$$\Pr\{A_t=a\} \doteq \frac{e^{H_t(a)}}{\sum_{b=1}^{k}e^{H_t(b)}} \doteq \pi_t(a)$$
+<div class="eq-name"><span>Soft-max action probabilities</span><span class="ref">(2.11)</span></div>
+</div>
+<p>Initially all $H_1(a)=0$ (equal probabilities). After selecting $A_t$ and receiving $R_t$:</p>
+<div class="eq">
+$$\begin{aligned}
+H_{t+1}(A_t) &\doteq H_t(A_t) + \alpha\,(R_t-\bar R_t)\,\big(1-\pi_t(A_t)\big)\\
+H_{t+1}(a) &\doteq H_t(a) - \alpha\,(R_t-\bar R_t)\,\pi_t(a) \qquad \text{for all } a\ne A_t
+\end{aligned}$$
+<div class="eq-name"><span>Gradient bandit preference update</span><span class="ref">(2.12)</span></div>
+</div>
+<p>Compactly: $H_{t+1}(a) = H_t(a) + \alpha(R_t-\bar R_t)(\mathbb 1_{a=A_t}-\pi_t(a))$ for all $a$.</p>
+<ul>
+  <li>$\bar R_t$ = average of rewards so far — the <strong>baseline</strong>. Reward above baseline → probability of $A_t$ goes up; below → goes down. Non-selected actions move the opposite way.</li>
+  <li>Figure 2.5: with $q_*$ near <strong>+4</strong>, the baseline instantly adapts and performance is unaffected; <strong>without</strong> a baseline ($\bar R_t=0$) performance is significantly degraded.</li>
+</ul>
+<h3>Why it is stochastic gradient ascent</h3>
+<p>Exact gradient ascent on expected reward $\E[R_t]=\sum_x\pi_t(x)q_*(x)$ would be $H_{t+1}(a)=H_t(a)+\alpha\,\partial\E[R_t]/\partial H_t(a)$ (2.13). Using $\partial\pi_t(x)/\partial H_t(a)=\pi_t(x)(\mathbb 1_{a=x}-\pi_t(a))$ and the fact that $\sum_x\partial\pi_t(x)/\partial H_t(a)=0$ (so any baseline $B_t$ independent of $x$ can be subtracted), the gradient equals</p>
+<div class="eq">
+$$\frac{\partial\,\E[R_t]}{\partial H_t(a)} = \E\Big[(R_t-\bar R_t)\big(\mathbb 1_{a=A_t}-\pi_t(a)\big)\Big]$$
+<div class="eq-name"><span>Gradient of expected reward as an expectation</span><span class="ref">§2.8 box</span></div>
+</div>
+<p>So the expected update of (2.12) equals the true gradient → robust convergence. <strong>The baseline does not change the expected update, only its variance</strong> (and hence the speed of learning). Any baseline that does not depend on the selected action works; the reward average is simple and works well.</p>
+<div class="box exam"><span class="box-title">Exercise 2.9</span><p>With two actions, $\pi(1)=\dfrac{e^{H(1)}}{e^{H(1)}+e^{H(2)}}=\dfrac{1}{1+e^{-(H(1)-H(2))}}=\sigma\big(H(1)-H(2)\big)$ — the logistic sigmoid of the preference difference.</p></div>
+
+<h2 id="contextual">2.9 Associative search (contextual bandits)</h2>
+<p>So far, tasks were <strong>nonassociative</strong>: find (or track) one best action. In <strong>associative search</strong> you face one of several bandit tasks each step and receive a clue (e.g. the machine's colour) about which. You learn a <strong>policy</strong>: situation → best action.</p>
+<div class="table-wrap"><table>
+  <tr><th></th><th>k-armed bandit</th><th>Contextual bandit</th><th>Full RL problem</th></tr>
+  <tr><td>Multiple situations?</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Learns a policy?</td><td>No (one best action)</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Actions affect next situation?</td><td>No</td><td>No — only immediate reward</td><td><strong>Yes</strong></td></tr>
+</table></div>
+<div class="box exam"><span class="box-title">Exercise 2.10</span><p>Case A: values (10, 20); case B: (90, 80), each with probability 0.5. <strong>Not told the case</strong>: action 1 gives $0.5\cdot10+0.5\cdot90=50$, action 2 gives $0.5\cdot20+0.5\cdot80=50$ — best expected reward is <strong>50</strong>, any behaviour. <strong>Told the case</strong>: choose action 2 in A and action 1 in B: $0.5\cdot20+0.5\cdot90=\mathbf{55}$.</p></div>
+
+<h2 id="summary-compare">2.10 Summary — comparing the methods</h2>
+<div class="table-wrap"><table>
+  <tr><th>Method</th><th>How it explores</th><th>Hyperparameter(s)</th><th>Strengths</th><th>Weaknesses</th></tr>
+  <tr><td><strong>Greedy</strong></td><td>Doesn't</td><td>—</td><td>Fast initially</td><td>Gets stuck on sub-optimal actions</td></tr>
+  <tr><td><strong>ε-greedy</strong></td><td>Random action with prob. ε — <em>indiscriminate</em></td><td>ε (and α or 1/n)</td><td>Simple; extends to full RL; works with nonstationarity</td><td>Wastes exploration on clearly bad actions; caps % optimal at $1-\varepsilon+\varepsilon/k$</td></tr>
+  <tr><td><strong>Optimistic init.</strong></td><td>"Disappointment" with optimistic estimates</td><td>$Q_1$ (with α)</td><td>Even greedy explores; very simple</td><td>Temporary — useless for nonstationary; needs knowledge of reward scale</td></tr>
+  <tr><td><strong>UCB</strong></td><td>Deterministic bonus for uncertainty</td><td>$c$</td><td>Best on the testbed; explores smartly</td><td>Hard with nonstationarity and large state spaces / function approximation</td></tr>
+  <tr><td><strong>Gradient bandit</strong></td><td>Stochastic soft-max over preferences</td><td>α (baseline choice)</td><td>Invariant to reward shifts (with baseline); is SGA; leads to policy-gradient methods</td><td>Sensitive to α; needs a baseline for good performance</td></tr>
+</table></div>
+
+<h3>Parameter study (Figure 2.6)</h3>
+<p>Each point = average reward over the first 1000 steps (∝ area under the learning curve) for one algorithm at one parameter value; parameters vary by factors of two on a log scale. All curves are <strong>inverted-U</strong>: best at an intermediate value, neither too large nor too small. Assess a method by its best performance <em>and</em> its <strong>sensitivity</strong> — all are fairly insensitive (good over about an order of magnitude). On this problem <strong>UCB performs best</strong>.</p>
+
+<div class="demo" id="ps-demo">
+  <div class="demo-title">Try it: reproduce the parameter study (Figure 2.6)</div>
+  <p class="small muted">x-axis is the algorithm's own parameter (ε, α, c, or Q₁) on a log₂ scale. Optimistic greedy uses α = 0.1. Takes a few seconds.</p>
+  <div class="controls">
+    <label class="control">Runs per point <select id="ps-runs"><option>50</option><option selected>150</option><option>400</option></select></label>
+    <button class="btn" id="ps-run" type="button">Run parameter study</button>
+  </div>
+  <div id="ps-chart"></div>
+  <div class="demo-out" id="ps-out"></div>
+</div>
+
+<h3>Beyond the simple methods</h3>
+<ul>
+  <li><strong>Gittins indices</strong> — a special action value giving optimal solutions in some special cases, but require complete knowledge of the prior distribution of problems; don't generalise to full RL.</li>
+  <li><strong>Bayesian methods</strong> — keep a posterior over action values. <strong>Thompson (posterior) sampling</strong>: pick each action with its posterior probability of being best; often performs like the best distribution-free methods.</li>
+  <li>The Bayes-optimal balance can in principle be computed over the <strong>information state</strong>, but the tree explodes ($2^{2000}$ leaves for 2 actions, 2 rewards, 1000 steps).</li>
+</ul>
+
+<h2 id="hyperparams">Hyperparameters in this chapter</h2>
+<div class="table-wrap"><table>
+  <tr><th>Parameter</th><th>Used by</th><th>Too small</th><th>Too large</th><th>Typical</th></tr>
+  <tr><td>$\varepsilon$</td><td>ε-greedy</td><td>Slow discovery of the best action; may get stuck</td><td>Wastes steps on random actions; caps % optimal at $1-\varepsilon+\varepsilon/k$</td><td>0.01 – 0.1 (testbed peak ≈ 1/16); or decay over time</td></tr>
+  <tr><td>$\alpha$ (value)</td><td>constant-step estimates</td><td>Slow learning / slow tracking</td><td>Noisy estimates, never settle</td><td>0.1</td></tr>
+  <tr><td>$1/n$</td><td>sample average</td><td colspan="2">Not tuned; converges on stationary problems but adapts ever more slowly</td><td>stationary tasks</td></tr>
+  <tr><td>$Q_1$</td><td>all value methods</td><td>Realistic (0): no exploration bonus</td><td>Very optimistic: long initial exploration phase</td><td>0; optimistic for stationary tasks (Fig 2.3 uses +5; the parameter study peaks near 1–2)</td></tr>
+  <tr><td>$c$</td><td>UCB</td><td>Behaves like greedy</td><td>Over-explores</td><td>≈ 1–2</td></tr>
+  <tr><td>$\alpha$ (preference)</td><td>gradient bandit</td><td>Slow preference change</td><td>Premature commitment / instability</td><td>≈ 0.1 – 0.4</td></tr>
+  <tr><td>baseline $\bar R_t$</td><td>gradient bandit</td><td colspan="2">Doesn't change expected update; a good baseline reduces variance. No baseline when rewards are far from 0 → much slower learning</td><td>running average of rewards</td></tr>
+</table></div>
+
+<h2 id="selftest">Self-test</h2>
+<div class="quiz">
+  <details><summary>Ex 2.2 — Bandit example. k = 4, ε-greedy, sample averages, $Q_1=0$. A₁=1,R₁=−1; A₂=2,R₂=1; A₃=2,R₃=−2; A₄=2,R₄=2; A₅=3,R₅=0. On which steps did the ε case definitely occur? Possibly occur?</summary>
+    <div class="ans"><p>Track estimates: after step 1, $Q=(-1,0,0,0)$. Step 2: action 2 is among the greedy {2,3,4} — could be greedy. $Q(2)=1$. Step 3: action 2 is greedy. $Q(2)=(1-2)/2=-0.5$, so $Q=(-1,-0.5,0,0)$. <strong>Step 4</strong>: chose 2 but greedy are {3,4} → <strong>definitely random</strong>. $Q(2)=(1-2+2)/3=1/3$. <strong>Step 5</strong>: chose 3 but greedy is 2 → <strong>definitely random</strong>. The ε case <em>could</em> have occurred on <strong>every</strong> step (1–5), since a random selection can also land on a greedy action.</p></div></details>
+  <details><summary>Ex 2.3 — In Figure 2.2, which method is best in the long run, and by how much?</summary>
+    <div class="ans"><p>$\varepsilon=0.01$. Asymptotic P(optimal): $0.99+0.001=99.1\%$ vs $0.9+0.01=91\%$ for $\varepsilon=0.1$. Expected reward per step ≈ $1.54\times$P(optimal) plus a small amount from random arms (mean ≈ 0): about 1.53 vs 1.40 — roughly 9–10% more reward per step, and more cumulative reward in the long run (after the slow start).</p></div></details>
+  <details><summary>State the two step-size convergence conditions and say which one constant α violates. Why is that sometimes good?</summary>
+    <div class="ans"><p>$\sum\alpha_n=\infty$ and $\sum\alpha_n^2<\infty$. Constant α violates the second, so estimates never fully converge and keep responding to recent rewards — exactly what's needed for tracking a nonstationary problem.</p></div></details>
+  <details><summary>With $\alpha=0.1$, what weight does the reward from 10 steps ago get in $Q_{n+1}$? What weight remains on $Q_1$ after 20 updates?</summary>
+    <div class="ans"><p>$R_{n-10}$ gets $\alpha(1-\alpha)^{10}=0.1\times0.9^{10}\approx0.0349$. Weight on $Q_1$ after 20 updates: $0.9^{20}\approx0.122$.</p></div></details>
+  <details><summary>Why does optimistic initialisation not help on nonstationary problems?</summary>
+    <div class="ans"><p>Its exploration is driven by the initial values, which are quickly "used up". When the task later changes and renewed exploration is needed, nothing drives it. Any method focusing on initial conditions can't help with general nonstationarity.</p></div></details>
+  <details><summary>How does UCB's exploration differ from ε-greedy's?</summary>
+    <div class="ans"><p>ε-greedy explores randomly and indiscriminately — all non-greedy actions equally likely. UCB explores deterministically, favouring actions that are both nearly greedy and uncertain (few samples), via the bonus $c\sqrt{\ln t/N_t(a)}$.</p></div></details>
+  <details><summary>In the gradient bandit, what happens to $H$ of non-selected actions when $R_t>\bar R_t$?</summary>
+    <div class="ans"><p>They decrease, each by $\alpha(R_t-\bar R_t)\pi_t(a)$, while the selected action's preference increases by $\alpha(R_t-\bar R_t)(1-\pi_t(A_t))$. Total change across actions sums to zero.</p></div></details>
+  <details><summary>Does the choice of baseline change what the gradient bandit converges to? What does it change?</summary>
+    <div class="ans"><p>No — any baseline independent of the selected action leaves the expected update equal to the gradient. It changes the <strong>variance</strong> of the updates and therefore the rate of learning (Fig 2.5).</p></div></details>
+  <details><summary>What is a parameter study, and what does the inverted-U shape tell you?</summary>
+    <div class="ans"><p>A plot of a performance summary (e.g. average reward over 1000 steps) against each algorithm's parameter. Inverted-U: performance peaks at an intermediate value; too little and too much exploration/learning rate both hurt. Width of the U shows sensitivity.</p></div></details>
+  <details><summary>Why is the bandit problem called "nonassociative", and what makes the full RL problem different from a contextual bandit?</summary>
+    <div class="ans"><p>Nonassociative: one situation, so no need to associate actions with situations. Contextual bandits have several situations but actions affect only immediate reward; in full RL actions also affect the next situation (state).</p></div></details>
+</div>
+
+</main>
+
+<script>
+document.addEventListener("rl:ready", function () {
+  const $ = (id) => document.getElementById(id);
+  const K = 10;
+
+  /* method spec: {name, color, kind: 'eps'|'ucb'|'grad', eps, alpha (null = 1/n), q0, c, baseline} */
+  function simulate(methods, runs, steps, opt, onDone) {
+    const R = methods.map(() => new Float64Array(steps));
+    const O = methods.map(() => new Float64Array(steps));
+    const q = new Float64Array(K), Q = new Float64Array(K), N = new Float64Array(K), H = new Float64Array(K), P = new Float64Array(K);
+    let run = 0;
+    const chunk = () => {
+      const end = Math.min(runs, run + Math.max(1, Math.floor(20000 / steps)));
+      for (; run < end; run++) {
+        const seed = 12345 + run * 7919;
+        methods.forEach((m, mi) => {
+          const rnd = RL.rng(seed);
+          for (let a = 0; a < K; a++) q[a] = opt.nonstat ? 0 : rnd.normal() + (opt.mean || 0);
+          const ar = RL.rng(seed * 31 + mi * 101 + 7); // action/reward noise per method
+          for (let a = 0; a < K; a++) { Q[a] = m.q0 || 0; N[a] = 0; H[a] = 0; }
+          let rbar = 0;
+          for (let t = 0; t < steps; t++) {
+            let best = 0;
+            for (let a = 1; a < K; a++) if (q[a] > q[best]) best = a;
+            let A;
+            if (m.kind === "grad") {
+              let mx = -Infinity; for (let a = 0; a < K; a++) if (H[a] > mx) mx = H[a];
+              let z = 0; for (let a = 0; a < K; a++) { P[a] = Math.exp(H[a] - mx); z += P[a]; }
+              let u = ar() * z; A = K - 1;
+              for (let a = 0; a < K; a++) { u -= P[a]; if (u <= 0) { A = a; break; } }
+              for (let a = 0; a < K; a++) P[a] /= z;
+            } else if (m.kind === "ucb") {
+              let bv = -Infinity, ties = [];
+              for (let a = 0; a < K; a++) {
+                const v = N[a] === 0 ? Infinity : Q[a] + m.c * Math.sqrt(Math.log(t + 1) / N[a]);
+                if (v > bv) { bv = v; ties = [a]; } else if (v === bv) ties.push(a);
+              }
+              A = ties[ar.int(ties.length)];
+            } else {
+              if (ar() < m.eps) A = ar.int(K);
+              else {
+                let bv = -Infinity, ties = [];
+                for (let a = 0; a < K; a++) { if (Q[a] > bv) { bv = Q[a]; ties = [a]; } else if (Q[a] === bv) ties.push(a); }
+                A = ties[ar.int(ties.length)];
+              }
+            }
+            const r = q[A] + ar.normal();
+            R[mi][t] += r;
+            if (A === best) O[mi][t] += 1;
+            N[A]++;
+            if (m.kind === "grad") {
+              if (m.baseline) rbar += (r - rbar) / (t + 1); // baseline includes R_t (book footnote)
+              const d = r - (m.baseline ? rbar : 0);
+              for (let a = 0; a < K; a++) H[a] += m.alpha * d * ((a === A ? 1 : 0) - P[a]);
+            } else {
+              Q[A] += (m.alpha == null ? 1 / N[A] : m.alpha) * (r - Q[A]);
+            }
+            if (opt.nonstat) for (let a = 0; a < K; a++) q[a] += 0.01 * rnd.normal();
+          }
+        });
+      }
+      if (run < runs) setTimeout(chunk, 0);
+      else onDone(R.map((a) => Array.from(a, (v) => v / runs)), O.map((a) => Array.from(a, (v) => v / runs)));
+    };
+    chunk();
+  }
+  // Smooth long noisy curves for display only (moving average over w points).
+  const smooth = (y, w) => (w <= 1 ? y : y.map((_, i) => { let s = 0, c = 0; for (let j = Math.max(0, i - w + 1); j <= i; j++) { s += y[j]; c++; } return s / c; }));
+  const pct = (v) => (v * 100).toFixed(0) + "%";
+
+  const PRESETS = {
+    fig22: { desc: "Sample averages, Q₁ = 0. Greedy plateaus near reward 1; ε = 0.1 finds the best arm fast but caps at 91%; ε = 0.01 is slow but keeps improving.", opt: {},
+      methods: [ { name: "greedy ε=0", kind: "eps", eps: 0, color: "var(--s3)" }, { name: "ε=0.01", kind: "eps", eps: 0.01, color: "var(--s2)" }, { name: "ε=0.1", kind: "eps", eps: 0.1, color: "var(--s1)" } ] },
+    fig23: { desc: "Both use constant α = 0.1. Optimistic greedy explores early (worse at first, note the spike near step 11) then wins.", opt: {},
+      methods: [ { name: "optimistic greedy Q₁=5, ε=0", kind: "eps", eps: 0, q0: 5, alpha: 0.1, color: "var(--s1)" }, { name: "realistic ε-greedy Q₁=0, ε=0.1", kind: "eps", eps: 0.1, q0: 0, alpha: 0.1, color: "var(--s2)" } ] },
+    fig24: { desc: "UCB (c = 2) beats ε-greedy (ε = 0.1) except during the first k steps; note the spike at step 11 (Exercise 2.8).", opt: {},
+      methods: [ { name: "UCB c=2", kind: "ucb", c: 2, color: "var(--s1)" }, { name: "ε-greedy ε=0.1", kind: "eps", eps: 0.1, color: "var(--s2)" } ] },
+    fig25: { desc: "True values q*(a) ~ N(+4, 1). Without a baseline the preferences learn far more slowly; with one, the shift is irrelevant.", opt: { mean: 4 },
+      methods: [ { name: "α=0.1 with baseline", kind: "grad", alpha: 0.1, baseline: true, color: "var(--s1)" }, { name: "α=0.4 with baseline", kind: "grad", alpha: 0.4, baseline: true, color: "var(--s3)" },
+                 { name: "α=0.1 no baseline", kind: "grad", alpha: 0.1, baseline: false, color: "var(--s2)" }, { name: "α=0.4 no baseline", kind: "grad", alpha: 0.4, baseline: false, color: "var(--s4)" } ] },
+    stepsize: { desc: "Stationary problem, ε = 0.1. Sample averages (1/n) are ideal here; constant α keeps a small residual noise and initial bias.", opt: {},
+      methods: [ { name: "1/n (sample average)", kind: "eps", eps: 0.1, color: "var(--s1)" }, { name: "α = 0.1", kind: "eps", eps: 0.1, alpha: 0.1, color: "var(--s2)" }, { name: "α = 0.5", kind: "eps", eps: 0.1, alpha: 0.5, color: "var(--s3)" } ] },
+  };
+  function runTestbed() {
+    const p = PRESETS[$("tb-preset").value], runs = +$("tb-runs").value, steps = +$("tb-steps").value;
+    $("tb-desc").textContent = p.desc;
+    const btn = $("tb-run"); btn.disabled = true; btn.textContent = "Running…";
+    simulate(p.methods, runs, steps, p.opt, (R, O) => {
+      const x = Array.from({ length: steps }, (_, i) => i + 1);
+      const w = runs >= 2000 ? 1 : runs >= 1000 ? 3 : 6;
+      RL.lineChart($("tb-chart-r"), { x, xLabel: "Steps", yLabel: "Average reward", series: p.methods.map((m, i) => ({ name: m.name, color: m.color, y: smooth(R[i], w) })) });
+      RL.lineChart($("tb-chart-o"), { x, xLabel: "Steps", yLabel: "% optimal action", yMin: 0, yMax: 1, yFmt: pct, series: p.methods.map((m, i) => ({ name: m.name, color: m.color, y: smooth(O[i], w) })) });
+      btn.disabled = false; btn.textContent = "Run";
+    });
+  }
+  $("tb-run").addEventListener("click", runTestbed);
+  $("tb-preset").addEventListener("change", runTestbed);
+  runTestbed();
+
+  /* recency-weight visual */
+  function drawWeights() {
+    const a = +$("w-a").value, n = +$("w-n").value;
+    $("w-a-v").textContent = a.toFixed(2); $("w-n-v").textContent = n;
+    const x = Array.from({ length: n }, (_, i) => i); // rewards ago
+    RL.lineChart($("w-chart"), {
+      x, xLabel: "How many rewards ago (n − i)", yLabel: "Weight on that reward", yMin: 0, height: 240, yFmt: (v) => v.toFixed(2),
+      series: [ { name: "constant α: α(1−α)^(n−i)", color: "var(--s1)", y: x.map((k) => a * Math.pow(1 - a, k)) },
+                { name: "sample average: 1/n", color: "var(--s2)", y: x.map(() => 1 / n) } ],
+    });
+    const half = Math.log(0.5) / Math.log(1 - a);
+    $("w-out").innerHTML = "Weight left on the initial estimate Q₁: constant α → <strong>(1−α)<sup>n</sup> = " + Math.pow(1 - a, n).toFixed(4) +
+      "</strong>; sample average → <strong>0</strong>. With α = " + a.toFixed(2) + ", a reward's weight halves every ≈ " + half.toFixed(1) + " steps.";
+  }
+  $("w-a").addEventListener("input", drawWeights); $("w-n").addEventListener("input", drawWeights);
+  drawWeights();
+
+  /* nonstationary */
+  $("ns-a").addEventListener("input", () => { $("ns-a-v").textContent = (+$("ns-a").value).toFixed(2); });
+  function runNs() {
+    const runs = +$("ns-runs").value, steps = +$("ns-steps").value, a = +$("ns-a").value;
+    const methods = [ { name: "sample average 1/n", kind: "eps", eps: 0.1, color: "var(--s2)" }, { name: "constant α = " + a.toFixed(2), kind: "eps", eps: 0.1, alpha: a, color: "var(--s1)" } ];
+    const btn = $("ns-run"); btn.disabled = true; btn.textContent = "Running…";
+    simulate(methods, runs, steps, { nonstat: true }, (R, O) => {
+      const x = Array.from({ length: steps }, (_, i) => i + 1);
+      RL.lineChart($("ns-chart"), { x, xLabel: "Steps", yLabel: "% optimal action", yMin: 0, yMax: 1, yFmt: pct, series: methods.map((m, i) => ({ name: m.name, color: m.color, y: smooth(O[i], 50) })) });
+      const last = (y) => y.slice(-Math.floor(steps / 5)).reduce((s, v) => s + v, 0) / Math.floor(steps / 5);
+      $("ns-out").innerHTML = "Last 20% of steps — % optimal: sample average <strong>" + pct(last(O[0])) + "</strong>, constant α <strong>" + pct(last(O[1])) +
+        "</strong>. Average reward: " + last(R[0]).toFixed(2) + " vs " + last(R[1]).toFixed(2) + ". The 1/n learner reacts ever more slowly as n grows.";
+      btn.disabled = false; btn.textContent = "Run";
+    });
+  }
+  $("ns-run").addEventListener("click", runNs);
+
+  /* parameter study */
+  function runPs() {
+    const runs = +$("ps-runs").value, steps = 1000;
+    const ex = [-7, -6, -5, -4, -3, -2, -1, 0, 1, 2];
+    const families = [
+      { name: "ε-greedy (ε)", color: "var(--s2)", range: [-7, -2], make: (v) => ({ kind: "eps", eps: v }) },
+      { name: "gradient bandit (α)", color: "var(--s3)", range: [-5, 2], make: (v) => ({ kind: "grad", alpha: v, baseline: true }) },
+      { name: "UCB (c)", color: "var(--s1)", range: [-4, 2], make: (v) => ({ kind: "ucb", c: v }) },
+      { name: "optimistic greedy (Q₁), α=0.1", color: "var(--s7)", range: [-2, 2], make: (v) => ({ kind: "eps", eps: 0, q0: v, alpha: 0.1 }) },
+    ];
+    const jobs = [];
+    families.forEach((f, fi) => ex.forEach((e) => { if (e >= f.range[0] && e <= f.range[1]) jobs.push({ fi, e, m: Object.assign({ name: "", color: "" }, f.make(Math.pow(2, e))) }); }));
+    const ys = families.map(() => ex.map(() => null));
+    const btn = $("ps-run"); btn.disabled = true;
+    let j = 0;
+    const next = () => {
+      if (j >= jobs.length) {
+        RL.lineChart($("ps-chart"), {
+          x: ex, xLabel: "parameter value (ε, α, c, Q₁) — log₂ scale", yLabel: "Average reward over first 1000 steps", markers: true,
+          xTicks: ex, xFmt: (e) => (e >= 0 ? String(Math.pow(2, e)) : "1/" + Math.pow(2, -e)), yFmt: (v) => v.toFixed(2),
+          series: families.map((f, i) => ({ name: f.name, color: f.color, y: ys[i] })),
+        });
+        let best = families.map((f, i) => { let bi = -1, bv = -Infinity; ys[i].forEach((v, k) => { if (v != null && v > bv) { bv = v; bi = k; } }); return f.name + " peaks at " + bv.toFixed(3); });
+        $("ps-out").innerHTML = best.join(" · ");
+        btn.disabled = false; btn.textContent = "Run parameter study";
+        return;
+      }
+      btn.textContent = "Running " + (j + 1) + " / " + jobs.length + "…";
+      const job = jobs[j++];
+      simulate([job.m], runs, steps, {}, (R) => { ys[job.fi][ex.indexOf(job.e)] = R[0].reduce((s, v) => s + v, 0) / steps; next(); });
+    };
+    next();
+  }
+  $("ps-run").addEventListener("click", runPs);
+});
+</script>
+</body>
+</html>

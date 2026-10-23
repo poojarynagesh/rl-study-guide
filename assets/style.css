@@ -174,8 +174,8 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 32px 0; }
 .box > :first-child { margin-top: 0; }
 .box > :last-child { margin-bottom: 0; }
 .box .box-title {
-  display: block; font-size: 12.5px; font-weight: 700; letter-spacing: .06em;
-  text-transform: uppercase; margin-bottom: 6px; color: var(--key);
+  display: block; font-size: 13.5px; font-weight: 700; letter-spacing: .01em;
+  margin-bottom: 6px; color: var(--key);
 }
 .box.exam { border-color: var(--exam); background: var(--exam-bg); }
 .box.exam .box-title { color: var(--exam); }
@@ -192,10 +192,10 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 32px 0; }
 }
 .eq .eq-name {
   display: flex; justify-content: space-between; gap: 12px;
-  font-size: 12.5px; font-weight: 650; color: var(--text-3); letter-spacing: .03em;
-  text-transform: uppercase; margin-top: 4px;
+  font-size: 13px; font-weight: 650; color: var(--text-3);
+  margin-top: 4px;
 }
-.eq .eq-name .ref { font-family: var(--mono); text-transform: none; font-weight: 500; }
+.eq .eq-name .ref { font-family: var(--mono); font-weight: 500; }
 .eq .katex-display { margin: .6em 0; }
 .eq-note { font-size: 14.5px; color: var(--text-2); margin: -6px 0 6px; }
 .katex { font-size: 1.07em; }
