@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 1 · Introduction — RL Study Guide</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/site.js"></script>
+</head>
+<body data-page="ch01" data-root="..">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Chapter 1 · Book pp. 1–22</div>
+  <h1>Introduction to Reinforcement Learning</h1>
+  <p class="lead">What RL is, how it differs from supervised and unsupervised learning, the four elements of an RL system, and a first algorithm — a temporal-difference learner for tic-tac-toe.</p>
+  <div class="meta">
+    <span class="chip">Trial-and-error + delayed reward</span>
+    <span class="chip">Policy · Reward · Value · Model</span>
+    <span class="chip">First TD update</span>
+    <span class="chip">Value methods vs evolutionary methods</span>
+  </div>
+</div>
+
+<div class="box exam">
+  <span class="box-title">Exam focus for this chapter</span>
+  <ul>
+    <li>The <strong>two distinguishing features</strong> of RL: trial-and-error search and delayed reward.</li>
+    <li>The <strong>exploration–exploitation dilemma</strong> and why it does not arise in (pure) supervised/unsupervised learning.</li>
+    <li>The four elements — <strong>policy, reward signal, value function, model</strong> — and the difference between <em>reward</em> (immediate) and <em>value</em> (long-term).</li>
+    <li>The tic-tac-toe TD update and the effect of reducing (or not reducing) the step size $\alpha$.</li>
+    <li>Why value-function methods use information that evolutionary methods throw away.</li>
+  </ul>
+</div>
+
+<h2 id="what-is-rl">1.1 What is reinforcement learning?</h2>
+<p><strong>Reinforcement learning</strong> is learning <em>what to do</em> — how to map situations to actions — so as to maximise a numerical <strong>reward signal</strong>. The learner is not told which action to take; it must discover which actions yield the most reward by trying them. Actions may affect not only the immediate reward but also the next situation and, through it, all subsequent rewards.</p>
+
+<div class="box key">
+  <span class="box-title">The two most important distinguishing features</span>
+  <ol>
+    <li><strong>Trial-and-error search</strong> — the agent must try actions to find out what they do.</li>
+    <li><strong>Delayed reward</strong> — an action's consequences can show up many steps later, so the agent must solve a <em>credit-assignment</em> problem over time.</li>
+  </ol>
+</div>
+
+<p>"Reinforcement learning" names three things at once: a <em>problem</em>, a <em>class of solution methods</em> that work well on that problem, and the <em>field</em> that studies both. Keep the problem separate from the methods — confusing them is, per the book, "the source of many confusions". The problem is formalised (Chapter 3) as the <strong>optimal control of incompletely-known Markov decision processes</strong>, capturing three aspects in their simplest form: <em>sensation, action, and goal</em>.</p>
+
+<figure class="diagram">
+  <svg viewBox="0 0 520 200" width="520" role="img" aria-label="Agent–environment interaction loop">
+    <rect x="190" y="14" width="140" height="48" rx="10" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+    <text x="260" y="44" text-anchor="middle" font-size="16" font-weight="600">Agent</text>
+    <rect x="170" y="134" width="180" height="48" rx="10" fill="var(--surface-2)" stroke="var(--text-3)" stroke-width="1.5"/>
+    <text x="260" y="164" text-anchor="middle" font-size="16" font-weight="600">Environment</text>
+    <path d="M330 38 H430 V158 H352" fill="none" stroke="var(--text)" stroke-width="1.5" marker-end="url(#ah1)"/>
+    <text x="440" y="100" font-size="14">action Aₜ</text>
+    <path d="M170 150 H100 V38 H188" fill="none" stroke="var(--text)" stroke-width="1.5" marker-end="url(#ah1)"/>
+    <path d="M170 166 H70 V30 H188" fill="none" stroke="var(--text)" stroke-width="1.5" marker-end="url(#ah1)"/>
+    <text x="8" y="100" font-size="14">state Sₜ</text>
+    <text x="106" y="124" font-size="14">reward Rₜ</text>
+    <defs><marker id="ah1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text)"/></marker></defs>
+  </svg>
+  <figcaption>The agent senses state, acts, and receives a scalar reward. This loop is made formal in Chapter 3 (Figure 3.1).</figcaption>
+</figure>
+
+<h3>RL vs. the other machine-learning paradigms</h3>
+<div class="table-wrap"><table>
+  <tr><th></th><th>Supervised learning</th><th>Unsupervised learning</th><th>Reinforcement learning</th></tr>
+  <tr><td><strong>Feedback</strong></td><td>Labelled examples from a knowledgeable supervisor: "the correct action is …"</td><td>None — unlabelled data</td><td>A scalar reward: <em>evaluative</em> ("how good"), not <em>instructive</em> ("what is right")</td></tr>
+  <tr><td><strong>Goal</strong></td><td>Generalise to situations not in the training set</td><td>Find hidden structure</td><td>Maximise cumulative reward over the long run</td></tr>
+  <tr><td><strong>Data</strong></td><td>Fixed, i.i.d. training set</td><td>Fixed data set</td><td>Generated by the agent's own actions — the agent controls what it sees</td></tr>
+  <tr><td><strong>Explore/exploit?</strong></td><td>Does not arise</td><td>Does not arise</td><td><strong>Central challenge</strong></td></tr>
+  <tr><td><strong>Time</strong></td><td>Each example independent</td><td>—</td><td>Sequential; actions have delayed consequences</td></tr>
+</table></div>
+<div class="box pitfall">
+  <span class="box-title">Common mistake</span>
+  <p>"RL is a kind of unsupervised learning because there are no labels." — <strong>No.</strong> RL maximises a reward signal; finding structure is at most a useful sub-step. The book calls RL a <em>third paradigm</em>.</p>
+</div>
+
+<h3>Exploration vs. exploitation</h3>
+<p>To get a lot of reward the agent must <strong>exploit</strong> actions it already knows are good; to find such actions it must <strong>explore</strong> actions it has not tried. Neither can be pursued exclusively without failing. On a stochastic task each action must be tried many times to get a reliable estimate of its expected reward. The dilemma "has been intensively studied by mathematicians for many decades, yet remains unresolved" — Chapter 2 studies it in its simplest setting.</p>
+
+<p>RL also takes the <strong>whole-problem view</strong>: it starts with a complete, interactive, goal-seeking agent (which may itself be a component of a larger system, e.g. a battery-monitoring agent inside a robot) instead of studying isolated sub-problems.</p>
+
+<h2 id="examples">1.2 Examples</h2>
+<p>The book's examples — a chess master, an adaptive refinery controller, a gazelle calf learning to run, a trash-collecting robot deciding whether to recharge, Phil making breakfast — share the same features:</p>
+<ul>
+  <li><strong>Interaction</strong> between an active decision-maker and its environment.</li>
+  <li>A <strong>goal</strong> pursued despite <strong>uncertainty</strong> about the environment.</li>
+  <li>Actions affect <strong>future states</strong> and therefore future options ⇒ need for foresight/planning.</li>
+  <li>Effects can't be fully predicted ⇒ the agent must monitor and react.</li>
+  <li>The goal is <strong>explicit</strong>: the agent can judge progress from what it senses.</li>
+  <li>The agent uses <strong>experience to improve</strong> over time.</li>
+</ul>
+
+<h2 id="elements">1.3 Elements of reinforcement learning</h2>
+<div class="grid-2">
+  <div class="card"><h4>1 · Policy $\pi$</h4><p>Maps perceived states to actions — the agent's way of behaving. A lookup table, a simple function, or an extensive search. May be <strong>stochastic</strong>. <em>The policy alone is sufficient to determine behaviour.</em></p></div>
+  <div class="card"><h4>2 · Reward signal $R$</h4><p>Defines the <strong>goal</strong>. Each step the environment sends a single number. The agent's sole objective is to maximise total reward in the long run. The primary basis for changing the policy. Immediate and intrinsic ("pleasure / pain").</p></div>
+  <div class="card"><h4>3 · Value function $v$</h4><p>What is good <strong>in the long run</strong>: the total reward an agent can expect to accumulate starting from a state. Values are <em>predictions of reward</em>. Decisions are made on values, but values are much harder to determine than rewards.</p></div>
+  <div class="card"><h4>4 · Model (optional)</h4><p>Mimics the environment: given state and action, predicts next state and reward. Used for <strong>planning</strong>. Methods using models are <em>model-based</em>; pure trial-and-error learners are <em>model-free</em>.</p></div>
+</div>
+
+<div class="box key">
+  <span class="box-title">Reward vs. value — know this cold</span>
+  <p>Rewards are <strong>primary</strong>; values are <strong>secondary</strong> (without rewards there could be no values, and the only purpose of estimating values is to get more reward). Yet we choose actions by <strong>value</strong>, not reward, because we seek the states that yield the most reward <em>over the long run</em>. A state can have low immediate reward and high value (it leads to good states), or vice versa.</p>
+  <p>"The most important component of almost all reinforcement learning algorithms we consider is a method for efficiently estimating values" — arguably the most important lesson of six decades of RL research.</p>
+</div>
+
+<div class="table-wrap"><table>
+  <tr><th></th><th>Model-free</th><th>Model-based</th></tr>
+  <tr><td>Uses a model of the environment?</td><td>No — learns directly from experience</td><td>Yes — uses (learned or given) model to plan</td></tr>
+  <tr><td>Key strength</td><td>No need for an accurate model; simple; building block for model-based methods</td><td>Can look ahead / plan without acting</td></tr>
+  <tr><td>Where in the book</td><td>Ch. 5 (MC), 6 (TD), 7 (n-step)</td><td>Ch. 4 (DP — needs a perfect model), Ch. 8 (Dyna)</td></tr>
+</table></div>
+
+<h2 id="scope">1.4 Limitations and scope</h2>
+<p>RL relies heavily on the concept of <strong>state</strong> — the input to policy and value function. The book treats state informally as "whatever information is available to the agent about its environment" and does <em>not</em> address how to construct the state signal; its concern is deciding what to do given the state.</p>
+
+<h3>Evolutionary methods vs. value-function methods</h3>
+<p>Not all solution methods estimate value functions. <strong>Evolutionary methods</strong> (genetic algorithms, genetic programming, simulated annealing, …) apply many static policies, each interacting over an extended period with its own copy of the environment, then carry the best (and random variations of them) into the next generation.</p>
+<div class="table-wrap"><table>
+  <tr><th></th><th>Evolutionary methods</th><th>Value-function (RL) methods</th></tr>
+  <tr><td>What is evaluated</td><td>Whole policies, by final outcome over many episodes</td><td>Individual states (or state–actions)</td></tr>
+  <tr><td>When the policy changes</td><td>Only after many complete games</td><td>During play, after each move</td></tr>
+  <tr><td>Uses within-episode information?</td><td class="no">No — ignores which states were visited and which actions taken</td><td class="yes">Yes</td></tr>
+  <tr><td>Credit assignment</td><td>All moves of a won game get credit — even moves that never occurred</td><td>Credit flows to the specific states along the trajectory</td></tr>
+  <tr><td>Good when</td><td>Policy space small or easy to search; lots of time; agent cannot sense the full state</td><td>Most problems: learning while interacting is usually far more efficient</td></tr>
+</table></div>
+
+<h2 id="tic-tac-toe">1.5 Extended example: tic-tac-toe</h2>
+<p>We play X against an <em>imperfect</em> opponent and treat draws and losses as equally bad. Classical methods struggle:</p>
+<ul>
+  <li><strong>Minimax</strong> assumes a particular (optimal) opponent — it would never enter a state from which it <em>could</em> lose, even if this opponent always blunders there.</li>
+  <li><strong>Dynamic programming</strong> could compute the optimal solution, but needs a complete model of the opponent (its move probabilities in every state), which we don't have.</li>
+  <li>An <strong>evolutionary</strong> method would hill-climb in policy space, evaluating each policy over many games.</li>
+</ul>
+
+<h3>The value-function approach</h3>
+<ol>
+  <li>Make a table with one number per board state: the latest estimate of the <strong>probability of winning</strong> from that state. This is the value function.</li>
+  <li>Initialise: three X's in a row → 1; three O's in a row or a full board → 0; all other states → <strong>0.5</strong>.</li>
+  <li>To move, look at the state each legal move would lead to. Usually move <strong>greedily</strong> (highest value); occasionally make a random <strong>exploratory</strong> move.</li>
+  <li>After each greedy move, <strong>back up</strong> the value of the later state to the earlier one:</li>
+</ol>
+<div class="eq">
+$$V(S_t) \leftarrow V(S_t) + \alpha\big[\,V(S_{t+1}) - V(S_t)\,\big]$$
+<div class="eq-name"><span>Tic-tac-toe TD update — the first temporal-difference rule</span><span class="ref">§1.5</span></div>
+</div>
+<p>$\alpha$ is a small positive fraction called the <strong>step-size parameter</strong> — it controls the rate of learning. This is a <strong>temporal-difference (TD)</strong> method because the change is driven by the difference $V(S_{t+1}) - V(S_t)$ between estimates at two successive times. Exploratory moves do <em>not</em> trigger learning in the book's version.</p>
+
+<div class="box key">
+  <span class="box-title">First appearance of "constant vs. decreasing step size"</span>
+  <ul>
+    <li>If $\alpha$ is <strong>reduced properly over time</strong>, the method <strong>converges</strong> (for any fixed opponent) to the true probabilities of winning under optimal play by us, and its greedy moves are optimal against this opponent.</li>
+    <li>If $\alpha$ is <strong>not reduced all the way to zero</strong>, the player also plays well against opponents that <strong>slowly change</strong> their play — it keeps tracking.</li>
+  </ul>
+  <p>This trade-off (convergence on stationary problems vs. tracking on nonstationary ones) is developed formally in <a href="ch02.html#stepsize">§2.5</a>.</p>
+</div>
+
+<h3>What the example shows</h3>
+<ul>
+  <li>Learning while interacting with an environment (the opponent).</li>
+  <li>A clear goal with delayed effects — the player learns to set up multi-move traps for a short-sighted opponent, achieving the effects of planning <em>without</em> a model of the opponent and <em>without</em> explicit search.</li>
+  <li>It is <em>model-free</em> with respect to the opponent (though it uses the game rules to know which state each move leads to).</li>
+  <li>It scales via function approximation: Tesauro's TD-Gammon combined this algorithm with a neural network for backgammon (~10<sup>20</sup> states) — generalisation is where supervised learning enters RL.</li>
+</ul>
+
+<div class="demo" id="ttt-demo">
+  <div class="demo-title">Try it: TD learning for tic-tac-toe</div>
+  <p class="small muted">Our learner (X, moves first) plays a random opponent (O). Values start at 0.5 and are updated with the rule above after every greedy move. Every 250 training games we freeze learning and play 400 greedy games to measure the win rate.</p>
+  <div class="controls">
+    <label class="control">Step size α <span class="val" id="ttt-a-v">0.20</span><input type="range" id="ttt-a" min="0.01" max="1" step="0.01" value="0.2"></label>
+    <label class="control">Exploration rate <span class="val" id="ttt-e-v">0.10</span><input type="range" id="ttt-e" min="0" max="0.5" step="0.01" value="0.1"></label>
+    <label class="control">Training games
+      <select id="ttt-n"><option>2000</option><option selected>5000</option><option>10000</option><option>20000</option></select></label>
+    <label class="control"><span>&nbsp;</span><span><input type="checkbox" id="ttt-ex"> also learn from exploratory moves</span></label>
+    <button class="btn" id="ttt-run" type="button">Train</button>
+  </div>
+  <div id="ttt-chart"></div>
+  <div class="demo-out" id="ttt-out"></div>
+</div>
+
+<h3>Exercises 1.1 – 1.5 (with model answers)</h3>
+<div class="quiz">
+  <details><summary>Ex 1.1 — Self-play: if the algorithm played against itself, with both sides learning, what would happen? Would it learn a different policy?</summary>
+    <div class="ans"><p>Both sides keep improving, so each faces a changing (non-stationary) opponent that gets stronger. Instead of learning to exploit one particular imperfect opponent, it tends toward a policy that is good against strong play — approaching minimax-style play (in tic-tac-toe, mostly draws). So yes, it learns a different policy: it no longer exploits a specific opponent's weaknesses.</p></div></details>
+  <details><summary>Ex 1.2 — Symmetries: how could we exploit board symmetries? Should we, if the opponent doesn't?</summary>
+    <div class="ans"><p>Map each state to a canonical representative of its symmetry class (8 rotations/reflections) and share one value entry. This shrinks the table and speeds learning because experience in one position generalises to its mirror images. But if the <em>opponent</em> does not play symmetrically, symmetric positions need not have equal value against that opponent — tying them together can then hurt. Symmetric positions are only guaranteed equal value against a symmetric opponent.</p></div></details>
+  <details><summary>Ex 1.3 — Greedy play: would a purely greedy player learn better or worse? What problems might occur?</summary>
+    <div class="ans"><p>Usually worse. With no exploration it may never try moves whose current estimates are low but whose true values are high; it can lock into a sub-optimal line forever. (Exploitation without exploration — the core dilemma.) It might only do comparably well if initial values happen to drive sufficient exploration.</p></div></details>
+  <details><summary>Ex 1.4 — Learning from exploration: what two sets of probabilities are learned with and without updating after exploratory moves? Which is better to learn, and which wins more?</summary>
+    <div class="ans"><p>Without learning from exploratory moves, values converge to the win probabilities under the <strong>greedy (optimal) policy</strong> from each state. Learning from all moves gives win probabilities under the <strong>actual behaviour policy, including exploration</strong>. If we keep exploring, the second set is more accurate about what will actually happen (and is "safer", cf. Sarsa vs. Q-learning in Ch. 6); the first set describes the better policy and, when we act greedily, leads to more wins. This foreshadows <strong>off-policy vs. on-policy</strong> learning.</p></div></details>
+  <details><summary>Ex 1.5 — Other improvements?</summary>
+    <div class="ans"><p>Exploit symmetries; initialise values with prior knowledge; decay exploration and α over time; look ahead more than one move (search) using the known rules; learn a model of the opponent and plan with it; use function approximation to generalise across similar positions; learn from exploratory moves with appropriate correction.</p></div></details>
+</div>
+
+<h2 id="history">1.7 Early history (three threads)</h2>
+<div class="grid-3">
+  <div class="card"><h4>Optimal control</h4><p class="small">Bellman (mid-1950s): state, value function, the <strong>Bellman equation</strong>, <strong>dynamic programming</strong>, and MDPs (1957). Howard (1960): <strong>policy iteration</strong>. DP suffers from the <strong>curse of dimensionality</strong>. Mostly no learning. Full integration with online learning: Watkins (1989).</p></div>
+  <div class="card"><h4>Trial-and-error learning</h4><p class="small">Psychology of animal learning: Thorndike's <strong>Law of Effect</strong> (1911) — actions followed by satisfaction become more likely. Early AI: Minsky's SNARCs, Michie's MENACE for tic-tac-toe, Widrow's "learning with a critic", Klopf's hedonistic neurons — revived RL in the early 1980s.</p></div>
+  <div class="card"><h4>Temporal-difference learning</h4><p class="small">Learning driven by differences between successive estimates. Samuel's checkers player (1959), Klopf's generalised reinforcement, the actor–critic of Barto, Sutton &amp; Anderson (1983), Sutton's TD(λ) (1988), Watkins' <strong>Q-learning</strong> (1989); Tesauro's TD-Gammon (1992).</p></div>
+</div>
+<p>The three threads came together in the late 1980s to produce modern RL.</p>
+
+<h2 id="summary">Chapter summary &amp; self-test</h2>
+<p>RL is a computational approach to goal-directed learning from <strong>direct interaction</strong>, without exemplary supervision or complete models. It uses the MDP framework (states, actions, rewards) to capture cause-and-effect, uncertainty, and explicit goals. <strong>Value functions</strong> are key — they are what make search in policy space efficient and distinguish RL from evolutionary methods.</p>
+
+<div class="quiz">
+  <details><summary>Name the two features that most distinguish RL from other kinds of learning.</summary><div class="ans"><p>Trial-and-error search and delayed reward.</p></div></details>
+  <details><summary>Why does the exploration–exploitation dilemma not arise in supervised learning?</summary><div class="ans"><p>Because the data (with correct labels) are given; the learner's choices don't determine what information it receives. In RL, the agent's own actions determine which experience it gets, and the feedback is only evaluative.</p></div></details>
+  <details><summary>Give an example of a state with low reward but high value.</summary><div class="ans"><p>Studying the night before an exam (unpleasant now, leads to high reward later); in chess, sacrificing a piece (immediate loss) to set up checkmate.</p></div></details>
+  <details><summary>Which of the four elements is optional, and what is it used for?</summary><div class="ans"><p>The model of the environment — used for planning (considering possible futures before experiencing them).</p></div></details>
+  <details><summary>In the tic-tac-toe TD rule, what is the role of $\alpha$, and what happens if it is decreased to zero vs. kept constant?</summary><div class="ans"><p>$\alpha$ is the step size (learning rate): the fraction of the TD difference applied each update. Reduced properly over time → converges to true win probabilities against a fixed opponent. Kept constant (not to zero) → never fully converges but keeps adapting to an opponent who slowly changes.</p></div></details>
+  <details><summary>Why is the tic-tac-toe method called "temporal-difference"?</summary><div class="ans"><p>Its update is driven by the difference between estimates at two successive times: $V(S_{t+1}) - V(S_t)$.</p></div></details>
+  <details><summary>What information do evolutionary methods ignore that value-function methods use?</summary><div class="ans"><p>The fact that a policy is a function from states to actions, and which states were visited and which actions were taken during each lifetime/episode. They only use the final outcome.</p></div></details>
+  <details><summary>Who introduced Q-learning, and what did it unite?</summary><div class="ans"><p>Chris Watkins (1989). It fully integrated dynamic programming (optimal control thread) with online trial-and-error and temporal-difference learning.</p></div></details>
+</div>
+
+</main>
+
+<script>
+document.addEventListener("rl:ready", function () {
+  // Tic-tac-toe TD learner (§1.5). Board: array of 9, 0 empty, 1 = X (learner), 2 = O.
+  const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  function winner(b) {
+    for (const [a, c, d] of LINES) if (b[a] && b[a] === b[c] && b[a] === b[d]) return b[a];
+    return b.includes(0) ? 0 : 3; // 3 = draw
+  }
+  const $ = (id) => document.getElementById(id);
+  ["a", "e"].forEach((k) => $("ttt-" + k).addEventListener("input", () => { $("ttt-" + k + "-v").textContent = (+$("ttt-" + k).value).toFixed(2); }));
+
+  function train(alpha, eps, games, learnExplore, rnd) {
+    const V = new Map();
+    const val = (b) => {
+      const key = b.join("");
+      if (V.has(key)) return V.get(key);
+      const w = winner(b);
+      const v = w === 1 ? 1 : w === 0 ? 0.5 : 0;
+      V.set(key, v);
+      return v;
+    };
+    const free = (b) => b.reduce((acc, x, i) => (x ? acc : acc.concat(i)), []);
+    function play(learn, explore) {
+      const b = Array(9).fill(0);
+      let prev = null; // our last afterstate key
+      while (true) {
+        // our move
+        const moves = free(b);
+        let mv, greedy = true;
+        if (explore && rnd() < eps) { mv = moves[rnd.int(moves.length)]; greedy = false; }
+        else {
+          let best = -1;
+          const ties = [];
+          for (const m of moves) { b[m] = 1; const v = val(b); b[m] = 0; if (v > best + 1e-12) { best = v; ties.length = 0; ties.push(m); } else if (Math.abs(v - best) <= 1e-12) ties.push(m); }
+          mv = ties[rnd.int(ties.length)];
+        }
+        b[mv] = 1;
+        const key = b.join("");
+        const vNew = val(b);
+        if (learn && prev !== null && (greedy || learnExplore)) V.set(prev, V.get(prev) + alpha * (vNew - V.get(prev)));
+        prev = key;
+        let w = winner(b);
+        if (w) return w;
+        // random opponent
+        const om = free(b);
+        b[om[rnd.int(om.length)]] = 2;
+        w = winner(b);
+        if (w) {
+          // back up the terminal outcome into our last afterstate
+          if (learn) { const tv = val(b); V.set(prev, V.get(prev) + alpha * (tv - V.get(prev))); }
+          return w;
+        }
+      }
+    }
+    const xs = [], wins = [], losses = [];
+    const evalEvery = 250, evalGames = 400;
+    const evaluate = (g) => {
+      let w = 0, l = 0;
+      for (let i = 0; i < evalGames; i++) { const r = play(false, false); if (r === 1) w++; else if (r === 2) l++; }
+      xs.push(g); wins.push(w / evalGames); losses.push(l / evalGames);
+    };
+    evaluate(0);
+    for (let g = 1; g <= games; g++) { play(true, true); if (g % evalEvery === 0) evaluate(g); }
+    return { xs, wins, losses, states: V.size };
+  }
+
+  function run() {
+    const btn = $("ttt-run");
+    btn.disabled = true; btn.textContent = "Training…";
+    setTimeout(() => {
+      const r = train(+$("ttt-a").value, +$("ttt-e").value, +$("ttt-n").value, $("ttt-ex").checked, RL.rng(Date.now()));
+      RL.lineChart($("ttt-chart"), {
+        x: r.xs, xLabel: "Training games", yLabel: "Fraction of greedy games", yMin: 0, yMax: 1,
+        yFmt: (v) => (v * 100).toFixed(0) + "%",
+        series: [
+          { name: "Win rate", color: "var(--s1)", y: r.wins },
+          { name: "Loss rate", color: "var(--s2)", y: r.losses },
+        ],
+      });
+      $("ttt-out").innerHTML = "Final greedy win rate <strong>" + (r.wins[r.wins.length - 1] * 100).toFixed(1) + "%</strong>, loss rate " +
+        (r.losses[r.losses.length - 1] * 100).toFixed(1) + "% · " + r.states + " states visited. Try α = 0.01 (slow) vs α = 1 (noisy), or exploration 0 (can get stuck).";
+      btn.disabled = false; btn.textContent = "Train again";
+    }, 20);
+  }
+  $("ttt-run").addEventListener("click", run);
+  run();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to use this guide — RL Study Guide</title>
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="assets/search-index.js"></script>
+<script defer src="assets/site.js"></script>
+</head>
+<body data-page="roadmap" data-root=".">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Start here</div>
+  <h1>How to use this guide</h1>
+  <p class="lead">A suggested study path, what the coloured boxes mean, and the book's notation — so every formula on later pages reads at a glance.</p>
+</div>
+
+<h2 id="study-path">Suggested study path</h2>
+<ol>
+  <li><strong>Read a chapter page top-to-bottom.</strong> Each follows the book's section order and ends with a summary and self-test.</li>
+  <li><strong>Run the interactive demo</strong> on that page and change the hyperparameters. Predict the effect first, then check.</li>
+  <li><strong>Answer the self-test questions before revealing.</strong> Use "Reveal all" only for a final skim.</li>
+  <li>Click <strong>"Mark chapter as studied"</strong> — the sidebar shows a green dot and the home page tracks progress (stored only in this browser).</li>
+  <li>For revision, use the <strong>Algorithm catalogue</strong> (comparisons), <strong>Hyperparameters</strong> page, and <strong>Formula sheet</strong>. They are printable (<kbd>Ctrl</kbd>+<kbd>P</kbd>; answers print expanded).</li>
+  <li>Use the <strong>search box</strong> (top right) to jump to any algorithm, formula or section.</li>
+</ol>
+
+<h2 id="legend">What the boxes mean</h2>
+<div class="box key"><span class="box-title">Key idea</span><p>A concept you must understand — the "why" behind an algorithm.</p></div>
+<div class="box def"><span class="box-title">Definition</span><p>A precise definition from the book, worth memorising word-for-word.</p></div>
+<div class="box exam"><span class="box-title">Exam tip</span><p>What examiners commonly ask, and the short answer they expect.</p></div>
+<div class="box pitfall"><span class="box-title">Common mistake</span><p>A frequent confusion and its correction.</p></div>
+<div class="eq">$$V(S_t) \leftarrow V(S_t) + \alpha\big[R_{t+1} + \gamma V(S_{t+1}) - V(S_t)\big]$$<div class="eq-name"><span>Formula card — name of the formula</span><span class="ref">(book eq. number)</span></div></div>
+<div class="algo"><div class="algo-head"><span class="name">Algorithm box</span><span class="tags"><span class="tag on">on-policy</span><span class="tag off">off-policy</span><span class="tag boot">bootstraps</span><span class="tag model">needs model</span></span></div>
+<pre>Pseudocode follows the book's boxed algorithms.
+<span class="c">// comments explain each line</span></pre>
+<div class="algo-foot">Salient features and how it differs from neighbours appear here.</div></div>
+
+<h3>Backup diagrams</h3>
+<p>The book draws updates as <strong>backup diagrams</strong>: open circles are <strong>states</strong>, solid dots are <strong>actions</strong>, squares are <strong>terminal states</strong>, and an arc across branches means <strong>max</strong>. Information flows <em>up</em> from the leaves to the root being updated.</p>
+<figure class="diagram"><div class="backup-row">
+  <div class="bk" data-tree="s|a3|s2" data-label="v<sub>π</sub>: expectation over actions and next states"></div>
+  <div class="bk" data-tree="s|a3m|s2" data-label="v<sub>*</sub>: max over actions"></div>
+  <div class="bk" data-tree="s|a1|s1" data-label="TD(0): one sampled step"></div>
+  <div class="bk" data-tree="s|a1|s1|a1|s1|~|T" data-label="Monte Carlo: to the end"></div>
+</div></figure>
+
+<h2 id="notation">Notation (book pp. xix–xxii, Ch 1–9 subset)</h2>
+<p>Capital letters are random variables; lower case are their values and scalar functions. Bold lower case are vectors; bold capitals are matrices.</p>
+<h3>General</h3>
+<div class="table-wrap"><table>
+  <tr><th>Symbol</th><th>Meaning</th></tr>
+  <tr><td>$\doteq$</td><td>equality true by definition</td></tr>
+  <tr><td>$\leftarrow$</td><td>assignment</td></tr>
+  <tr><td>$\E[X]$, $\Pr\{X=x\}$</td><td>expectation; probability</td></tr>
+  <tr><td>$\argmax_a f(a)$</td><td>a value of $a$ at which $f(a)$ is maximal</td></tr>
+  <tr><td>$\varepsilon$</td><td>probability of taking a random action in an ε-greedy policy</td></tr>
+  <tr><td>$\alpha,\ \beta$</td><td>step-size parameters</td></tr>
+  <tr><td>$\gamma$</td><td>discount-rate parameter</td></tr>
+  <tr><td>$\mathbb{1}_{\text{predicate}}$</td><td>indicator: 1 if predicate true, else 0</td></tr>
+</table></div>
+<h3>Bandits (Ch 2)</h3>
+<div class="table-wrap"><table>
+  <tr><th>Symbol</th><th>Meaning</th></tr>
+  <tr><td>$k$</td><td>number of actions (arms)</td></tr>
+  <tr><td>$q_*(a)$</td><td>true value (expected reward) of action $a$</td></tr>
+  <tr><td>$Q_t(a)$</td><td>estimate at time $t$ of $q_*(a)$</td></tr>
+  <tr><td>$N_t(a)$</td><td>number of times $a$ was selected prior to time $t$</td></tr>
+  <tr><td>$H_t(a)$</td><td>learned preference for selecting $a$</td></tr>
+  <tr><td>$\pi_t(a)$</td><td>probability of selecting $a$ at time $t$</td></tr>
+  <tr><td>$\bar R_t$</td><td>estimate at time $t$ of the expected reward (baseline)</td></tr>
+</table></div>
+<h3>MDPs (Ch 3–7)</h3>
+<div class="table-wrap"><table>
+  <tr><th>Symbol</th><th>Meaning</th></tr>
+  <tr><td>$s, s'$; $a$; $r$</td><td>states; an action; a reward</td></tr>
+  <tr><td>$\mathcal S$, $\mathcal S^+$</td><td>non-terminal states; all states incl. terminal</td></tr>
+  <tr><td>$\mathcal A(s)$, $\mathcal R$</td><td>actions available in $s$; set of possible rewards</td></tr>
+  <tr><td>$S_t, A_t, R_t$</td><td>state, action, reward at time $t$ ($R_{t}$ is due to $S_{t-1},A_{t-1}$)</td></tr>
+  <tr><td>$T$</td><td>final time step of an episode</td></tr>
+  <tr><td>$\pi(s)$, $\pi(a\mid s)$</td><td>deterministic / stochastic policy</td></tr>
+  <tr><td>$G_t$</td><td>return following time $t$</td></tr>
+  <tr><td>$G_{t:t+n}$</td><td>n-step return (from $t+1$ to $t+n$, corrected by bootstrapping)</td></tr>
+  <tr><td>$\bar G_{t:h}$</td><td>flat return — undiscounted, uncorrected (§5.8)</td></tr>
+  <tr><td>$p(s',r\mid s,a)$</td><td>probability of transition to $s'$ with reward $r$ from $s,a$ (the dynamics)</td></tr>
+  <tr><td>$p(s'\mid s,a)$, $r(s,a)$, $r(s,a,s')$</td><td>state-transition probability; expected rewards</td></tr>
+  <tr><td>$v_\pi(s)$, $v_*(s)$</td><td>value of $s$ under $\pi$ / under an optimal policy</td></tr>
+  <tr><td>$q_\pi(s,a)$, $q_*(s,a)$</td><td>action values under $\pi$ / optimal</td></tr>
+  <tr><td>$V, V_t$; $Q, Q_t$</td><td>array (tabular) estimates of $v$ and $q$</td></tr>
+  <tr><td>$\bar V_t(s)$</td><td>expected approximate value, e.g. $\sum_a\pi(a\mid s)Q_t(s,a)$</td></tr>
+  <tr><td>$U_t$</td><td>target for an estimate at time $t$</td></tr>
+  <tr><td>$\delta_t$</td><td>TD error at time $t$</td></tr>
+  <tr><td>$n$</td><td>number of steps of bootstrapping</td></tr>
+  <tr><td>$b(a\mid s)$</td><td>behaviour policy (off-policy learning)</td></tr>
+  <tr><td>$\rho_{t:h}$, $\rho_t$</td><td>importance-sampling ratio for $t$ through $h$ / for $t$ alone</td></tr>
+</table></div>
+<h3>Function approximation (Ch 9)</h3>
+<div class="table-wrap"><table>
+  <tr><th>Symbol</th><th>Meaning</th></tr>
+  <tr><td>$d$</td><td>number of components of $\mathbf w$</td></tr>
+  <tr><td>$\mathbf w, \mathbf w_t$</td><td>weight vector of the approximate value function</td></tr>
+  <tr><td>$\hat v(s,\mathbf w)$, $\hat q(s,a,\mathbf w)$</td><td>approximate state / action value</td></tr>
+  <tr><td>$\nabla\hat v(s,\mathbf w)$</td><td>column vector of partial derivatives w.r.t. $\mathbf w$</td></tr>
+  <tr><td>$\mathbf x(s)$, $\mathbf x_t$</td><td>feature vector of $s$; shorthand for $\mathbf x(S_t)$</td></tr>
+  <tr><td>$\mathbf w^\top\mathbf x$</td><td>inner product; linear: $\hat v(s,\mathbf w)=\mathbf w^\top\mathbf x(s)$</td></tr>
+  <tr><td>$\mu(s)$</td><td>on-policy distribution over states (§9.2)</td></tr>
+  <tr><td>$\eta(s)$</td><td>expected number of visits to $s$ per episode</td></tr>
+  <tr><td>$\mathbf A$, $\mathbf b$</td><td>$\mathbf A\doteq\E[\mathbf x_t(\mathbf x_t-\gamma\mathbf x_{t+1})^\top]$, $\mathbf b\doteq\E[R_{t+1}\mathbf x_t]$</td></tr>
+  <tr><td>$\mathbf w_{TD}$</td><td>TD fixed point $\mathbf A^{-1}\mathbf b$ (§9.4)</td></tr>
+  <tr><td>$\overline{\mathrm{VE}}(\mathbf w)$</td><td>mean square value error $\sum_s\mu(s)[v_\pi(s)-\hat v(s,\mathbf w)]^2$</td></tr>
+</table></div>
+
+</main>
+</body>
+</html>

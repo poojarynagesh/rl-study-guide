@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RL Study Guide — Sutton &amp; Barto Chapters 1–9</title>
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="assets/search-index.js"></script>
+<script defer src="assets/site.js"></script>
+</head>
+<body data-page="home" data-root=".">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Exam-prep study guide</div>
+  <h1>Reinforcement Learning: An Introduction</h1>
+  <p class="lead">A chapter-by-chapter guide to Sutton &amp; Barto (2nd ed., 2020), Chapters 1–7 and 9: every algorithm with its pseudocode and salient features, side-by-side comparisons, all key formulas, the role of each hyperparameter, interactive simulations, and self-test questions.</p>
+  <div class="meta">
+    <span class="chip" id="progress-chip">Progress: 0 / 8 chapters</span>
+    <span class="chip">Works offline — open index.html</span>
+    <span class="chip">Light &amp; dark themes</span>
+  </div>
+</div>
+
+<h2 id="chapters">Chapters</h2>
+<div class="grid-2">
+  <a class="card" data-req="ch01" href="chapters/ch01.html"><h4>1 · Introduction</h4><p class="small muted">RL vs supervised/unsupervised · exploration vs exploitation · policy, reward, value, model · tic-tac-toe TD learner · history.</p></a>
+  <a class="card" data-req="ch02" href="chapters/ch02.html"><h4>2 · Multi-armed Bandits</h4><p class="small muted">Action-value methods · ε-greedy · incremental update · constant vs sample-average step size · optimistic initial values · UCB · gradient bandit.</p></a>
+  <a class="card" data-req="ch03" href="chapters/ch03.html"><h4>3 · Finite Markov Decision Processes</h4><p class="small muted">Agent–environment interface · dynamics p(s′,r|s,a) · returns &amp; discounting · episodic vs continuing · Bellman equations · optimality.</p></a>
+  <a class="card" data-req="ch04" href="chapters/ch04.html"><h4>4 · Dynamic Programming</h4><p class="small muted">Policy evaluation · policy improvement theorem · policy iteration · value iteration · asynchronous DP · GPI · efficiency.</p></a>
+  <a class="card" data-req="ch05" href="chapters/ch05.html"><h4>5 · Monte Carlo Methods</h4><p class="small muted">First-visit vs every-visit · exploring starts · on-policy ε-soft · off-policy via importance sampling (ordinary vs weighted) · incremental MC.</p></a>
+  <a class="card" data-req="ch06" href="chapters/ch06.html"><h4>6 · Temporal-Difference Learning</h4><p class="small muted">TD(0) · TD error · TD vs MC vs DP · batch updating · Sarsa · Q-learning · Expected Sarsa · maximisation bias &amp; Double Q-learning.</p></a>
+  <a class="card" data-req="ch07" href="chapters/ch07.html"><h4>7 · n-step Bootstrapping</h4><p class="small muted">n-step TD · n-step Sarsa · off-policy n-step with importance sampling · per-decision control variates · tree backup · Q(σ).</p></a>
+  <a class="card" data-req="ch09" href="chapters/ch09.html"><h4>9 · On-policy Prediction with Approximation</h4><p class="small muted">Value error $\overline{\mathrm{VE}}$ · SGD &amp; semi-gradient · linear methods &amp; TD fixed point · coarse/tile coding · RBFs · step-size rule · ANNs · LSTD · kernels · interest &amp; emphasis.</p></a>
+</div>
+<p class="small muted">Chapter 8 (Planning and Learning with Tabular Methods) is intentionally out of scope.</p>
+
+<h2 id="revision">Revision tools</h2>
+<div class="grid-2">
+  <a class="card" data-req="algorithms" href="algorithms.html"><h4>Algorithm catalogue &amp; comparisons</h4><p class="small muted">Every algorithm in one place: update target, on/off-policy, bootstrapping, model needs, and how each differs from its neighbours.</p></a>
+  <a class="card" data-req="hyper" href="hyperparameters.html"><h4>Hyperparameters &amp; step sizes</h4><p class="small muted">Constant vs decreasing α, the Robbins–Monro conditions, ε, γ, c, n, Q₁, θ, feature resolution — what each controls and how to set it.</p></a>
+  <a class="card" data-req="formulas" href="formulas.html"><h4>Formula sheet</h4><p class="small muted">All key equations from Chapters 2–9 on one printable page.</p></a>
+  <a class="card" data-req="quiz" href="quiz.html"><h4>Mixed exam practice</h4><p class="small muted">Cross-chapter questions, worked numerical problems and "compare and contrast" answers.</p></a>
+</div>
+
+<h2 id="big-picture">The big picture: how the methods relate</h2>
+<p>Almost every method in Chapters 4–7 updates a value estimate toward a <strong>target</strong>. Methods differ along two dimensions (book §8.13, Figure 8.11):</p>
+<ul>
+  <li><strong>Width</strong> — does the update use a single <em>sampled</em> next step, or the <em>expected</em> value over all possible next steps (which needs a model)?</li>
+  <li><strong>Depth</strong> — does the target <em>bootstrap</em> from the current estimate after one step, or wait for the actual return at the end of the episode?</li>
+</ul>
+<figure class="diagram">
+  <svg viewBox="0 0 560 360" width="560" role="img" aria-label="Width versus depth of updates: TD, DP, Monte Carlo, exhaustive search">
+    <defs><marker id="ahb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-3)"/></marker></defs>
+    <line x1="90" y1="40" x2="90" y2="320" stroke="var(--text-3)" stroke-width="1.5" marker-end="url(#ahb)"/>
+    <line x1="90" y1="40" x2="530" y2="40" stroke="var(--text-3)" stroke-width="1.5" marker-end="url(#ahb)"/>
+    <text x="310" y="24" text-anchor="middle" font-size="13" class="muted-t">width of update: sample → expected (needs a model)</text>
+    <text x="30" y="180" text-anchor="middle" font-size="13" class="muted-t" transform="rotate(-90 30 180)">depth: bootstrapping → full return</text>
+    <rect x="110" y="62" width="180" height="96" rx="10" fill="var(--accent-soft)" stroke="var(--s1)"/>
+    <text x="200" y="92" text-anchor="middle" font-size="15" font-weight="700">Temporal-difference</text>
+    <text x="200" y="114" text-anchor="middle" font-size="12.5">sample, 1-step bootstrap</text>
+    <text x="200" y="134" text-anchor="middle" font-size="12.5" class="muted-t">TD(0), Sarsa, Q-learning (Ch 6)</text>
+    <rect x="330" y="62" width="180" height="96" rx="10" fill="var(--surface-2)" stroke="var(--s7)"/>
+    <text x="420" y="92" text-anchor="middle" font-size="15" font-weight="700">Dynamic programming</text>
+    <text x="420" y="114" text-anchor="middle" font-size="12.5">expected, 1-step bootstrap</text>
+    <text x="420" y="134" text-anchor="middle" font-size="12.5" class="muted-t">policy / value iteration (Ch 4)</text>
+    <rect x="110" y="214" width="180" height="96" rx="10" fill="var(--surface-2)" stroke="var(--s2)"/>
+    <text x="200" y="244" text-anchor="middle" font-size="15" font-weight="700">Monte Carlo</text>
+    <text x="200" y="266" text-anchor="middle" font-size="12.5">sample, full return</text>
+    <text x="200" y="286" text-anchor="middle" font-size="12.5" class="muted-t">first-/every-visit MC (Ch 5)</text>
+    <rect x="330" y="214" width="180" height="96" rx="10" fill="var(--surface-2)" stroke="var(--text-3)"/>
+    <text x="420" y="244" text-anchor="middle" font-size="15" font-weight="700">Exhaustive search</text>
+    <text x="420" y="266" text-anchor="middle" font-size="12.5">expected, full depth</text>
+    <text x="420" y="286" text-anchor="middle" font-size="12.5" class="muted-t">rarely feasible</text>
+    <line x1="200" y1="160" x2="200" y2="212" stroke="var(--s3)" stroke-width="2.5"/>
+    <rect x="128" y="174" width="144" height="24" rx="12" fill="var(--surface)" stroke="var(--s3)"/>
+    <text x="200" y="190" text-anchor="middle" font-size="12.5" font-weight="600">n-step methods (Ch 7)</text>
+  </svg>
+  <figcaption>n-step methods (Chapter 7) span the axis between one-step TD and Monte Carlo. Chapter 9 keeps the same targets but replaces the table with a parameterised function $\hat v(s,\mathbf{w})$.</figcaption>
+</figure>
+
+<div class="box key">
+  <span class="box-title">The one update rule behind (almost) everything</span>
+  $$\text{NewEstimate} \leftarrow \text{OldEstimate} + \text{StepSize}\,\big[\text{Target} - \text{OldEstimate}\big]$$
+  <p>Bandits (Ch 2): target $=R$. Monte Carlo (Ch 5): target $=G_t$. TD(0) (Ch 6): target $=R_{t+1}+\gamma V(S_{t+1})$. n-step TD (Ch 7): target $=G_{t:t+n}$. Function approximation (Ch 9): the same targets, but the "estimate" is $\hat v(S_t,\mathbf{w})$ and the step is taken along $\nabla \hat v$.</p>
+</div>
+
+</main>
+<script>
+document.addEventListener("rl:ready", function () {
+  const done = RL.store.get("done", {});
+  const n = ["ch01","ch02","ch03","ch04","ch05","ch06","ch07","ch09"].filter((k) => done[k]).length;
+  document.getElementById("progress-chip").textContent = "Progress: " + n + " / 8 chapters studied";
+});
+</script>
+</body>
+</html>
