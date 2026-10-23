@@ -393,3 +393,18 @@ figcaption { font-size: 14px; color: var(--text-2); margin-top: 10px; text-align
 }
 a.card.soon { opacity: .5; pointer-events: none; }
 a.card.soon::after { content: "Coming soon"; display: inline-block; margin-top: 6px; font-size: 12px; color: var(--text-3); }
+
+/* Long inline formulas can't wrap; on phones let each one scroll on its own
+   instead of widening the whole page. */
+@media (max-width: 700px) {
+  p .katex, li .katex, td .katex, .ans .katex, summary .katex {
+    display: inline-block; max-width: 100%; overflow-x: auto; overflow-y: hidden;
+    vertical-align: middle; padding: 2px 0;
+  }
+  .hero .meta { overflow: hidden; }
+}
+/* KaTeX's hidden MathML layer is absolutely positioned; anchor it to its formula
+   so it can't escape scroll containers (tables) and widen the page. */
+.katex { position: relative; }
+.table-wrap, .eq { position: relative; }
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
