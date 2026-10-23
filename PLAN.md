@@ -29,3 +29,5 @@ score, retry, and the best score remembered per chapter.
 Phase 2 delivered: assets/quiz.js engine + assets/quizzes/chNN.js banks (98 questions across 8 chapters).
 
 Phase 3 delivered: https://github.com/poojarynagesh/rl-study-guide (public), served by GitHub Pages at https://poojarynagesh.github.io/rl-study-guide/
+
+Follow-up (2026-10-23): 51 exam-style interpretation questions added (assets/quizzes/chNN-exam.js): stopping value iteration from Δ tables, recognising an optimal policy in PI, ε-greedy log analysis, geometric-series returns, IS/batch estimates, reading learning curves. Total quiz bank: 149 questions.

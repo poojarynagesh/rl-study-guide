@@ -615,3 +615,14 @@ body.focus .content { max-width: 780px; }
   .cq-head { top: 60px; flex-direction: column; align-items: flex-start; }
 }
 @media print { .cq { display: none; } }
+
+/* Exam-style quiz questions: badge and small data tables inside the question */
+.cq-tag {
+  display: inline-block; margin: 0 8px 4px 0; padding: 1px 8px; border-radius: 999px; vertical-align: 2px;
+  font: 700 11px/1.6 var(--font); letter-spacing: .03em; color: var(--exam); background: var(--exam-bg);
+  border: 1px solid color-mix(in srgb, var(--exam) 35%, transparent);
+}
+.cq-q.cq-exam { border-left: 3px solid var(--exam); }
+.cq-text table { width: auto; margin: 10px 0 4px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; border-collapse: separate; border-spacing: 0; }
+.cq-text th, .cq-text td { padding: 5px 12px; font-size: 14px; text-align: center; font-variant-numeric: tabular-nums; }
+.cq-text .tw { overflow-x: auto; max-width: 100%; }
