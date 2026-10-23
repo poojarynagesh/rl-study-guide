@@ -1,6 +1,6 @@
 # Project plan
 
-## Phase 1 — chapter pages (in progress)
+## Phase 1 — chapter pages (done)
 
 - [x] Scaffold (layout, nav, KaTeX, charts, search)
 - [x] Ch 1 Introduction
@@ -13,7 +13,7 @@
 - [x] Ch 9 On-policy Prediction with Approximation
 - [x] Revision pages: algorithm catalogue, hyperparameters, formula sheet, mixed practice
 
-## Phase 2 — per-chapter quizzes (requested 2026-10-23, start after Phase 1)
+## Phase 2 — per-chapter quizzes (done)
 
 Add a scored quiz to every chapter to check understanding (beyond the
 existing reveal-the-answer self-test): multiple-choice / true-false /
@@ -25,3 +25,5 @@ score, retry, and the best score remembered per chapter.
 - Push the repo to GitHub (confirm repo name and visibility with the user first).
 - Enable GitHub Pages on `main` so `index.html` is reachable at a public URL.
 - Check that every page, KaTeX fonts and the search index load correctly from the hosted site.
+
+Phase 2 delivered: assets/quiz.js engine + assets/quizzes/chNN.js banks (98 questions across 8 chapters).

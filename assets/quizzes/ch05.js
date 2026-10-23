@@ -1,0 +1,36 @@
+// Chapter 5 quiz — see assets/quiz.js for the format.
+(function () {
+  const R = String.raw;
+  window.RL_QUIZ = [
+    { type: "mcq", q: "Monte Carlo methods as defined in Chapter 5 apply to…",
+      options: ["continuing tasks only", "episodic tasks only", "any task, updating every step", "tasks with known dynamics only"], answer: 1,
+      explain: "They average complete returns, which exist only when episodes terminate; updates happen at episode end." },
+    { type: "num", q: R`Ex 5.5: one non-terminal state, reward +1 per step, γ = 1; one 10-step episode. What is the every-visit MC estimate?`, answer: 5.5, tol: 0.001,
+      explain: "The returns from the 10 visits are 10, 9, …, 1, averaging 5.5 (first-visit gives 10)." },
+    { type: "mcq", q: "Why does model-free MC control estimate action values rather than state values?",
+      options: ["Action values have lower variance", "Without a model, state values cannot be used to choose actions", "State values require bootstrapping", "Action values are always smaller"], answer: 1,
+      explain: R`Choosing from $v$ needs a one-step lookahead with $p(s',r|s,a)$.` },
+    { type: "mcq", q: "What does the exploring-starts assumption require?",
+      options: ["The behaviour policy is ε-greedy", "Episodes begin in a state–action pair, with every pair having non-zero start probability", "The first action is always greedy", "Rewards are given only at the start"], answer: 1,
+      explain: "It guarantees all pairs are visited — useful in simulation, unrealistic for real interaction." },
+    { type: "mcq", q: "With fixed ε, on-policy first-visit MC control converges to…",
+      options: ["the optimal deterministic policy", "the best policy among ε-soft policies", "a random policy", "nothing — it diverges"], answer: 1,
+      explain: "We trade optimality for not needing exploring starts." },
+    { type: "num", q: R`π is deterministic; behaviour $b$ took π's action on three steps, each with $b=0.5$. What is the importance-sampling ratio?`, answer: 8, tol: 0.001,
+      explain: R`$\rho=\prod1/0.5=2^3=8$.` },
+    { type: "num", q: R`Two returns from $s$: $G=1$ with $\rho=2$, and $G=4$ with $\rho=1$. Weighted IS estimate?`, answer: 2, tol: 0.001,
+      explain: R`$(2\cdot1+1\cdot4)/(2+1)=6/3=2$.` },
+    { type: "num", q: "Same two returns: what is the ordinary IS estimate?", answer: 3, tol: 0.001,
+      explain: R`$(2\cdot1+1\cdot4)/2=3$.` },
+    { type: "tf", q: "Weighted importance sampling is unbiased.", answer: false,
+      explain: "Weighted IS is biased (→ 0 asymptotically) but has bounded variance; ordinary IS is unbiased but its variance can be infinite." },
+    { type: "mcq", q: R`In off-policy MC control the weight update is $W\leftarrow W/b(A_t|S_t)$ instead of $W\cdot\pi/b$. Why?`,
+      options: ["It is an approximation", R`π is deterministic greedy, so $\pi(A_t|S_t)=1$ whenever the loop continues`, "b is always 1", "To reduce variance by bias"], answer: 1,
+      explain: R`If $A_t\ne\pi(S_t)$ the loop exits (ratio 0); otherwise the numerator is 1.` },
+    { type: "tf", q: "In blackjack, first-visit and every-visit MC give the same results.", answer: true,
+      explain: "A state can never recur within an episode, so every visit is a first visit." },
+    { type: "mcq", q: "The coverage assumption for off-policy learning states that…",
+      options: [R`$b(a|s)\gt0\Rightarrow\pi(a|s)\gt0$`, R`$\pi(a|s)\gt0\Rightarrow b(a|s)\gt0$`, R`$\pi=b$`, "π must be stochastic"], answer: 1,
+      explain: "Every action π might take must sometimes be taken by b; hence b is stochastic wherever it differs from π." },
+  ];
+})();

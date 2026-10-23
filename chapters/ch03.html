@@ -9,6 +9,8 @@
 <script defer src="../assets/vendor/katex/katex.min.js"></script>
 <script defer src="../assets/vendor/katex/auto-render.min.js"></script>
 <script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/quizzes/ch03.js"></script>
+<script defer src="../assets/quiz.js"></script>
 <script defer src="../assets/site.js"></script>
 </head>
 <body data-page="ch03" data-root="..">
@@ -346,6 +348,11 @@ v_*(l)&=\max\begin{cases} \beta r_s-3(1-\beta)+\gamma[(1-\beta)v_*(h)+\beta v_*(
   <details><summary>Ex 3.2 — Is the MDP framework adequate for all goal-directed learning? An exception?</summary><div class="ans"><p>Not always usefully: tasks where the state is not observable (non-Markov, partial observability), multiple goals that can't be reduced to a single scalar, or when the reward itself can be altered by the agent. Very long horizons or continuous time also strain it.</p></div></details>
   <details><summary>Ex 3.3 — Driving: where should the agent–environment line go?</summary><div class="ans"><p>It's a modelling choice determined by what you can control arbitrarily and what decision problem you want to learn. Too far in (muscle twitches) makes learning the high-level task very hard; too far out (tyre torques) assumes control you don't directly have. A sensible choice is where actions are reliably executable and meaningful for the goal (e.g. accelerator/brake/steering, or route choices for a navigation agent).</p></div></details>
 </div>
+
+
+<h2 id="chapter-quiz-section" data-short="Chapter quiz">Chapter quiz — check your understanding</h2>
+<p class="small muted">Scored quiz: pick an answer (or type a number) to get instant feedback and an explanation. Your best score is saved in this browser and shown on the home page. "Shuffle &amp; restart" re-orders the questions.</p>
+<div class="cq" id="chapter-quiz"></div>
 
 </main>
 

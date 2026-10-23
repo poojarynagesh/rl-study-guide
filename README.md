@@ -14,6 +14,8 @@ Each chapter page has:
 - the hyperparameters involved and what each one controls
 - an interactive simulation you can re-run with different settings
 - self-test questions with model answers
+- a scored chapter quiz (multiple choice, true/false, numeric) with instant
+  feedback and explanations; best scores show on the home page
 
 Revision pages pull everything together: an algorithm catalogue with
 comparison tables, a hyperparameter and step-size page, a one-page formula
@@ -40,6 +42,7 @@ algorithms.html, hyperparameters.html, formulas.html, quiz.html
 assets/style.css                  all styles (light + dark tokens)
 assets/site.js                    nav, theme, math, backup diagrams, charts, search
 assets/search-index.js            generated — do not edit
+assets/quiz.js, assets/quizzes/   quiz engine and per-chapter question banks
 tools/build_index.py              regenerates the search index
 ```
 

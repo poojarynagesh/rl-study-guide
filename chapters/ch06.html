@@ -9,6 +9,8 @@
 <script defer src="../assets/vendor/katex/katex.min.js"></script>
 <script defer src="../assets/vendor/katex/auto-render.min.js"></script>
 <script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/quizzes/ch06.js"></script>
+<script defer src="../assets/quiz.js"></script>
 <script defer src="../assets/site.js"></script>
 <style>
   .mini { display: inline-grid; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
@@ -365,6 +367,11 @@ Initialize Q₁(s,a) and Q₂(s,a), for all s ∈ S⁺, a ∈ A(s), such that Q(
   <details><summary>State the conditions under which Sarsa converges to the optimal policy.</summary><div class="ans"><p>Step sizes satisfy (2.7), all state–action pairs visited infinitely often, and the policy converges in the limit to greedy (e.g. ε-greedy with ε = 1/t).</p></div></details>
   <details><summary>What is an afterstate, and when are afterstate value functions useful?</summary><div class="ans"><p>The state immediately after the agent's action, before the environment's stochastic response. Useful when the immediate effect of actions is known (games, queuing): different (state, action) pairs with the same afterstate share one value.</p></div></details>
 </div>
+
+
+<h2 id="chapter-quiz-section" data-short="Chapter quiz">Chapter quiz — check your understanding</h2>
+<p class="small muted">Scored quiz: pick an answer (or type a number) to get instant feedback and an explanation. Your best score is saved in this browser and shown on the home page. "Shuffle &amp; restart" re-orders the questions.</p>
+<div class="cq" id="chapter-quiz"></div>
 
 </main>
 

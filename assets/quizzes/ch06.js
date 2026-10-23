@@ -1,0 +1,36 @@
+// Chapter 6 quiz — see assets/quiz.js for the format.
+(function () {
+  const R = String.raw;
+  window.RL_QUIZ = [
+    { type: "num", q: R`TD error: $R_{t+1}=0$, $\gamma=1$, $V(S_t)=0.4$, $V(S_{t+1})=0.6$. What is $\delta_t$?`, answer: 0.2, tol: 0.001,
+      explain: R`$\delta_t=0+0.6-0.4=0.2$.` },
+    { type: "mcq", q: "The TD target is an estimate for two reasons. Which two?",
+      options: ["It samples the expectation and it uses the current estimate V instead of the true value", "It is discounted and delayed", "It needs a model and bootstraps", "It is biased and on-policy"], answer: 0,
+      explain: "TD combines MC's sampling with DP's bootstrapping." },
+    { type: "mcq", q: "Under batch updating, TD(0) converges to…",
+      options: ["the estimate minimising MSE on the training data", "the certainty-equivalence estimate (correct for the maximum-likelihood model)", "zero", "a value that depends on α"], answer: 1,
+      explain: "Batch MC minimises training MSE; batch TD is independent of (small) α." },
+    { type: "num", q: R`"You are the predictor" (Example 6.4): what value does batch TD(0) give $V(A)$?`, answer: 0.75, tol: 0.001,
+      explain: R`A always went to B with reward 0, and $V(B)=3/4$.` },
+    { type: "num", q: "Same example: what value does batch Monte Carlo give V(A)?", answer: 0, tol: 0.001,
+      explain: "A was seen once, followed by return 0 — zero error on the training data." },
+    { type: "mcq", q: "Which is the Q-learning target?",
+      options: [R`$R+\gamma Q(S',A')$`, R`$R+\gamma\max_aQ(S',a)$`, R`$R+\gamma\sum_a\pi(a|S')Q(S',a)$`, R`$G_t$`], answer: 1,
+      explain: "The max makes the target policy greedy regardless of the ε-greedy behaviour — off-policy." },
+    { type: "mcq", q: "In cliff walking with ε = 0.1, which method gets higher reward per episode during learning?",
+      options: ["Q-learning", "Sarsa", "They are identical", "Monte Carlo"], answer: 1,
+      explain: "Sarsa accounts for its exploratory falls and learns the safe path; Q-learning walks the edge and sometimes falls." },
+    { type: "tf", q: "Expected Sarsa with a greedy target policy is exactly Q-learning.", answer: true,
+      explain: R`$\sum_a\pi(a|S')Q(S',a)=\max_aQ(S',a)$ when π is greedy.` },
+    { type: "mcq", q: "What causes maximization bias?",
+      options: ["Discounting", "Using the max of noisy estimates as an estimate of the max of the true values", "Using too small a step size", "Using importance sampling"], answer: 1,
+      explain: "Double learning fixes it by selecting and evaluating with independent estimates." },
+    { type: "num", q: R`Sarsa: $Q(S,A)=0$, $R=-1$, $Q(S',A')=-2$, $\gamma=1$, $\alpha=0.5$. New $Q(S,A)$?`, answer: -1.5, tol: 0.001,
+      explain: R`Target $-1+(-2)=-3$; $0+0.5(-3-0)=-1.5$.` },
+    { type: "mcq", q: "Why can't Monte Carlo methods easily be used on the windy gridworld?",
+      options: ["Rewards are negative", "Termination is not guaranteed for all policies, so an episode might never end", "The state space is continuous", "There is no discounting"], answer: 1,
+      explain: "Online methods like Sarsa learn during the episode that such policies are bad." },
+    { type: "tf", q: "Double Q-learning doubles the computation per step.", answer: false,
+      explain: "It doubles memory (two tables) but updates only one of them per step." },
+  ];
+})();

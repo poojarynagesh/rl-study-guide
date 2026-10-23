@@ -91,9 +91,19 @@
 </main>
 <script>
 document.addEventListener("rl:ready", function () {
-  const done = RL.store.get("done", {});
-  const n = ["ch01","ch02","ch03","ch04","ch05","ch06","ch07","ch09"].filter((k) => done[k]).length;
-  document.getElementById("progress-chip").textContent = "Progress: " + n + " / 8 chapters studied";
+  const CH = ["ch01","ch02","ch03","ch04","ch05","ch06","ch07","ch09"];
+  const done = RL.store.get("done", {}), best = RL.store.get("quizBest", {});
+  const n = CH.filter((k) => done[k]).length, q = CH.filter((k) => best[k]).length;
+  document.getElementById("progress-chip").textContent = "Progress: " + n + " / 8 chapters studied · " + q + " / 8 quizzes taken";
+  // show each chapter's studied mark and best quiz score on its card
+  CH.forEach((k) => {
+    const card = document.querySelector('a.card[data-req="' + k + '"]');
+    if (!card) return;
+    const bits = [];
+    if (done[k]) bits.push('<span class="chip" style="color:var(--def);border-color:var(--def)">✓ studied</span>');
+    if (best[k]) bits.push('<span class="chip quiz-best-chip">Quiz best ' + best[k].score + " / " + best[k].total + "</span>");
+    if (bits.length) card.insertAdjacentHTML("beforeend", '<div class="meta" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">' + bits.join("") + "</div>");
+  });
 });
 </script>
 </body>

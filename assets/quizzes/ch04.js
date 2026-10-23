@@ -1,0 +1,37 @@
+// Chapter 4 quiz — see assets/quiz.js for the format.
+(function () {
+  const R = String.raw;
+  window.RL_QUIZ = [
+    { type: "mcq", q: "What do classical DP methods assume?",
+      options: ["Only sample episodes", "A perfect model of the environment as an MDP", "A linear value function", "Deterministic rewards"], answer: 1,
+      explain: "DP computes optimal policies given complete knowledge of the dynamics." },
+    { type: "tf", q: "The in-place version of iterative policy evaluation usually converges more slowly than the two-array version.", answer: false,
+      explain: "In-place uses new values as soon as they're available and usually converges faster; the sweep order then matters." },
+    { type: "mcq", q: "How does the value-iteration update differ from the policy-evaluation update?",
+      options: ["It uses sampled transitions", "It takes a max over actions instead of averaging with π", "It ignores the discount factor", "It updates only one state"], answer: 1,
+      explain: "VI is the Bellman optimality equation turned into an update rule." },
+    { type: "num", q: R`4×4 gridworld (Example 4.1), random policy: what is $q_\pi(11,\text{down})$?`, answer: -1, tol: 0.001,
+      explain: "Moving down from 11 reaches the terminal state: −1 + 0." },
+    { type: "num", q: R`Same gridworld: what is $q_\pi(7,\text{down})$, given $v_\pi(11)=-14$?`, answer: -15, tol: 0.001,
+      explain: R`$-1+v_\pi(11)=-15$.` },
+    { type: "num", q: R`Same gridworld, $v_1(s)=-1$ for all non-terminal $s$. What is $v_2(1)$ for state 1 (next to the terminal)?`, answer: -1.75, tol: 0.001,
+      explain: R`$\tfrac14[(-1+0)+3(-1-1)]=-1.75$.` },
+    { type: "mcq", q: "Why does policy iteration terminate in a finite number of iterations?",
+      options: ["Because γ < 1", "Each policy strictly improves unless optimal, and there are finitely many deterministic policies", "Because value iteration is embedded in it", "Because θ is positive"], answer: 1,
+      explain: "Policy improvement theorem + finitely many deterministic policies." },
+    { type: "mcq", q: "Generalized policy iteration (GPI) refers to…",
+      options: ["policy iteration with function approximation", "any interaction of policy-evaluation and policy-improvement processes, regardless of granularity", "value iteration with asynchronous updates only", "running several policies in parallel"], answer: 1,
+      explain: "Almost all RL methods are well described as GPI." },
+    { type: "mcq", q: "What must an asynchronous DP algorithm do to converge?",
+      options: ["Sweep states in a fixed order", "Continue to update all states (none can be ignored after some point)", "Use two arrays", "Update only states on the optimal path"], answer: 1,
+      explain: "States can be updated in any order, but every state must keep being updated." },
+    { type: "mcq", q: "Worst-case time for DP to find an optimal policy is…",
+      options: [R`exponential in the number of states ($k^n$)`, "polynomial in the number of states and actions", "independent of the number of states", "linear in γ"], answer: 1,
+      explain: R`Exponentially faster than direct search over the $k^n$ deterministic policies.` },
+    { type: "tf", q: "Bootstrapping means updating estimates on the basis of other estimates.", answer: true,
+      explain: "DP bootstraps; MC does not; TD does — all without/with a model in different combinations." },
+    { type: "mcq", q: R`In the gambler's problem with $p_h=0.4$, what kind of policy is optimal?`,
+      options: ["Always stake 1 dollar", "Bold play: large stakes, e.g. everything at a capital of 50", "Never bet", "Stake half the capital every time"], answer: 1,
+      explain: "With an unfavourable coin you want to reach the goal in as few flips as possible." },
+  ];
+})();

@@ -9,6 +9,8 @@
 <script defer src="../assets/vendor/katex/katex.min.js"></script>
 <script defer src="../assets/vendor/katex/auto-render.min.js"></script>
 <script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/quizzes/ch01.js"></script>
+<script defer src="../assets/quiz.js"></script>
 <script defer src="../assets/site.js"></script>
 </head>
 <body data-page="ch01" data-root="..">
@@ -220,6 +222,11 @@ $$V(S_t) \leftarrow V(S_t) + \alpha\big[\,V(S_{t+1}) - V(S_t)\,\big]$$
   <details><summary>What information do evolutionary methods ignore that value-function methods use?</summary><div class="ans"><p>The fact that a policy is a function from states to actions, and which states were visited and which actions were taken during each lifetime/episode. They only use the final outcome.</p></div></details>
   <details><summary>Who introduced Q-learning, and what did it unite?</summary><div class="ans"><p>Chris Watkins (1989). It fully integrated dynamic programming (optimal control thread) with online trial-and-error and temporal-difference learning.</p></div></details>
 </div>
+
+
+<h2 id="chapter-quiz-section" data-short="Chapter quiz">Chapter quiz — check your understanding</h2>
+<p class="small muted">Scored quiz: pick an answer (or type a number) to get instant feedback and an explanation. Your best score is saved in this browser and shown on the home page. "Shuffle &amp; restart" re-orders the questions.</p>
+<div class="cq" id="chapter-quiz"></div>
 
 </main>
 

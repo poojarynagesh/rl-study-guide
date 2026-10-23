@@ -1,0 +1,38 @@
+// Chapter 1 quiz — see assets/quiz.js for the format.
+(function () {
+  const R = String.raw;
+  window.RL_QUIZ = [
+    { type: "mcq", q: "Which two characteristics does the book call the most important distinguishing features of reinforcement learning?",
+      options: ["Trial-and-error search and delayed reward", "Labelled examples and generalisation", "Function approximation and planning", "Unsupervised structure discovery and clustering"], answer: 0,
+      explain: "§1.1: the learner must discover good actions by trying them, and actions can affect rewards many steps later." },
+    { type: "tf", q: "Because RL has no labelled examples, it is best described as a kind of unsupervised learning.", answer: false,
+      explain: "RL maximises a reward signal rather than finding hidden structure — the book calls it a third paradigm." },
+    { type: "mcq", q: "Which element of an RL system is, on its own, sufficient to determine the agent's behaviour?",
+      options: ["The reward signal", "The value function", "The policy", "The model"], answer: 2,
+      explain: "The policy maps states to actions; it alone determines behaviour (§1.3)." },
+    { type: "mcq", q: "Which of the four elements is optional?",
+      options: ["Policy", "Reward signal", "Value function", "Model of the environment"], answer: 3,
+      explain: "Model-free methods learn without a model; the model is used for planning in model-based methods." },
+    { type: "mcq", q: "What does the value of a state represent?",
+      options: ["The immediate reward received in that state", "The total reward an agent can expect to accumulate in the future starting from that state", "The probability of reaching that state", "The number of times the state has been visited"], answer: 1,
+      explain: "Rewards are immediate and primary; values are predictions of long-run reward and are secondary — yet decisions are made on values." },
+    { type: "num", q: R`Tic-tac-toe TD update: $V(S_t)=0.5$, $V(S_{t+1})=1$, step size $\alpha=0.1$. What is the new $V(S_t)$?`, answer: 0.55, tol: 0.001,
+      explain: R`$V(S_t)\leftarrow0.5+0.1(1-0.5)=0.55$.` },
+    { type: "tf", q: "In the book's tic-tac-toe player, exploratory moves also trigger value updates.", answer: false,
+      explain: "Only greedy moves cause a backup; exploratory moves do not result in learning (Figure 1.1)." },
+    { type: "mcq", q: R`What happens in tic-tac-toe if the step size $\alpha$ is <em>not</em> reduced all the way to zero?`,
+      options: ["Learning diverges", "The player also plays well against opponents that slowly change their play", "The player becomes minimax-optimal", "Values converge exactly to win probabilities"], answer: 1,
+      explain: "A non-vanishing step size keeps tracking — the first appearance of the constant-vs-decreasing step-size trade-off." },
+    { type: "mcq", q: "Compared with value-function methods, what do evolutionary methods ignore?",
+      options: ["The final outcome of each game", "Which states were visited and which actions were taken during each episode", "The rules of the game", "The exploration–exploitation dilemma"], answer: 1,
+      explain: "They evaluate whole policies by final outcome only, so all moves of a won game get credit." },
+    { type: "mcq", q: "Why is classical minimax not a good solution for playing against an imperfect tic-tac-toe opponent?",
+      options: ["It is too slow", "It assumes a particular (optimal) way of playing by the opponent", "It requires a neural network", "It cannot handle draws"], answer: 1,
+      explain: "Minimax never enters a state from which it could lose, even if this opponent always blunders there." },
+    { type: "tf", q: "The tic-tac-toe learner is model-free with respect to its opponent.", answer: true,
+      explain: "It has no model of the opponent at all (although it uses the game rules to know which state each of its moves leads to)." },
+    { type: "mcq", q: "Whose 1989 work fully integrated dynamic programming with online learning, introducing Q-learning?",
+      options: ["Richard Bellman", "Edward Thorndike", "Chris Watkins", "Gerald Tesauro"], answer: 2,
+      explain: "Watkins (1989); Bellman gave DP and MDPs, Thorndike the Law of Effect, Tesauro TD-Gammon." },
+  ];
+})();

@@ -1,0 +1,38 @@
+// Chapter 9 quiz — see assets/quiz.js for the format.
+(function () {
+  const R = String.raw;
+  window.RL_QUIZ = [
+    { type: "mcq", q: R`In $\overline{\mathrm{VE}}(\mathbf w)=\sum_s\mu(s)[v_\pi(s)-\hat v(s,\mathbf w)]^2$, what does $\mu$ express?`,
+      options: ["The policy", "How much we care about the error in each state (usually the on-policy distribution)", "The step size per state", "The transition probabilities"], answer: 1,
+      explain: "With fewer weights than states we must say which states matter most." },
+    { type: "tf", q: "Semi-gradient TD(0) is a true stochastic-gradient method on the value error.", answer: false,
+      explain: "Its target depends on w but that dependence is ignored — only part of the gradient." },
+    { type: "mcq", q: "With linear function approximation and decreasing α, gradient Monte Carlo converges to…",
+      options: ["the TD fixed point", "the global optimum of the value error", "a local optimum only", "it diverges"], answer: 1,
+      explain: "The linear case has a single optimum, so local = global." },
+    { type: "num", q: R`With $\gamma=0.95$, at most how many times the minimum possible $\overline{\mathrm{VE}}$ can linear TD's fixed point have?`, answer: 20, tol: 0.001,
+      explain: R`$1/(1-\gamma)=20$ (eq. 9.14).` },
+    { type: "num", q: "Tile coding with 8 tilings: what step size gives exact one-trial learning?", answer: 0.125, tol: 0.0001,
+      explain: R`Exactly 8 features are active, so $\alpha=1/8$.` },
+    { type: "num", q: R`Rule of thumb (9.19): you want to learn in about $\tau=10$ experiences and $\mathbf x^\top\mathbf x=50$ for every state. What α?`, answer: 0.002, tol: 0.00001,
+      explain: R`$\alpha=1/(10\times50)=0.002$.` },
+    { type: "mcq", q: "Tabular methods are a special case of linear function approximation with which features?",
+      options: ["Polynomial features", "One-hot features: one per state", "Fourier features", "Random features"], answer: 1,
+      explain: R`$x_i(s)=1$ if $i=s$, else 0 (Exercise 9.1).` },
+    { type: "num", q: R`How many features does an order-3 polynomial basis have for a 2-dimensional state?`, answer: 16, tol: 0.001,
+      explain: R`$(n+1)^k=4^2=16$.` },
+    { type: "mcq", q: "In coarse coding, what mainly determines acuity (the finest possible discrimination)?",
+      options: ["The size of the receptive fields", "The total number of features", "The step size", "The shape of the fields"], answer: 1,
+      explain: "Size and shape set initial generalisation; the number of features sets acuity (Figure 9.8)." },
+    { type: "mcq", q: "What is the per-step memory and computation of LSTD?",
+      options: [R`$O(d)$`, R`$O(d^2)$`, R`$O(d^3)$`, R`$O(1)$`], answer: 1,
+      explain: R`With the Sherman–Morrison update; a naive inverse would be $O(d^3)$.` },
+    { type: "mcq", q: "What is a known weakness of Fourier basis features?",
+      options: ["They cannot represent smooth functions", "Trouble with discontinuities ('ringing') and with local detail", "They are binary", "They require a model"], answer: 1,
+      explain: "Features are global, so local properties and sharp edges are hard to represent." },
+    { type: "num", q: R`Linear semi-gradient TD(0): $\mathbf x(s)=(1,1)$, $\mathbf w=(0,0)$, $R=1$, next state terminal, $\alpha=0.1$. What is $\hat v(s,\mathbf w)$ after the update?`, answer: 0.2, tol: 0.001,
+      explain: R`$\delta=1+0-0=1$; $\mathbf w=(0.1,0.1)$; $\hat v=0.1+0.1=0.2$.` },
+    { type: "tf", q: "Updating according to the on-policy distribution is critical to the stability of linear semi-gradient TD.", answer: true,
+      explain: R`Positive-definiteness of $\mathbf A$ relies on μ being stationary under π; other distributions can diverge.` },
+  ];
+})();

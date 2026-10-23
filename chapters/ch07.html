@@ -9,6 +9,8 @@
 <script defer src="../assets/vendor/katex/katex.min.js"></script>
 <script defer src="../assets/vendor/katex/auto-render.min.js"></script>
 <script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/quizzes/ch07.js"></script>
+<script defer src="../assets/quiz.js"></script>
 <script defer src="../assets/site.js"></script>
 <style>
   .mini { display: inline-grid; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
@@ -396,6 +398,11 @@ Initialize π to be greedy with respect to Q, or else it is a fixed given policy
   <details><summary>Ex 7.6 — Prove the control variate in (7.13) doesn't change the expected return.</summary><div class="ans"><p>$\E[(1-\rho_t)V(S_t)\mid S_t]=V(S_t)(1-\E_b[\rho_t\mid S_t])=V(S_t)(1-\sum_ab(a|S_t)\frac{\pi(a|S_t)}{b(a|S_t)})=V(S_t)(1-1)=0$.</p></div></details>
   <details><summary>Three costs of n-step methods vs one-step methods?</summary><div class="ans"><p>n-step delay before updating, more computation per step, more memory for the last n transitions.</p></div></details>
 </div>
+
+
+<h2 id="chapter-quiz-section" data-short="Chapter quiz">Chapter quiz — check your understanding</h2>
+<p class="small muted">Scored quiz: pick an answer (or type a number) to get instant feedback and an explanation. Your best score is saved in this browser and shown on the home page. "Shuffle &amp; restart" re-orders the questions.</p>
+<div class="cq" id="chapter-quiz"></div>
 
 </main>
 

@@ -9,6 +9,8 @@
 <script defer src="../assets/vendor/katex/katex.min.js"></script>
 <script defer src="../assets/vendor/katex/auto-render.min.js"></script>
 <script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/quizzes/ch04.js"></script>
+<script defer src="../assets/quiz.js"></script>
 <script defer src="../assets/site.js"></script>
 </head>
 <body data-page="ch04" data-root="..">
@@ -300,6 +302,11 @@ $$q_{k+1}(s,a) = \sum_{s',r}p(s',r\mid s,a)\Big[r+\gamma\max_{a'}q_k(s',a')\Big]
   <details><summary>Why is DP said to be exponentially faster than direct policy search?</summary><div class="ans"><p>DP is polynomial in $n$ and $k$; direct search must examine up to $k^n$ policies for the same guarantee.</p></div></details>
   <details><summary>What two properties of DP do MC and TD methods each drop?</summary><div class="ans"><p>DP needs a model and bootstraps. MC needs no model and does not bootstrap. TD needs no model but bootstraps.</p></div></details>
 </div>
+
+
+<h2 id="chapter-quiz-section" data-short="Chapter quiz">Chapter quiz — check your understanding</h2>
+<p class="small muted">Scored quiz: pick an answer (or type a number) to get instant feedback and an explanation. Your best score is saved in this browser and shown on the home page. "Shuffle &amp; restart" re-orders the questions.</p>
+<div class="cq" id="chapter-quiz"></div>
 
 </main>
 

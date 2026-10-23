@@ -9,6 +9,8 @@
 <script defer src="../assets/vendor/katex/katex.min.js"></script>
 <script defer src="../assets/vendor/katex/auto-render.min.js"></script>
 <script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/quizzes/ch05.js"></script>
+<script defer src="../assets/quiz.js"></script>
 <script defer src="../assets/site.js"></script>
 <style>
   .hm { border-collapse: separate; border-spacing: 2px; font-size: 11.5px; }
@@ -382,6 +384,11 @@ $$\E[\rho_{t:T-1}R_{t+k}] = \E[\rho_{t:t+k-1}R_{t+k}] \;\Rightarrow\; \tilde G_t
   <details><summary>What does "MC does not bootstrap" buy you?</summary><div class="ans"><p>Estimates are independent across states (no reliance on other estimates); less harmed by non-Markov states; cost of estimating one state independent of the number of states. The price: must wait until the end of the episode, and high variance.</p></div></details>
   <details><summary>Ex 5.13 — Sketch why $\E[\rho_{t:T-1}R_{t+1}]=\E[\rho_{t:t}R_{t+1}]$.</summary><div class="ans"><p>$\rho_{t:T-1}R_{t+1}=\rho_{t:t}R_{t+1}\cdot\prod_{k=t+1}^{T-1}\frac{\pi(A_k|S_k)}{b(A_k|S_k)}$. Condition on everything up to $S_{t+1}$: each later factor, given its state, has expectation $\sum_ab(a|s)\frac{\pi(a|s)}{b(a|s)}=1$; applying the tower rule from the last factor backward, the product's conditional expectation is 1, leaving $\E[\rho_{t:t}R_{t+1}]$.</p></div></details>
 </div>
+
+
+<h2 id="chapter-quiz-section" data-short="Chapter quiz">Chapter quiz — check your understanding</h2>
+<p class="small muted">Scored quiz: pick an answer (or type a number) to get instant feedback and an explanation. Your best score is saved in this browser and shown on the home page. "Shuffle &amp; restart" re-orders the questions.</p>
+<div class="cq" id="chapter-quiz"></div>
 
 </main>
 

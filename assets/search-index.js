@@ -140,6 +140,11 @@ window.RL_SEARCH = [
 "u": "chapters/ch01.html#summary"
 },
 {
+"t": "Chapter quiz — check your understanding",
+"p": "Ch 1 · Introduction",
+"u": "chapters/ch01.html#chapter-quiz-section"
+},
+{
 "t": "2.1 The k-armed bandit problem",
 "p": "Ch 2 · Multi-armed Bandits",
 "u": "chapters/ch02.html#problem"
@@ -324,6 +329,11 @@ window.RL_SEARCH = [
 "t": "Self-test",
 "p": "Ch 2 · Multi-armed Bandits",
 "u": "chapters/ch02.html#selftest"
+},
+{
+"t": "Chapter quiz — check your understanding",
+"p": "Ch 2 · Multi-armed Bandits",
+"u": "chapters/ch02.html#chapter-quiz-section"
 },
 {
 "t": "3.1 The agent–environment interface",
@@ -564,6 +574,11 @@ window.RL_SEARCH = [
 "u": "chapters/ch03.html#selftest"
 },
 {
+"t": "Chapter quiz — check your understanding",
+"p": "Ch 3 · Finite Markov Decision Processes",
+"u": "chapters/ch03.html#chapter-quiz-section"
+},
+{
 "t": "Bellman optimality equations — DP's targets",
 "p": "Ch 4 · Dynamic Programming · Formula",
 "u": "chapters/ch04.html",
@@ -698,6 +713,11 @@ window.RL_SEARCH = [
 "t": "Self-test",
 "p": "Ch 4 · Dynamic Programming",
 "u": "chapters/ch04.html#selftest"
+},
+{
+"t": "Chapter quiz — check your understanding",
+"p": "Ch 4 · Dynamic Programming",
+"u": "chapters/ch04.html#chapter-quiz-section"
 },
 {
 "t": "Why Monte Carlo?",
@@ -877,6 +897,11 @@ window.RL_SEARCH = [
 "u": "chapters/ch05.html#selftest"
 },
 {
+"t": "Chapter quiz — check your understanding",
+"p": "Ch 5 · Monte Carlo Methods",
+"u": "chapters/ch05.html#chapter-quiz-section"
+},
+{
 "t": "6.1 TD prediction",
 "p": "Ch 6 · Temporal-Difference Learning",
 "u": "chapters/ch06.html#td-prediction"
@@ -1037,6 +1062,11 @@ window.RL_SEARCH = [
 "t": "Self-test",
 "p": "Ch 6 · Temporal-Difference Learning",
 "u": "chapters/ch06.html#selftest"
+},
+{
+"t": "Chapter quiz — check your understanding",
+"p": "Ch 6 · Temporal-Difference Learning",
+"u": "chapters/ch06.html#chapter-quiz-section"
 },
 {
 "t": "7.1 n-step TD prediction",
@@ -1205,6 +1235,11 @@ window.RL_SEARCH = [
 "t": "Self-test",
 "p": "Ch 7 · n-step Bootstrapping",
 "u": "chapters/ch07.html#selftest"
+},
+{
+"t": "Chapter quiz — check your understanding",
+"p": "Ch 7 · n-step Bootstrapping",
+"u": "chapters/ch07.html#chapter-quiz-section"
 },
 {
 "t": "9.1 Value-function approximation",
@@ -1442,6 +1477,11 @@ window.RL_SEARCH = [
 "t": "Self-test",
 "p": "Ch 9 · On-policy Prediction with Approximation",
 "u": "chapters/ch09.html#selftest"
+},
+{
+"t": "Chapter quiz — check your understanding",
+"p": "Ch 9 · On-policy Prediction with Approximation",
+"u": "chapters/ch09.html#chapter-quiz-section"
 },
 {
 "t": "The catalogue",

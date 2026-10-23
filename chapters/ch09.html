@@ -9,6 +9,8 @@
 <script defer src="../assets/vendor/katex/katex.min.js"></script>
 <script defer src="../assets/vendor/katex/auto-render.min.js"></script>
 <script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/quizzes/ch09.js"></script>
+<script defer src="../assets/quiz.js"></script>
 <script defer src="../assets/site.js"></script>
 </head>
 <body data-page="ch09" data-root="..">
@@ -424,6 +426,11 @@ $$\mathbf w_{t+n}\doteq\mathbf w_{t+n-1}+\alpha M_t\big[G_{t:t+n}-\hat v(S_t,\ma
   <details><summary>What is the "kernel trick"?</summary><div class="ans"><p>Since a linear method equals kernel regression with $k(s,s')=\mathbf x(s)^\top\mathbf x(s')$, you can design kernels directly — often computable compactly — and effectively work in a huge feature space using only stored examples.</p></div></details>
   <details><summary>In Example 9.4, why does emphatic 2-step TD get $w_2=2$?</summary><div class="ans"><p>The only emphasised update is for state 1, whose 2-step target is $1+1+\hat v(\text{state }3)$. For that to be correct (4), state 3's value $w_2$ must be 2 — the emphasis $M_t=I_t+\gamma^nM_{t-n}$ ensures state 3 (two steps later) is also updated, so it is learned exactly.</p></div></details>
 </div>
+
+
+<h2 id="chapter-quiz-section" data-short="Chapter quiz">Chapter quiz — check your understanding</h2>
+<p class="small muted">Scored quiz: pick an answer (or type a number) to get instant feedback and an explanation. Your best score is saved in this browser and shown on the home page. "Shuffle &amp; restart" re-orders the questions.</p>
+<div class="cq" id="chapter-quiz"></div>
 
 </main>
 

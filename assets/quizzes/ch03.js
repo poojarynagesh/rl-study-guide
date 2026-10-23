@@ -1,0 +1,38 @@
+// Chapter 3 quiz — see assets/quiz.js for the format.
+(function () {
+  const R = String.raw;
+  window.RL_QUIZ = [
+    { type: "num", q: R`$\gamma=0.5$, rewards $R_1=2$, $R_2=4$, then termination. What is $G_0$?`, answer: 4, tol: 0.001,
+      explain: R`$G_1=4$, $G_0=2+0.5\times4=4$.` },
+    { type: "num", q: R`A continuing task gives reward $+1$ on every step and $\gamma=0.8$. What is the return?`, answer: 5, tol: 0.001,
+      explain: R`$1/(1-\gamma)=1/0.2=5$ (eq. 3.10).` },
+    { type: "mcq", q: "The Markov property is best viewed as a restriction on…",
+      options: ["the decision process", "the state signal", "the reward function", "the policy"], answer: 1,
+      explain: "The state must include all information about the past that makes a difference for the future." },
+    { type: "mcq", q: "Where does the book place the agent–environment boundary?",
+      options: ["At the physical boundary of the robot's body", "Anything that cannot be changed arbitrarily by the agent is part of the environment", "Between the sensors and the motors", "Wherever the reward is computed"], answer: 1,
+      explain: "It marks the limit of the agent's absolute control, not of its knowledge." },
+    { type: "tf", q: "To speed learning in chess, it is good practice to reward the agent for capturing pieces.", answer: false,
+      explain: "Reward what you want achieved, not how — the agent may capture pieces even at the cost of losing." },
+    { type: "mcq", q: R`Which expression gives $v_\pi(s)$ in terms of $q_\pi$?`,
+      options: [R`$\max_a q_\pi(s,a)$`, R`$\sum_a\pi(a|s)\,q_\pi(s,a)$`, R`$\sum_{s',r}p(s',r|s,a)[r+\gamma q_\pi(s',a)]$`, R`$q_\pi(s,\pi(s))+\gamma$`], answer: 1,
+      explain: R`$v_\pi$ is the π-weighted average of action values (Ex 3.12).` },
+    { type: "mcq", q: "Which value function lets you choose optimal actions without knowing the environment's dynamics?",
+      options: [R`$v_*$`, R`$q_*$`, R`$v_\pi$ for a random policy`, "None of them"], answer: 1,
+      explain: R`$\argmax_a q_*(s,a)$ needs no lookahead; with $v_*$ you need $p(s',r|s,a)$ for one-step search.` },
+    { type: "tf", q: "Several different optimal policies may exist, but they all share the same optimal value functions.", answer: true,
+      explain: R`$v_*$ and $q_*$ are unique; ties among maximising actions give multiple optimal policies.` },
+    { type: "num", q: R`Ex 3.22: <em>right</em> gives 0 then +2 (repeating), so $v_{\text{right}}=2\gamma/(1-\gamma^2)$. Compute it for $\gamma=0.9$ (2 decimals).`, answer: 9.47, tol: 0.01,
+      explain: R`$1.8/0.19\approx9.47$, versus $v_{\text{left}}=1/0.19\approx5.26$, so <em>right</em> is optimal at γ = 0.9.` },
+    { type: "mcq", q: R`Adding a constant $c$ to every reward in a continuing task…`,
+      options: ["changes the optimal policy", R`adds $c/(1-\gamma)$ to every state's value and leaves relative values unchanged`, R`multiplies values by $c$`, "has no effect on values"], answer: 1,
+      explain: "Only the intervals between rewards matter in continuing tasks (Ex 3.15)." },
+    { type: "tf", q: "Adding a constant to all rewards in an episodic task can change which behaviour is optimal.", answer: true,
+      explain: "The added amount depends on episode length — e.g. −1 per step in a maze becoming +1 makes the agent want never to escape." },
+    { type: "num", q: R`Gridworld (Example 3.8): $v_*(A)=10/(1-\gamma^5)$ with $\gamma=0.9$. Compute it (3 decimals).`, answer: 24.419, tol: 0.002,
+      explain: R`$10/(1-0.59049)=10/0.40951\approx24.419$ — a 5-step cycle collecting +10 each time.` },
+    { type: "mcq", q: "Why is the Bellman optimality equation a system of nonlinear equations?",
+      options: ["Because of the discount factor", "Because of the max over actions", "Because rewards are random", "Because the state space is infinite"], answer: 1,
+      explain: R`The Bellman equation for $v_\pi$ is linear; the max in (3.19) makes the optimality version nonlinear.` },
+  ];
+})();

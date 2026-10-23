@@ -1,0 +1,36 @@
+// Chapter 7 quiz — see assets/quiz.js for the format.
+(function () {
+  const R = String.raw;
+  window.RL_QUIZ = [
+    { type: "num", q: R`3-step return with $\gamma=1$: rewards $1,1,1$ and $V(S_{t+3})=5$. What is $G_{t:t+3}$?`, answer: 8, tol: 0.001,
+      explain: R`$1+1+1+5=8$.` },
+    { type: "mcq", q: R`When is the n-step TD update for $S_t$ actually made?`,
+      options: ["At time t + 1", "At time t + n, once R_{t+n} and S_{t+n} are known", "At the end of the episode only", "Before acting at time t"], answer: 1,
+      explain: "No updates happen in the first n − 1 steps; the same number of extra updates are made after termination." },
+    { type: "mcq", q: "On the 19-state random walk (Figure 7.2), which n works best?",
+      options: ["n = 1 (TD(0))", "An intermediate n (around 4–8)", "n = 512 (essentially MC)", "All n are equal at their best α"], answer: 1,
+      explain: "Intermediate amounts of bootstrapping beat both extremes." },
+    { type: "mcq", q: "How does the best step size change as n increases?",
+      options: ["It increases", "It decreases", "It stays the same", "It becomes 1"], answer: 1,
+      explain: "Longer returns have more variance, so smaller steps are needed." },
+    { type: "mcq", q: "Which importance-sampling ratio does off-policy n-step Sarsa use?",
+      options: [R`$\rho_{t:t+n-1}$`, R`$\rho_{t+1:t+n}$`, R`$\rho_{t+1:t+n-1}$`, R`$\rho_{t:T-1}$`], answer: 1,
+      explain: R`$A_t$ is given (we learn its value), so correction starts at $t+1$ and includes $A_{t+n}$ used in the bootstrap.` },
+    { type: "mcq", q: "Which ratio does off-policy n-step Expected Sarsa use?",
+      options: [R`$\rho_{t:t+n-1}$`, R`$\rho_{t+1:t+n}$`, R`$\rho_{t+1:t+n-1}$`, "No ratio"], answer: 2,
+      explain: "One fewer factor: the last step uses an expectation over all actions, so the action actually taken there doesn't matter." },
+    { type: "tf", q: "The n-step tree-backup algorithm uses importance sampling.", answer: false,
+      explain: "It weights branches by target-policy probabilities and bootstraps on untaken actions — no ratios." },
+    { type: "mcq", q: R`What does the control variate $(1-\rho_t)V(S_t)$ in (7.13) achieve?`,
+      options: ["It makes the update biased but faster", "It reduces variance without changing the expected update", "It removes the need for a behaviour policy", "It doubles the step size"], answer: 1,
+      explain: R`$\E[\rho_t]=1$, so its expectation is 0; when $\rho_t=0$ the target equals the estimate (no shrinking).` },
+    { type: "mcq", q: "In n-step Q(σ), setting σ = 0 on every step gives…",
+      options: ["n-step Sarsa", "n-step tree backup", "n-step Expected Sarsa", "Monte Carlo"], answer: 1,
+      explain: "σ = 1 everywhere gives Sarsa; σ = 1 except the last step gives Expected Sarsa." },
+    { type: "num", q: R`Error reduction property: if $\max_s|V(s)-v_\pi(s)|=2$, $\gamma=0.5$ and $n=3$, what is the bound on the worst error of the expected n-step return?`, answer: 0.25, tol: 0.001,
+      explain: R`$\gamma^n\times2=0.125\times2=0.25$ (eq. 7.3).` },
+    { type: "mcq", q: "Which is NOT a cost of n-step methods compared with one-step methods?",
+      options: ["A delay of n steps before updating", "More computation per step", "More memory for the last n transitions", "They require a model of the environment"], answer: 3,
+      explain: "n-step methods are model-free; the costs are delay, computation and memory." },
+  ];
+})();
