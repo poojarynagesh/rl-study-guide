@@ -54,7 +54,7 @@ full derivations and proofs.
 
 ## Online version
 
-Hosted with GitHub Pages — see the repository's About section for the link.
+Hosted with GitHub Pages: https://poojarynagesh.github.io/rl-study-guide/
 
 This is an independent study aid; it is not affiliated with or endorsed by the
 book's authors. The book itself is freely available from the authors at

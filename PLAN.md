@@ -20,10 +20,12 @@ existing reveal-the-answer self-test): multiple-choice / true-false /
 numeric questions, instant feedback with an explanation per question, a
 score, retry, and the best score remembered per chapter.
 
-## Phase 3 — publish online (requested 2026-10-23, start after Phase 2)
+## Phase 3 — publish online (done)
 
 - Push the repo to GitHub (confirm repo name and visibility with the user first).
 - Enable GitHub Pages on `main` so `index.html` is reachable at a public URL.
 - Check that every page, KaTeX fonts and the search index load correctly from the hosted site.
 
 Phase 2 delivered: assets/quiz.js engine + assets/quizzes/chNN.js banks (98 questions across 8 chapters).
+
+Phase 3 delivered: https://github.com/poojarynagesh/rl-study-guide (public), served by GitHub Pages at https://poojarynagesh.github.io/rl-study-guide/
