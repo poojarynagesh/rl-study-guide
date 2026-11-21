@@ -83,3 +83,17 @@ Mapping of classes to chapters:
 Revision pages updated for the new chapters: algorithm catalogue (REINFORCE, baseline, actor–critic, DQN, DRQN rows; new `pg` and `deep` filter tags; value-based vs policy-gradient vs actor–critic and tabular Q-learning vs DQN comparisons), formula sheet (Ch 13, §16.5, extra Ch 9 equations), hyperparameters (actor/critic two-time-scale, policy parameterisation, DQN table), mixed practice (Ch 13 / Ch 16 items), roadmap (chapter groups and notation).
 
 The `lecture_notes_RL/` folder stays out of git (see .gitignore), as in Phase 4. The scope note under "Adding notes from a new class" still applies; Chapters 10–12 and 14–15 are not planned.
+
+## Phase 6 — exam know-how from the sample papers (done 2026-11-21)
+
+`knowhow.html` ("K · Exam know-how by algorithm") turns the recurring questions of the six papers in
+`Sample_Papers/` (Final 2025, Tutorials 2 and 3, Midterm 1, Aug 2020, Jan 2021; solved write-ups in
+`Sample_Papers/Solutions/`) into 15 per-algorithm sections: bandits, returns, Bellman equations, policy
+evaluation, policy iteration, value iteration (stopping rule and error bound, "is this policy optimal?"
+tests), MC, off-policy MC/IS, TD(0), SARSA/Expected SARSA/Q-learning/Double Q, n-step, linear
+semi-gradient TD, policy gradient, DQN, and exam tactics with a source index of every paper question.
+Each section: Asked in · Know this cold · Method · Question patterns · Traps · Worked micro-example.
+Items from the textbook rather than the lectures are tagged "(standard result)".
+
+Sources live in `tools/knowhow_parts/part{A,B,C}.html`; rebuild the page with
+`python tools/make_knowhow.py && python tools/build_index.py`. To add a pattern, edit the fragment, not knowhow.html.

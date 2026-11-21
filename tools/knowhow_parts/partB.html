@@ -1,0 +1,386 @@
+<section class="kh" id="kh-mc">
+  <h2 id="mc">Monte Carlo prediction and control</h2>
+  <p class="asked"><span class="src">Asked in:</span> <span class="chip">Tutorial 3 Q1</span> <span class="chip">Tutorial 3 Q2</span> <span class="chip">Tutorial 3 Q4</span> <span class="chip">Final 2025 Q2(e)</span> <span class="chip">Lecture 13 (ten-step example)</span> <span class="chip">Lecture 14 (exploring starts)</span></p>
+
+  <div class="box def"><span class="box-title">Know this cold</span>
+  <ul>
+    <li><strong>Return</strong>: $G_t=R_{t+1}+\gamma R_{t+2}+\dots=R_{t+1}+\gamma G_{t+1}$, with $G_T=0$. The return after a visit starts at the reward you get <em>on leaving</em> the state, $R_{t+1}$, never at the reward received on entering it.</li>
+    <li><strong>MC prediction</strong> = average the returns observed after visits to $s$: $\hat V(s)=\frac1N\sum_i G^{(i)}(s)$. Model-free, needs complete episodes, <strong>does not bootstrap</strong> (the target contains no estimate).</li>
+    <li><strong>First-visit</strong>: only the first occurrence of $s$ in each episode gives a sample (the count resets every episode). <strong>Every-visit</strong>: every occurrence gives a sample. Both converge to $v_\pi$.</li>
+    <li>First-visit samples (one per episode) are independent across episodes; every-visit returns inside one episode overlap and are correlated, and every-visit is biased for finite data (standard result). Every-visit extracts more data per episode, so it suits scarce episodes.</li>
+    <li><strong>Incremental sample average</strong>: $V\leftarrow V+\frac1{N}(G-V)$, where $N$ counts the eligible visits (first-visits or all visits). <strong>Constant step</strong>: $V\leftarrow V+\alpha(G-V)$ gives an exponentially weighted average: weight on the $k$-th of $n$ returns is $\alpha(1-\alpha)^{n-k}$, weight left on the initial value is $(1-\alpha)^n$. With $\alpha=1/n$ the initial value is forgotten after the first update.</li>
+    <li>Robbins-Monro: $\sum\alpha_n=\infty$ and $\sum\alpha_n^2\lt\infty$ for convergence. Constant $\alpha$ violates the second, so it keeps tracking (good for non-stationary problems) but never settles (standard result).</li>
+    <li><strong>Control needs $Q$, not $V$</strong>: without the model $p$ you cannot do the one-step look-ahead from $V$. Improvement is then model-free: $\pi'(s)=\arg\max_a Q(s,a)$.</li>
+    <li><strong>Exploration problem</strong>: a deterministic $\pi$ never generates $(s,a_2)$ for $a_2\ne\pi(s)$. Fixes: <strong>exploring starts</strong> (every pair has positive probability of being the first pair, then follow $\pi$) or <strong>$\varepsilon$-soft</strong> policies.</li>
+    <li>$\varepsilon$-soft: $\pi(a\mid s)\ge\varepsilon/|\mathcal A|$. $\varepsilon$-greedy: greedy action $1-\varepsilon+\varepsilon/|\mathcal A|$, every other action $\varepsilon/|\mathcal A|$.</li>
+  </ul></div>
+
+  <div class="box key"><span class="box-title">Method — step by step</span>
+  <ol>
+    <li>Write the episode as a table: $t$, $S_t$, $R_{t+1}$ (reward on the arrow leaving $S_t$).</li>
+    <li>Compute returns <strong>backwards</strong>: $G_T=0$, $G_t=R_{t+1}+\gamma G_{t+1}$. Fill a column $G_t$ for every $t$.</li>
+    <li>Pick the samples. First-visit: for each state keep only the smallest $t$ with $S_t=s$. Every-visit: keep all $t$ with $S_t=s$.</li>
+    <li>Average. Several episodes: first-visit divides by the number of <em>episodes</em> containing $s$, every-visit divides by the total number of <em>visits</em>.</li>
+    <li>If the question gives a step size, do not average; apply $V\leftarrow V+\alpha(G-V)$ <em>in the order the returns arrive</em> and write each intermediate value.</li>
+    <li>Control (exploring starts): initialise $Q$ and a deterministic $\pi$; start an episode at a random $(S_0,A_0)$, follow $\pi$ afterwards; sweep $t=T-1,\dots,0$: $G\leftarrow\gamma G+R_{t+1}$; if $(S_t,A_t)$ is a first visit, update $Q(S_t,A_t)$ (average) and set $\pi(S_t)\leftarrow\arg\max_a Q(S_t,a)$.</li>
+    <li>Control ($\varepsilon$-soft, no exploring starts): same loop, but the improvement step makes $\pi(\cdot\mid S_t)$ $\varepsilon$-greedy w.r.t. $Q$ instead of purely greedy.</li>
+  </ol></div>
+
+  <div class="box exam"><span class="box-title">Question patterns and what to do</span>
+  <div class="table-wrap"><table>
+    <tr><th>If the question says…</th><th>Do this</th></tr>
+    <tr><td>"Return following each occurrence of A", "first-visit and every-visit estimate from this episode alone"</td><td>Backward recursion, then FV = return at the first $A$ only; EV = mean of the returns at all $A$'s. A state visited once gets the same value under both (Tutorial 3 Q1: $V(B)=1.7$).</td></tr>
+    <tr><td>Episode of states with repeated states, $\gamma=1$ (Final 2025 Q2e)</td><td>With $\gamma=1$ the return is the sum of the remaining rewards; it falls by the reward collected at each step. List all nine returns, then FV = first entry per state, EV = mean per state.</td></tr>
+    <tr><td>"$\gamma=0.9$" instead of 1</td><td>Same table, but every return is $R_{t+1}+0.9\,G_{t+1}$; compute from the end, never forward.</td></tr>
+    <tr><td>Several episodes are given</td><td>FV: one sample per episode that contains the state. EV: all visits pooled over all episodes. Say which denominator you use.</td></tr>
+    <tr><td>"Initially $V=5$, step size 0.25, returns 8, 2, 10, 4" (Tutorial 3 Q2)</td><td>Apply the error-correcting update four times; also compute the plain average and comment: the average ignores the start value, constant $\alpha$ keeps $0.75^4\approx31.6\%$ weight on it and favours recent returns.</td></tr>
+    <tr><td>"Which is better if the environment drifts?"</td><td>Constant $\alpha$ (tracks), not $1/n$.</td></tr>
+    <tr><td>"$\varepsilon$-greedy probabilities" (Tutorial 3 Q4)</td><td>$\varepsilon/|\mathcal A|$ for each action, plus $1-\varepsilon$ extra on the greedy one. After updating $Q$ re-check whether the greedy action changed; if not, the probabilities are unchanged.</td></tr>
+    <tr><td>"Why $Q$ instead of $V$ for model-free control?", "why exploring starts?", "drawback?"</td><td>No model, so $V$ cannot rank actions. A deterministic policy never samples other actions. Drawback: needs resets to any state with a forced action, unrealistic on real systems, which motivates $\varepsilon$-soft and off-policy methods.</td></tr>
+    <tr><td>"Does MC bootstrap / need a model / work for continuing tasks?"</td><td>No, no, no (needs episodes that end so that the return exists; updates only at the end of an episode).</td></tr>
+    <tr><td>"Which estimator would you prefer?"</td><td>First-visit when episodes are plentiful (clean i.i.d. argument); every-visit when episodes are expensive. Neither is universally better.</td></tr>
+  </table></div></div>
+
+  <div class="box pitfall"><span class="box-title">Traps and tricky points</span>
+  <ul>
+    <li><strong>$R_{t+1}$ not $R_t$</strong>: a return after state $A$ excludes the reward received when you arrived at $A$.</li>
+    <li>The terminal state contributes nothing: $G_T=0$, and the last transition's reward is the whole return of the last state.</li>
+    <li>"First visit" is first <em>within each episode</em>, not first in the whole data set. Lecture 13 stresses this.</li>
+    <li>One episode proves little. In Final 2025 Q2e the MC estimates (3 or 2 and 2.25) are far from the true $V_\pi=(0.51,0.30)$ because the episode bounced around unusually long. Never present a one-episode MC value as "the" answer for $v_\pi$.</li>
+    <li>Lecture 13 ten-step example: every-visit gives $5.5$, first-visit gives $10$ (denominator is the number of eligible samples, here 1, not 10).</li>
+    <li>Greedy action in an $\varepsilon$-greedy policy has probability $1-\varepsilon+\varepsilon/|\mathcal A|$, not $1-\varepsilon$. Also $\varepsilon/|\mathcal A|$ is not $\varepsilon$ (the professor slipped on this live in lectures 18 and 19).</li>
+    <li>Ties in the greedy action: split the $1-\varepsilon$ mass equally among the tied actions.</li>
+    <li>In MC control, first-visit applies to the <em>pair</em> $(s,a)$, not just to $s$.</li>
+    <li>Do not mix "average of returns" (step $1/N$) with "constant $\alpha$" in one answer; with $\alpha=1/n$ they coincide exactly (check: after four returns the result is exactly the sample mean 6).</li>
+    <li>Exploring-starts guarantees are for the <em>true</em> $Q_\pi$; with a few noisy returns the greedy policy can flip prematurely.</li>
+  </ul></div>
+
+  <details class="kh-worked"><summary>Worked micro-example (numbers from a sample paper)</summary>
+    <p><strong>Final 2025 Q2(e).</strong> Episode $1,2,1,2,1,2,1,2,1,\text{DG}$ under $\pi$, $\gamma=1$. Rewards $R_1..R_9=0,0.5,0,0.5,0,0.5,0,0.5,1$. Backward sums:</p>
+    <div class="table-wrap"><table>
+      <tr><th>$t$</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th></tr>
+      <tr><td>$S_t$</td><td>1</td><td>2</td><td>1</td><td>2</td><td>1</td><td>2</td><td>1</td><td>2</td><td>1</td></tr>
+      <tr><td>$G_t$</td><td>3</td><td>3</td><td>2.5</td><td>2.5</td><td>2</td><td>2</td><td>1.5</td><td>1.5</td><td>1</td></tr>
+    </table></div>
+    <p>First-visit: $V(1)=3$, $V(2)=3$. Every-visit: $V(1)=(3+2.5+2+1.5+1)/5=2$, $V(2)=(3+2.5+2+1.5)/4=2.25$. If the same episode had $\gamma=0.9$ (my variation): $V_{FV}(1)=1.7794$, $V_{EV}(1)=1.4302$, $V_{FV}(2)=1.9771$, $V_{EV}(2)=1.7087$.</p>
+    <p><strong>Tutorial 3 Q1.</strong> $A\xrightarrow{+2}B\xrightarrow{-1}A\xrightarrow{+3}T$, $\gamma=0.9$: $G_2=3$, $G_1=-1+0.9\cdot3=1.7$, $G_0=2+0.9\cdot1.7=3.53$. FV $V(A)=3.53$, EV $V(A)=(3.53+3)/2=3.265$.</p>
+    <p><strong>Tutorial 3 Q2.</strong> $V=5$, $\alpha=0.25$, returns 8, 2, 10, 4: $5.75\to4.8125\to6.109375\to5.58203125$. Sample average $=6$. Weights on the returns: $0.1055,\,0.1406,\,0.1875,\,0.25$ and $0.3164$ on the initial 5 (check: $0.3164\cdot5+\sum w_kG_k=5.582$).</p>
+    <p><strong>Tutorial 3 Q4.</strong> $Q=(4,7,2,5)$, $\varepsilon=0.2$: probabilities $(0.05,0.85,0.05,0.05)$. Update $Q(S,a_3)=2+0.5(11-2)=6.5\lt7$, greedy action unchanged, probabilities unchanged; policy value before the update $=0.85\cdot7+0.05\cdot11=6.5$ (after it: $0.85\cdot7+0.05(4+6.5+5)=6.725$).</p>
+  </details>
+
+  <p class="small muted">Read more: <a href="chapters/ch05.html#prediction">Ch 5 §5.1 prediction</a> · <a href="chapters/ch05.html#control">§5.3 control (exploring starts)</a> · <a href="chapters/ch05.html#on-policy">§5.4 ε-soft control</a> · <a href="chapters/ch05.html#incremental">§5.6 incremental</a> · <a href="formulas.html#ch5">formula sheet</a></p>
+</section>
+
+<section class="kh" id="kh-offmc">
+  <h2 id="offmc">Off-policy Monte Carlo and importance sampling</h2>
+  <p class="asked"><span class="src">Asked in:</span> <span class="chip">Tutorial 3 Q3</span> <span class="chip">Tutorial 3 Q5</span> <span class="chip">Lecture 14 (coverage)</span> <span class="chip">Lecture 15 (ordinary vs weighted)</span> <span class="chip">Lecture 21 (off-policy n-step ratio)</span></p>
+
+  <div class="box def"><span class="box-title">Know this cold</span>
+  <ul>
+    <li>Data come from behaviour policy $b$, you want $v_\pi$ for target policy $\pi$. Averaging raw returns gives $v_b$, not $v_\pi$.</li>
+    <li><strong>Coverage</strong>: $\pi(a\mid s)\gt0\Rightarrow b(a\mid s)\gt0$. $b$ may have extra actions; $\pi$ may not. If it fails, no amount of data helps.</li>
+    <li><strong>Ratio</strong>: $\rho_{t:T-1}=\prod_{k=t}^{T-1}\dfrac{\pi(A_k\mid S_k)}{b(A_k\mid S_k)}$. The environment factors $p(S_{k+1},R_{k+1}\mid S_k,A_k)$ appear in numerator and denominator and <strong>cancel</strong>, so no model is needed, only the two action-probability tables.</li>
+    <li>Identity: $\mathbb E_b[\rho_{t:T-1}G_t\mid S_t=s]=v_\pi(s)$.</li>
+    <li>$\rho\gt1$: the observed actions are more likely under $\pi$ (up-weight); $0\lt\rho\lt1$: down-weight; $\rho=0$: some action is impossible under $\pi$, the episode contributes nothing; $b=\pi$ gives $\rho=1$ and MC is on-policy.</li>
+    <li><strong>Ordinary IS</strong>: $\hat V=\frac1n\sum_i\rho_iG_i$. Unbiased (first-visit), but variance can be huge or infinite.</li>
+    <li><strong>Weighted IS</strong>: $\hat V=\dfrac{\sum_i\rho_iG_i}{\sum_i\rho_i}$. Biased at finite $n$ (bias vanishes as $n\to\infty$, so consistent), much lower variance, always a convex combination of the observed returns. For the first sample the estimate equals $G$ whatever $\rho$ is. Undefined ($0/0$) if every $\rho$ is zero.</li>
+    <li><strong>Incremental weighted IS</strong>: $C_n=C_{n-1}+W_n$, $\;V_{n+1}=V_n+\dfrac{W_n}{C_n}(G_n-V_n)$ (a data-dependent step size $W_n/C_n$).</li>
+    <li><strong>Per-decision IS</strong>: weight each reward only by the ratios up to its own time, $\sum_k\gamma^k\rho_{0:k}R_{k+1}$; same expectation, lower variance.</li>
+    <li>Off-policy MC control (standard result, Sutton and Barto §5.7): $\pi$ greedy w.r.t. $Q$, $b$ any soft policy; sweep backwards with $W\leftarrow1$, update $Q$ by weighted IS, stop the sweep when $A_t\ne\pi(S_t)$, otherwise $W\leftarrow W/b(A_t\mid S_t)$ (because $\pi(A_t\mid S_t)=1$).</li>
+  </ul></div>
+
+  <div class="box key"><span class="box-title">Method — step by step</span>
+  <ol>
+    <li>Make a table for each episode: $t$, $\pi(A_t\mid S_t)$, $b(A_t\mid S_t)$, ratio $\pi/b$.</li>
+    <li>Multiply the ratios over the steps that matter: from the time of the visit to the end of the episode (for a first-visit at $t=0$ that is the whole episode).</li>
+    <li>Compute the (discounted) return $G$ from the same time index, backwards.</li>
+    <li>Weighted return per episode: $\rho G$. Ordinary estimate: sum of $\rho G$ divided by the number of episodes. Weighted estimate: sum of $\rho G$ divided by the sum of $\rho$.</li>
+    <li>Sanity check: weighted IS must lie between the smallest and largest observed return; ordinary IS may fall outside.</li>
+    <li>If asked to do it incrementally, keep $C$ and $V$ in a two-column table, starting from $C_0=0$.</li>
+    <li>Compare and comment on bias and variance in one sentence each.</li>
+  </ol></div>
+
+  <div class="box exam"><span class="box-title">Question patterns and what to do</span>
+  <div class="table-wrap"><table>
+    <tr><th>If the question says…</th><th>Do this</th></tr>
+    <tr><td>"Compute the full-trajectory importance-sampling ratio" (Tutorial 3 Q3a)</td><td>Multiply $\pi/b$ at every step: $\frac{0.8}{0.4}\cdot\frac{0.6}{0.3}\cdot\frac{0.5}{0.5}=2\cdot2\cdot1=4$. A step with $\pi=b$ contributes 1.</td></tr>
+    <tr><td>"Importance-weighted return" given rewards and per-step ratios (Tutorial 3 Q5)</td><td>First $G_0=\sum\gamma^{k}R_{k+1}$, then multiply by the product of the ratios. If asked for per-decision, weight each reward by the running product only.</td></tr>
+    <tr><td>"Ordinary and weighted estimate using both episodes"</td><td>$\sum\rho G/n$ versus $\sum\rho G/\sum\rho$.</td></tr>
+    <tr><td>"Comment on the result"</td><td>Ordinary estimate larger than every observed return is a red flag (variance); weighted stays between the returns but is biased.</td></tr>
+    <tr><td>"Why do transition probabilities not appear?"</td><td>They cancel in $\Pr_\pi(\tau)/\Pr_b(\tau)$; the policy changes only action selection, not the environment's response.</td></tr>
+    <tr><td>"What happens if $\pi(A_t\mid S_t)=0$ in the episode?"</td><td>$\rho=0$: episode is ignored (ordinary IS counts it as a zero sample in the average, weighted IS drops it from numerator and denominator).</td></tr>
+    <tr><td>"What condition must $b$ satisfy?"</td><td>Coverage; give the support statement and a one-line reason (no samples of that action exist).</td></tr>
+    <tr><td>"Update $V$ incrementally with weights"</td><td>$C\leftarrow C+W$, $V\leftarrow V+\frac WC(G-V)$.</td></tr>
+    <tr><td>"If $b=\pi$?"</td><td>$\rho=1$, both estimators collapse to the plain sample average.</td></tr>
+  </table></div></div>
+
+  <div class="box pitfall"><span class="box-title">Traps and tricky points</span>
+  <ul>
+    <li><strong>Ratio is $\pi/b$, target on top.</strong> Inverting it is the commonest slip.</li>
+    <li>The ratio starts at the time of the visit, not at time 0. For a later (every-visit) occurrence use $\rho_{t:T-1}$ with that $t$.</li>
+    <li>For action values $Q(s,a)$ the first action is given (the pair is conditioned on), so the ratio starts at $t+1$ (lecture 21, off-policy n-step Sarsa; standard for off-policy MC prediction of $Q$).</li>
+    <li>The return $G$ is the one <em>observed under $b$</em>; you never recompute rewards under $\pi$.</li>
+    <li>Ordinary IS: divide by the number of samples (zero-ratio episodes count). Weighted IS: divide by $\sum\rho$.</li>
+    <li>Weighted IS with a single sample returns $G$ itself; do not expect it to "use" $\rho$ then.</li>
+    <li>Variance source (lecture 15): one factor like $0.8/0.01=80$ in a long trajectory blows the product up; a few episodes then dominate the average.</li>
+    <li>Per-decision and full-trajectory weighted returns agree in expectation but not sample by sample. In Tutorial 3 Q5 both happen to be $8.25$, which is a coincidence, not a rule.</li>
+    <li>Unbiased does not mean good: ordinary IS is unbiased yet can be far worse in practice than the biased weighted IS.</li>
+    <li>Off-policy is slower and noisier than on-policy; its benefit is reusing logs and learning a deterministic optimal target while exploring (lecture 14 traffic-signal example).</li>
+  </ul></div>
+
+  <details class="kh-worked"><summary>Worked micro-example (numbers from a sample paper)</summary>
+    <p><strong>Tutorial 3 Q3.</strong> Episode 1 steps $(\pi,b)$: $(0.8,0.4)$, $(0.6,0.3)$, $(0.5,0.5)$, $G_0=12$; episode 2 has $\rho=2$, $G=6$.</p>
+    <ul>
+      <li>$\rho_{0:2}=2\cdot2\cdot1=4$, $\rho G=48$.</li>
+      <li>Ordinary: $(48+12)/2=30$. Weighted: $(48+12)/(4+2)=10$.</li>
+      <li>Reading: $30\gt12$ and $30\gt6$, bigger than any return seen; weighted $10$ lies between 6 and 12.</li>
+      <li>Incremental weighted: after episode 1, $C=4$, $V=0+\frac44(12-0)=12$; after episode 2, $C=6$, $V=12+\frac26(6-12)=10$. Same as batch weighted.</li>
+    </ul>
+    <p><strong>Tutorial 3 Q5.</strong> $R=2,4,6$, $\gamma=0.5$, $\rho=2,0.5,1.5$: $G_0=2+2+1.5=5.5$; $\rho_{0:2}=1.5$; full-trajectory weighted return $=8.25$; per-decision $=2\cdot2+0.5\cdot1\cdot4+0.25\cdot1.5\cdot6=8.25$.</p>
+  </details>
+
+  <p class="small muted">Read more: <a href="chapters/ch05.html#off-policy">Ch 5 §5.5 importance sampling</a> · <a href="chapters/ch05.html#incremental">§5.6 incremental (weighted update)</a> · <a href="chapters/ch05.html#off-control">§5.7 off-policy MC control</a> · <a href="chapters/ch05.html#advanced-is">§5.8-5.9 per-decision IS</a> · <a href="formulas.html#ch5">formula sheet</a></p>
+</section>
+
+<section class="kh" id="kh-td">
+  <h2 id="td">TD(0) prediction</h2>
+  <p class="asked"><span class="src">Asked in:</span> <span class="chip">Tutorial 3 Q6</span> <span class="chip">Tutorial 3 Q8</span> <span class="chip">Tutorial 3 Q9</span> <span class="chip">Final 2025 Q2(e) variation (TD(0) on the episode)</span> <span class="chip">Final 2025 Q4</span> <span class="chip">Lecture 16 (MC error = sum of TD errors)</span> <span class="chip">Lecture 17 (batch TD vs batch MC)</span></p>
+
+  <div class="box def"><span class="box-title">Know this cold</span>
+  <ul>
+    <li><strong>TD error</strong>: $\delta_t=R_{t+1}+\gamma V(S_{t+1})-V(S_t)$. <strong>Update</strong>: $V(S_t)\leftarrow V(S_t)+\alpha\,\delta_t$. Only the state just <em>left</em> is updated.</li>
+    <li><strong>TD target</strong> $R_{t+1}+\gamma V(S_{t+1})$ bootstraps (contains an estimate). <strong>MC target</strong> $G_t$ does not. Both fit "new = old + $\alpha$(target - old)".</li>
+    <li>$V(\text{terminal})=0$, so the last transition's target is just $R$.</li>
+    <li>TD updates after every transition (works for continuing tasks, no waiting); MC waits for the end of the episode.</li>
+    <li>Bias and variance: MC target unbiased but high variance; TD target biased (depends on current estimates) but low variance (standard result, noted in lecture 16 as "standard context").</li>
+    <li><strong>MC error as TD errors</strong> (V held fixed): $G_t-V(S_t)=\sum_{k=t}^{T-1}\gamma^{k-t}\delta_k$. Proof: $G_t-V(S_t)=\delta_t+\gamma[G_{t+1}-V(S_{t+1})]$, then recurse.</li>
+    <li><strong>Batch updating</strong>: sweep the same finite data repeatedly. Batch MC converges to the sample average of observed returns (best fit to returns). Batch TD converges to the value of the maximum-likelihood Markov model built from the empirical transitions. They differ when states share successors.</li>
+    <li>Semi-gradient TD(0) with linear features (Final 2025 Q4): $w\leftarrow w+\alpha\,\delta\,x(s)$, $\delta=r+\gamma w^\top x(s')-w^\top x(s)$, with $\hat v(\text{terminal})=0$. Tabular TD is the special case $X=I$.</li>
+  </ul></div>
+
+  <div class="box key"><span class="box-title">Method — step by step</span>
+  <ol>
+    <li>Write the transitions $(S,R,S')$ in time order as a table with columns: $V(S)$ before, target, $\delta$, $\alpha\delta$, $V(S)$ after.</li>
+    <li>Decide the mode from the wording. <em>"Using the initial estimates / independently"</em>: freeze $V$, compute every $\delta$ from the original values (Tutorial 3 Q6, Q9). <em>"Run through the episode / update in order / using the latest value"</em>: online, each update overwrites $V$ before the next transition (Tutorial 3 Q8).</li>
+    <li>For each transition: $\delta=R+\gamma V(S')-V(S)$, with $V(S')=0$ if $S'$ is terminal.</li>
+    <li>Update $V(S)\leftarrow V(S)+\alpha\delta$. Cross out the old value and write the new one.</li>
+    <li>If a state repeats in the episode, it is updated twice, and the second update sees the first one.</li>
+    <li>To compare with MC: compute $G$ backwards for the same start state and quote both targets (TD target vs MC target), then say which one trusts an estimate.</li>
+    <li>With features: compute $\delta$ with dot products, update the whole vector $w$ by $\alpha\delta x(s)$.</li>
+  </ol></div>
+
+  <div class="box exam"><span class="box-title">Question patterns and what to do</span>
+  <div class="table-wrap"><table>
+    <tr><th>If the question says…</th><th>Do this</th></tr>
+    <tr><td>"TD error for each transition, then update each state" (Tutorial 3 Q6)</td><td>One $\delta$ per arrow from the original table, $V\leftarrow V+\alpha\delta$ for each departed state.</td></tr>
+    <tr><td>"Compare the TD target for A with the MC target"</td><td>TD target $2+0.9\cdot5=6.5$ vs MC return $4.34$. TD trusts the (wrong) estimate $V(B)=5$; MC uses what actually happened ($2.6$ from $B$).</td></tr>
+    <tr><td>"Update $V(A)$, then $V(B)$ using the latest $V(A)$" (Tutorial 3 Q8)</td><td>Online: $V(A)=3.5$, then $V(B)=4+0.5(2+3.5-4)=4.75$, then the second visit to $A$.</td></tr>
+    <tr><td>"Apply TD(0) with $\alpha$ to this episode", $\gamma=1$ (variation of Final 2025 Q2e)</td><td>$V(s)\leftarrow V(s)+\alpha[r+V(s')-V(s)]$ in time order; repeated states updated each time.</td></tr>
+    <tr><td>"Compute the 2-step target for A"</td><td>$R_1+\gamma R_2+\gamma^2V(S_2)=2-0.9+0.81\cdot2=2.72$ (see n-step section).</td></tr>
+    <tr><td>"Relate the MC error to TD errors"</td><td>State the discounted-sum identity, give the one-line recursion proof, say it needs $V$ fixed during the episode.</td></tr>
+    <tr><td>"Eight episodes: $A\to B\to$ end with 0; $B\to$ end with 1 six times and 0 twice. Batch MC vs batch TD value of $A$?"</td><td>$V(B)=6/8$ for both. Batch MC: $V(A)=0$ (its only return). Batch TD: $V(A)=0+V(B)=6/8$. Explain: Markov property lets every $B$ visit inform $A$.</td></tr>
+    <tr><td>"Linear FA: feature matrix, rank, dimension, run TD(0)" (Final 2025 Q4)</td><td>$d$ = number of columns of $X$; full column rank means unique $w$. Run the vector update with $\hat v(\text{terminal})=0$.</td></tr>
+    <tr><td>"Does MC or TD bootstrap?"</td><td>TD yes, MC no; identify the one estimate in the target.</td></tr>
+  </table></div></div>
+
+  <div class="box pitfall"><span class="box-title">Traps and tricky points</span>
+  <ul>
+    <li><strong>"Using the initial estimates"</strong> means all $\delta$ are computed from the original $V$, i.e. a frozen pass. It differs from the online pass only when a state repeats or a later transition starts at a state updated earlier. Tutorial 3 Q6 ($A,B,C$ distinct): online equals frozen.</li>
+    <li>Online with a repeated state (Tutorial 3 Q8): $V(A)=1.25,V(B)=4.75$. Frozen (all $\delta$ from $V(A)=2,V(B)=4$, summing the two $A$ increments): $V(A)=2.0$, $V(B)=4.0$. Know which one the wording asks for.</li>
+    <li>The first update of the episode uses the old $V(S')$; the update of $S'$ comes one step later.</li>
+    <li>$V(T)=0$. Forgetting it, or using the "initial" 0.5 for a terminal, is a classic error. Lecture 16: $A\to F$ with all values 0.5 gives $0.5+0.1(0+0-0.5)=0.45$.</li>
+    <li>A TD update changes only the departed state. In the random walk $C\to B\to A\to F$ (all 0.5, $\alpha=0.1$) only $V(A)$ moves, to 0.45; $C$ and $B$ stay at 0.5 because current and next estimates are equal.</li>
+    <li>MC vs TD one-pass values disagree (TD $1.25$ vs MC $2$ in Q8) simply because TD has not converged; both go to $v_\pi$ with more data.</li>
+    <li>Linear FA: if the question does <em>not</em> say $s_4$ is terminal, use $w^\top x(s_4)$. In Final Q4, if $s_4$ were an ordinary state the last $\delta$ would be $0+0.8\cdot2-4=-2.4$ and $w=(0.8,2.6,0.8)$ instead of $(0,2.6,0)$.</li>
+    <li>Rank-deficient features: predictions can still be defined but $w$ is not unique.</li>
+    <li>Do not claim TD is "unbiased": its target depends on the current estimate. Do not claim MC is "low variance".</li>
+    <li>Sum-of-TD-errors identity: it is exact only for a fixed $V$; with online updates the time index of $V$ matters.</li>
+  </ul></div>
+
+  <details class="kh-worked"><summary>Worked micro-example (numbers from a sample paper)</summary>
+    <p><strong>Tutorial 3 Q6.</strong> $A\xrightarrow{+2}B\xrightarrow{-1}C\xrightarrow{+4}T$, $V=(3,5,2)$, $\alpha=0.2$, $\gamma=0.9$.</p>
+    <ul>
+      <li>$\delta_A=2+0.9\cdot5-3=3.5$; $\delta_B=-1+0.9\cdot2-5=-4.2$; $\delta_C=4+0-2=2$.</li>
+      <li>$V(A)=3.7$, $V(B)=4.16$, $V(C)=2.4$.</li>
+      <li>MC return from $A$: $2-0.9+0.81\cdot4=4.34$; TD target $6.5$; difference $2.16$.</li>
+      <li>Identity check (fixed $V$): $G_A-V(A)=1.34$ and $\delta_A+0.9\delta_B+0.81\delta_C=3.5-3.78+1.62=1.34$.</li>
+    </ul>
+    <p><strong>Tutorial 3 Q8 (online).</strong> $A\xrightarrow{1}B\xrightarrow{2}A\xrightarrow{-1}T$, $V(A)=2$, $V(B)=4$, $\alpha=0.5$, $\gamma=1$: $V(A)=2+0.5(1+4-2)=3.5$; $V(B)=4+0.5(2+3.5-4)=4.75$; $V(A)=3.5+0.5(-1-3.5)=1.25$. First-visit MC return from $A$ is $1+2-1=2$.</p>
+    <p><strong>Tutorial 3 Q9 (original estimates).</strong> $S_0\xrightarrow{2}S_1\xrightarrow{4}T$, $V(S_0)=3$, $V(S_1)=5$, $\alpha=0.2$, $\gamma=0.9$: MC $G_0=5.6$, $V(S_0)=3+0.2(5.6-3)=3.52$; TD(0) $3+0.2(2+4.5-3)=3.70$.</p>
+    <p><strong>Final 2025 Q4.</strong> $X(s_1..s_4)=[1,0,1],[0,1,0],[1,1,1],[0,0,1]$, trajectory $s_1,2,s_3,4,s_2,1,s_1,0,s_4$, $w_0=0$, $\alpha=0.5$, $\gamma=0.8$. $\delta=2\to w=(1,0,1)$; $\delta=2\to w=(2,1,2)$; $\delta=3.2\to w=(2,2.6,2)$; $\delta=-4\to w=(0,2.6,0)$.</p>
+  </details>
+
+  <p class="small muted">Read more: <a href="chapters/ch06.html#td-prediction">Ch 6 §6.1 TD prediction</a> · <a href="chapters/ch06.html#advantages">§6.2 advantages</a> · <a href="chapters/ch06.html#optimality">§6.3 batch updating</a> · <a href="formulas.html#ch6">formula sheet</a></p>
+</section>
+
+<section class="kh" id="kh-control">
+  <h2 id="control">SARSA, Expected SARSA, Q-learning and Double Q-learning</h2>
+  <p class="asked"><span class="src">Asked in:</span> <span class="chip">Final 2025 Q3</span> <span class="chip">Tutorial 3 Q7</span> <span class="chip">Tutorial 3 Q9</span> <span class="chip">Final 2025 Q3 variations (ε-greedy π, Double Q, n-step)</span> <span class="chip">Lecture 18 (cliff, Expected SARSA)</span> <span class="chip">Lecture 19 (maximization bias)</span></p>
+
+  <div class="box def"><span class="box-title">Know this cold</span>
+  <ul>
+    <li>All three have the same shape: $Q(S,A)\leftarrow Q(S,A)+\alpha[\text{target}-Q(S,A)]$. Only the next-state term differs.</li>
+    <li><strong>SARSA</strong>: target $R+\gamma Q(S',A')$, with $A'$ the action <em>actually taken next</em> (from the episode, chosen by the same $\varepsilon$-greedy policy). Needs the 5-tuple $S,A,R,S',A'$. On-policy.</li>
+    <li><strong>Expected SARSA</strong>: target $R+\gamma\sum_b\pi(b\mid S')Q(S',b)$. Removes the sampling noise of $A'$. On-policy if $\pi$ is the behaviour policy, off-policy if $\pi$ differs; with $\pi$ greedy it <em>is</em> Q-learning.</li>
+    <li><strong>Q-learning</strong>: target $R+\gamma\max_b Q(S',b)$. Off-policy: behaviour $\varepsilon$-greedy, target greedy; the maximising action need not be the next executed one. Correct form has $\gamma$ in front of the max (the board slip in lecture 18).</li>
+    <li><strong>Terminal $S'$</strong>: every $Q(S',\cdot)=0$, so all three targets reduce to $R$.</li>
+    <li><strong>$\varepsilon$-greedy expectation</strong>: greedy action weight $1-\varepsilon+\varepsilon/|\mathcal A|$, others $\varepsilon/|\mathcal A|$.</li>
+    <li><strong>When SARSA = Q-learning</strong>: the sampled $A'$ is the argmax (Tutorial 3 Q7d), or the policy is greedy. <strong>When Expected SARSA = Q-learning</strong>: $\pi$ greedy. Expected SARSA is SARSA averaged over $A'$.</li>
+    <li><strong>Cliff walking</strong> (lecture 18): Q-learning learns the shortest route hugging the cliff (13 steps) but, because it keeps exploring, falls often during training (about $-50$ average return). SARSA learns a longer, safer route (about 17 steps) and gets a better training return (about $-25$). If $\varepsilon$ decays, both reach the optimal route. Large $\alpha$ hurts SARSA most; Expected SARSA is stable across $\alpha$.</li>
+    <li><strong>Maximization bias</strong>: $\mathbb E[\max_a\hat q(a)]\ge\max_a\mathbb E[\hat q(a)]$. Using the same noisy estimates to <em>select</em> and to <em>evaluate</em> the best action overestimates (positive bias). Q-learning suffers; SARSA much less.</li>
+    <li><strong>Double Q-learning</strong>: keep $Q_1,Q_2$. Flip a fair coin; to update $Q_1$: $Q_1(S,A)\leftarrow Q_1(S,A)+\alpha[R+\gamma Q_2(S',\arg\max_aQ_1(S',a))-Q_1(S,A)]$; otherwise swap roles. Behave $\varepsilon$-greedily w.r.t. $Q_1+Q_2$. Memory doubles, per-step cost about the same.</li>
+  </ul></div>
+
+  <div class="box key"><span class="box-title">Method — step by step (same episode, three targets, recycling-robot table method)</span>
+  <ol>
+    <li>Parse the episode into a transition table: # | $(S,A)$ | $r$ | $S'$ | $A'$ (next action in the episode, "terminal" if the episode ends). Do this once; it is reused for all three algorithms.</li>
+    <li>List the distinct $(S,A)$ pairs visited and set the initial $Q$ (e.g. 0.5 for every pair, including pairs never visited).</li>
+    <li>Process the rows <strong>strictly in time order</strong>. Keep one running $Q$ table per algorithm; cross out and rewrite after every update.</li>
+    <li>For each row write: target, then $\delta=\text{target}-Q$, then $\alpha\delta$, then new $Q$.</li>
+    <li>SARSA target: $r+\gamma Q(S',A')$ using the <em>current</em> table. Expected SARSA: $r+\gamma\sum_b\pi(b\mid S')Q(S',b)$ with the policy given in the question. Q-learning: $r+\gamma\max_bQ(S',b)$ over <em>all</em> actions available at $S'$.</li>
+    <li>Terminal row: target is just $r$ (the next-state term is 0).</li>
+    <li>A pair visited twice is updated twice; the second update starts from the already-updated value. Later rows see earlier updates.</li>
+    <li>Finish with a summary table pair vs algorithm, and one line on why values differ (only rows with a non-greedy $A'$ or a spread-out expectation differ).</li>
+  </ol></div>
+
+  <div class="box exam"><span class="box-title">Question patterns and what to do</span>
+  <div class="table-wrap"><table>
+    <tr><th>If the question says…</th><th>Do this</th></tr>
+    <tr><td>"Apply SARSA, Expected SARSA and Q-learning to this episode" (Final 2025 Q3)</td><td>Transition table first, then three running $Q$ tables in time order. $\alpha=0.1$, $\gamma=1$, initial $Q=0.5$, terminal $Q=0$.</td></tr>
+    <tr><td>"Identify all $(S,A)$ tuples visited"</td><td>Distinct pairs among the first two entries of each row; do not forget the pair of the last (terminal) transition. Here 5 pairs.</td></tr>
+    <tr><td>"One SARSA and one Q-learning update; difference" (Tutorial 3 Q7)</td><td>Same everything except the next-state term. Difference $=\alpha\gamma(\max Q-Q(S',A'))$ $=0.1\cdot0.9\cdot(9-5)=0.36$.</td></tr>
+    <tr><td>"Repeat SARSA if the next action is the greedy one"</td><td>Then SARSA = Q-learning ($4.71$).</td></tr>
+    <tr><td>"Update with the original estimates independently: MC, TD(0), SARSA, Q-learning" (Tutorial 3 Q9)</td><td>Four separate updates from the same starting table. MC target is $G_0$; the others bootstrap. Q-learning largest because $\max Q=8\gt Q(S_1,a_1)=5$.</td></tr>
+    <tr><td>"Expected SARSA with $\varepsilon$-greedy $\pi$"</td><td>Build $\pi(b\mid S')$ first ($\varepsilon/|\mathcal A|$ plus $1-\varepsilon$ on the argmax), then the weighted sum.</td></tr>
+    <tr><td>"Which is on-policy / off-policy?"</td><td>SARSA on-policy; Q-learning off-policy; Expected SARSA either.</td></tr>
+    <tr><td>"Compare behaviour on cliff walking"</td><td>Q-learning: shortest, risky path, worse training return; SARSA: safer, longer path, better online return; both optimal if $\varepsilon\to0$.</td></tr>
+    <tr><td>"Why does Q-learning overestimate? How does Double Q fix it?"</td><td>Same estimates select and evaluate the max; Double Q selects with one table and evaluates with the other, whose error is not the same.</td></tr>
+    <tr><td>"State the Double Q-learning update"</td><td>Write both coin cases; stress that only one table changes per step.</td></tr>
+    <tr><td>"Terminal next state"</td><td>All targets $=R$.</td></tr>
+  </table></div></div>
+
+  <div class="box exam"><span class="box-title">Comparison table</span>
+  <div class="table-wrap"><table>
+    <tr><th>Method</th><th>Target</th><th>On / off-policy</th><th>Bias and variance</th><th>When to use</th></tr>
+    <tr><td>SARSA</td><td>$R+\gamma Q(S',A')$, sampled $A'$</td><td>On-policy</td><td>Highest target variance (random $A'$); no maximisation bias; learns the value of the exploring policy</td><td>Safety-sensitive tasks with ongoing exploration; small $\alpha$</td></tr>
+    <tr><td>Expected SARSA</td><td>$R+\gamma\sum_b\pi(b\mid S')Q(S',b)$</td><td>Either (on-policy if $\pi=b$; $\pi$ greedy gives Q-learning)</td><td>Lowest variance of the three; costs one pass over all actions</td><td>Default choice when the action set is small; robust to large $\alpha$ (lecture 18)</td></tr>
+    <tr><td>Q-learning</td><td>$R+\gamma\max_bQ(S',b)$</td><td>Off-policy (learns $q_*$)</td><td>No sampled $A'$ noise but positive maximisation bias with noisy $Q$</td><td>Learning the greedy optimum, learning from any behaviour; use Double Q if rewards are noisy</td></tr>
+    <tr><td>Double Q-learning</td><td>$R+\gamma Q_2(S',\arg\max Q_1(S',\cdot))$ (and swap)</td><td>Off-policy</td><td>Removes (most of) the maximisation bias; two tables</td><td>Noisy rewards, many actions (the Left/Right example of lecture 19)</td></tr>
+    <tr><td>(reference) MC</td><td>$G_t$</td><td>either (with IS for off)</td><td>Unbiased, high variance, no bootstrap</td><td>Episodic tasks, no Markov guarantee needed</td></tr>
+  </table></div></div>
+
+  <div class="box pitfall"><span class="box-title">Traps and tricky points</span>
+  <ul>
+    <li><strong>Which value of $Q$ to use inside the target</strong>: the current table at that moment. In SARSA row 3 of Final Q3, $Q(H,S)$ is already $0.6$ (after row 2), so the target is $0.6$, not $0.5$; in row 1 it is still $0.5$.</li>
+    <li>SARSA's $A'$ comes from the <em>episode</em>, not from an argmax. If you are using argmax you are doing Q-learning.</li>
+    <li>Q-learning's max is over all actions in $S'$, including actions never taken in the episode (they still have their initial value, e.g. 0.5).</li>
+    <li>Expected SARSA's weights come from the policy $\pi$ given in the question, not from the episode and not uniform unless stated.</li>
+    <li>Terminal row: do not bootstrap even if the question lists a "next action". Also if the problem does <em>not</em> say terminal $Q=0$, use $Q(S',\cdot)$ of the state reached.</li>
+    <li>Rows are processed in time order; reordering changes the numbers because pairs recur.</li>
+    <li>$\varepsilon$ is not the per-action probability. For $\varepsilon=0.1$ with 3 actions: $0.0333$ each, greedy $0.9333$ (lecture 18: $\bar Q=4/30+6\cdot14/15+3/30=35/6=5.8333$).</li>
+    <li>Q-learning updates what it would do (greedy), not what it will do (exploratory): that is why it hugs the cliff.</li>
+    <li>On cliff walking, the training-return ordering (SARSA better) is about online performance; the greedy policy of Q-learning is still the shortest one. Do not say Q-learning "fails".</li>
+    <li>Double Q-learning uses $Q_1+Q_2$ only for <em>behaviour</em>; the update target uses one table to choose and the other to evaluate. Lecture 19 example: $Q_1(A,\text{left})=-3.5$, $Q_2=2.6$, sum $-0.9\lt0$, so right is greedy (probability $0.95$ with $\varepsilon=0.1$).</li>
+    <li>Maximization bias example (lecture 19): $R\sim\mathcal N(-0.1,1)$ is positive about 46% of the time, so early Q-learning wrongly prefers "left" although $q_*(\text{left})=-0.1\lt0=q_*(\text{right})$.</li>
+    <li>Optimism of Q-learning in Tutorial 3 Q9: its update is the largest because the max is larger than the sampled value; it is "optimistic" and, in cliff walking, "dangerous".</li>
+  </ul></div>
+
+  <details class="kh-worked"><summary>Worked micro-example (numbers from a sample paper)</summary>
+    <p><strong>Final 2025 Q3.</strong> Episode H,W,0.5,H,S,1,L,Re,0,H,S,1,L,W,0.5,L,S,1,L,S,$-5$,H ($\alpha=0.1,\gamma=1$, all $Q=0.5$). Policy for Expected SARSA: H: S 0.6, W 0.4; L: S 0.3, W 0.3, Re 0.4.</p>
+    <div class="table-wrap"><table>
+      <tr><th>#</th><th>$(S,A)$</th><th>$r$</th><th>$A'$</th><th>SARSA target to $Q$</th><th>Exp. SARSA target to $Q$</th><th>Q-learning target to $Q$</th></tr>
+      <tr><td>1</td><td>(H,W)</td><td>0.5</td><td>S</td><td>1.0 → 0.55</td><td>1.0 → 0.55</td><td>1.0 → 0.55</td></tr>
+      <tr><td>2</td><td>(H,S)</td><td>1</td><td>Re</td><td>1.5 → 0.60</td><td>1.5 → 0.60</td><td>1.5 → 0.60</td></tr>
+      <tr><td>3</td><td>(L,Re)</td><td>0</td><td>S</td><td>0.6 → 0.51</td><td>0.58 → 0.508</td><td>0.6 → 0.51</td></tr>
+      <tr><td>4</td><td>(H,S)</td><td>1</td><td>W</td><td>1.5 → 0.69</td><td>1.5032 → 0.69032</td><td>1.51 → 0.691</td></tr>
+      <tr><td>5</td><td>(L,W)</td><td>0.5</td><td>S</td><td>1.0 → 0.55</td><td>1.0032 → 0.55032</td><td>1.01 → 0.551</td></tr>
+      <tr><td>6</td><td>(L,S)</td><td>1</td><td>S</td><td>1.5 → 0.60</td><td>1.5183 → 0.60183</td><td>1.551 → 0.6051</td></tr>
+      <tr><td>7</td><td>(L,S)</td><td>$-5$</td><td>terminal</td><td>$-5$ → 0.04</td><td>$-5$ → 0.041647</td><td>$-5$ → 0.04459</td></tr>
+    </table></div>
+    <p>Final tables (H,S / H,W / L,S / L,W / L,Re): SARSA $0.69/0.55/0.04/0.55/0.51$; Expected SARSA $0.6903/0.55/0.0416/0.5503/0.508$; Q-learning $0.691/0.55/0.0446/0.551/0.51$. Row 3 Expected SARSA: $0.6\cdot0.6+0.4\cdot0.55=0.58$. Row 7 SARSA: $\delta=-5-0.6=-5.6$, $0.6-0.56=0.04$.</p>
+    <p><strong>Tutorial 3 Q7.</strong> $Q(S,a_1)=4$, $Q(S',\cdot)=(5,9,2)$, $R=3$, $\alpha=0.1$, $\gamma=0.9$: SARSA ($A'=a_1$) $4.35$; Q-learning $4.71$; difference $0.36$; SARSA with $A'=a_2$ $4.71$; Expected SARSA with uniform $\pi$: $4+0.1(3+0.9\cdot5.333-4)=4.38$. My variation: with $\varepsilon$-greedy $\pi$, $\varepsilon=0.1$, greedy $a_2$: $\bar Q=8.6333$, Expected SARSA $=4.677$.</p>
+    <p><strong>Double Q (my extension of the Tutorial 3 Q7 numbers, with an invented $Q_2$).</strong> Let $Q_2(S',\cdot)=(6,3,7)$ and update $Q_1$: argmax of $Q_1(S',\cdot)=(5,9,2)$ is $a_2$; evaluate $Q_2(S',a_2)=3$; target $3+0.9\cdot3=5.7$; $Q_1(S,a_1)=4+0.1(5.7-4)=4.17$, compared with Q-learning's $4.71$. The max is no longer tied to its own noisy value.</p>
+  </details>
+
+  <p class="small muted">Read more: <a href="chapters/ch06.html#sarsa">Ch 6 §6.4 SARSA</a> · <a href="chapters/ch06.html#qlearning">§6.5 Q-learning</a> · <a href="chapters/ch06.html#expected-sarsa">§6.6 Expected SARSA</a> · <a href="chapters/ch06.html#max-bias">§6.7 maximization bias and Double Q</a> · <a href="chapters/ch06.html#summary">§6.9 comparison</a> · <a href="formulas.html#ch6">formula sheet</a> · <a href="algorithms.html#which">which algorithm?</a></p>
+</section>
+
+<section class="kh" id="kh-nstep">
+  <h2 id="nstep">n-step methods</h2>
+  <p class="asked"><span class="src">Asked in:</span> <span class="chip">Tutorial 3 Q6 (2-step target)</span> <span class="chip">Final 2025 Q3 variations ("n-step ... be ready to state the update")</span> <span class="chip">Lecture 19 (n-step return, truncation)</span> <span class="chip">Lecture 20 (Ex 7.1, error reduction, random walk)</span> <span class="chip">Lecture 21 (Ex 7.4, off-policy n-step)</span></p>
+
+  <div class="box def"><span class="box-title">Know this cold</span>
+  <ul>
+    <li><strong>n-step return</strong>: $G_{t:t+n}=R_{t+1}+\gamma R_{t+2}+\dots+\gamma^{n-1}R_{t+n}+\gamma^nV_{t+n-1}(S_{t+n})$. $n=1$ is TD(0); $n\ge T-t$ is Monte Carlo.</li>
+    <li><strong>Truncation</strong>: if $t+n\ge T$ the episode ended inside the window; $G_{t:t+n}=G_t$, the ordinary MC return, with no bootstrap term (since $V(S_T)=0$). No artificial rewards are added.</li>
+    <li><strong>n-step TD update</strong> (made at time $t+n$, for the state $S_t$): $V(S_t)\leftarrow V(S_t)+\alpha[G_{t:t+n}-V(S_t)]$. The update is <strong>delayed</strong> by $n$ steps; the last $n$ states are updated after termination.</li>
+    <li><strong>n-step TD error</strong> $\delta_{t:t+n}=G_{t:t+n}-V(S_t)$. With $V$ fixed: $\delta_{t:t+n}=\sum_{k=t}^{t+n-1}\gamma^{k-t}\delta_k$ (telescoping; Ex 7.1).</li>
+    <li><strong>n-step Bellman equation</strong>: $v_\pi(s)=\mathbb E_\pi[\sum_{k=1}^n\gamma^{k-1}R_{t+k}+\gamma^nv_\pi(S_{t+n})\mid S_t=s]$.</li>
+    <li><strong>Error reduction</strong>: $\max_s|\mathbb E[G_{t:t+n}\mid s]-v_\pi(s)|\le\gamma^n\max_s|V(s)-v_\pi(s)|$. One-step contracts by $\gamma$, n-step by $\gamma^n$ (e.g. $\gamma=0.5,n=3$: $0.125$; $\gamma=0.9,n=10$: $0.3487$). Cost: more reward noise (variance) and longer delay.</li>
+    <li><strong>n-step SARSA</strong>: $G_{t:t+n}=\sum_{i=1}^n\gamma^{i-1}R_{t+i}+\gamma^nQ_{t+n-1}(S_{t+n},A_{t+n})$; update $Q(S_t,A_t)\leftarrow Q(S_t,A_t)+\alpha[G_{t:t+n}-Q(S_t,A_t)]$; $A_{t+n}$ chosen by the same on-policy behaviour. $n=1$ is SARSA.</li>
+    <li><strong>n-step SARSA as TD errors</strong> (Ex 7.4): $G_{t:t+n}=Q_{t-1}(S_t,A_t)+\sum_{k=t}^{\min(t+n-1,T-1)}\gamma^{k-t}\delta_k$ with $\delta_k=R_{k+1}+\gamma Q_k(S_{k+1},A_{k+1})-Q_{k-1}(S_k,A_k)$. The $\min$ handles termination; the leftover term $\gamma^{T-t}Q(S_T,\cdot)=0$.</li>
+    <li><strong>Off-policy n-step</strong>: multiply the whole increment by the ratio. State values: $V(S_t)\leftarrow V(S_t)+\alpha\rho_{t:t+n-1}[G_{t:t+n}-V(S_t)]$ with $\rho_{t:h}=\prod_{k=t}^{\min(h,T-1)}\pi(A_k\mid S_k)/b(A_k\mid S_k)$. Action values: ratio $\rho_{t+1:t+n}$, one index later, because $A_t$ is already given. $\rho=0$ leaves the estimate unchanged.</li>
+  </ul></div>
+
+  <div class="box key"><span class="box-title">Method — step by step</span>
+  <ol>
+    <li>Write the episode as $S_0,R_1,S_1,R_2,\dots,R_T,S_T$ and fix $n$, $\gamma$, $\alpha$, $T$.</li>
+    <li>For each state to update ($t=0,1,\dots$) test: is $t+n\lt T$? If yes include $n$ rewards plus $\gamma^nV(S_{t+n})$. If no, sum all remaining rewards and add nothing.</li>
+    <li>Discount the rewards by $\gamma^0,\gamma^1,\dots$ (first reward undiscounted) and the bootstrap by $\gamma^n$.</li>
+    <li>Update $V(S_t)\leftarrow V(S_t)+\alpha(G_{t:t+n}-V(S_t))$. Use the value of $V(S_{t+n})$ as it stands when the update is made (before $S_{t+n}$ itself has been updated; the update of $S_t$ occurs earlier in time than the update of $S_{t+n}$).</li>
+    <li>When $n$ steps of lookahead do not exist (last $n$ states), the target is the plain return.</li>
+    <li>n-step SARSA: same, but bootstrap from $Q(S_{t+n},A_{t+n})$ with the action actually selected; update the pair $(S_t,A_t)$ only.</li>
+    <li>Off-policy: compute the right ratio range, multiply the increment (not the target) by it.</li>
+    <li>To compare $n$ values, tabulate $G_{t:t+n}$ for $n=1,2,3,\dots$ for one state: it moves from the TD target to the MC return.</li>
+  </ol></div>
+
+  <div class="box exam"><span class="box-title">Question patterns and what to do</span>
+  <div class="table-wrap"><table>
+    <tr><th>If the question says…</th><th>Do this</th></tr>
+    <tr><td>"Two-step target for A" (Tutorial 3 Q6 variation)</td><td>$R_1+\gamma R_2+\gamma^2V(S_2)=2-0.9+0.81\cdot V(C)=2.72$ with $V(C)=2$.</td></tr>
+    <tr><td>"Three-step target" on a 3-transition episode</td><td>The episode ends inside the window, so it equals the MC return: $4.34$. No bootstrap term.</td></tr>
+    <tr><td>"1-, 2-, 3-step TD on the random walk $C\to D\to E\to G$" (lecture 20)</td><td>$V$ starts at 0.5, $\alpha=0.1$, $\gamma=1$. 1-step changes only $E$; 2-step changes $D,E$; 3-step changes $C,D,E$ (all become 0.55).</td></tr>
+    <tr><td>"How far back does one episode propagate reward?" (lectures 20, 21)</td><td>n-step affects the last $n$ states (or pairs) visited; ten-step Sarsa informs the last 10 pairs, an 11th-from-last pair is untouched.</td></tr>
+    <tr><td>"Show the n-step error is a sum of TD errors" (Ex 7.1)</td><td>Add and subtract $\gamma V(S_{t+1}),\gamma^2V(S_{t+2}),\dots$; telescope; state $V$ fixed.</td></tr>
+    <tr><td>"Prove the n-step SARSA identity" (Ex 7.4)</td><td>Expand $\delta_t,\dots,\delta_{t+n-1}$, cancel consecutive $Q$ terms; case 1 $t+n\lt T$, case 2 $t+n\ge T$ with $Q(S_T,\cdot)=0$; explain the $\min$.</td></tr>
+    <tr><td>"Why can larger $n$ reduce error?"</td><td>Bootstrap weight $\gamma^n$ instead of $\gamma$ (error-reduction bound); trade-off: variance and update delay.</td></tr>
+    <tr><td>"State the off-policy n-step update"</td><td>Give both versions; mention ratio range ($t$ to $t+n-1$ for $V$; $t+1$ to $t+n$ for $Q$), $\min(\cdot,T-1)$, and $\rho=0\Rightarrow$ no change.</td></tr>
+    <tr><td>"Terminal reached before $n$ steps ($t=T-4$, $n=6$)"</td><td>$G=R_{T-3}+\gamma R_{T-2}+\gamma^2R_{T-1}+\gamma^3R_T$; missing rewards and terminal value are zero.</td></tr>
+    <tr><td>"Choose $n$"</td><td>Intermediate $n$ usually best (random-walk and windy-grid experiments); it interacts with $\alpha$.</td></tr>
+  </table></div></div>
+
+  <div class="box pitfall"><span class="box-title">Traps and tricky points</span>
+  <ul>
+    <li>The bootstrap is discounted by $\gamma^n$ and sits at $S_{t+n}$, not $S_{t+n-1}$. Count carefully: $n=2$ uses $R_{t+1},R_{t+2}$ and $V(S_{t+2})$.</li>
+    <li>Do not add a $\gamma^nV(\cdot)$ term when the episode ends inside the window. The terminal value is zero, and the target becomes the full MC return.</li>
+    <li>$n$-step TD is not the same as "TD($\lambda$)": $n$ is fixed, one return length; $\lambda$ mixes lengths (standard result).</li>
+    <li>The state updated at time $t+n$ is $S_t$, not $S_{t+n}$. Early in the episode (first $n-1$ steps) no update is possible.</li>
+    <li>Equal values after 1-, 2-, 3-step TD in lecture 20 ($0.55$ everywhere) is a special case: zero intermediate rewards, $\gamma=1$ and one terminal reward. With nonzero rewards the three updates differ.</li>
+    <li>The error-reduction bound is about the <em>expected</em> target; sampled n-step returns carry more reward noise, so bigger $n$ is not automatically better.</li>
+    <li>Off-policy ratio multiplies the <strong>increment</strong> $\alpha\rho[G-V]$, not $G$ alone. Weighted-IS style normalisation is not used here.</li>
+    <li>n-step SARSA ratio starts at $t+1$ (the pair $(S_t,A_t)$ is given); the state-value version starts at $t$. Mixing these is a typical lost mark.</li>
+    <li>The sum-of-TD-errors identity for $V$ needs $V$ fixed. For SARSA the time indices of $Q_{k}$ and $Q_{k-1}$ in $\delta_k$ are exactly what make the telescoping work.</li>
+    <li>With $n=\infty$ (or $n\ge T$) n-step TD is MC; with $n=1$ it is TD(0): say this in any "relate" question.</li>
+  </ul></div>
+
+  <details class="kh-worked"><summary>Worked micro-example (numbers from a sample paper)</summary>
+    <p><strong>Tutorial 3 Q6 extended.</strong> $A\xrightarrow{2}B\xrightarrow{-1}C\xrightarrow{4}T$, $V=(3,5,2)$, $\gamma=0.9$, $\alpha=0.2$.</p>
+    <ul>
+      <li>1-step target $2+0.9\cdot5=6.5$.</li>
+      <li>2-step target $2+0.9(-1)+0.81\cdot2=2.72$; update $V(A)=3+0.2(2.72-3)=2.944$.</li>
+      <li>3-step target: window reaches $T$, so $2-0.9+0.81\cdot4=4.34$ ($=$ MC); update $V(A)=3+0.2(4.34-3)=3.268$.</li>
+      <li>Identity check ($V$ fixed): $G_{A:2}-V(A)=-0.28=\delta_A+0.9\,\delta_B=3.5-3.78$.</li>
+    </ul>
+    <p><strong>Lecture 20 random walk.</strong> $C\xrightarrow{0}D\xrightarrow{0}E\xrightarrow{1}G$, $V=0.5$ for $A..E$, $\gamma=1$, $\alpha=0.1$.</p>
+    <div class="table-wrap"><table>
+      <tr><th>Method</th><th>$V(C)$</th><th>$V(D)$</th><th>$V(E)$</th></tr>
+      <tr><td>1-step</td><td>0.50</td><td>0.50</td><td>0.55</td></tr>
+      <tr><td>2-step</td><td>0.50</td><td>0.55</td><td>0.55</td></tr>
+      <tr><td>3-step</td><td>0.55</td><td>0.55</td><td>0.55</td></tr>
+    </table></div>
+    <p>E.g. 2-step for $C$: $G=0+0+V(E)=0.5$, no change; 2-step for $D$: $G=0+1+V(G)=1$, $V(D)=0.5+0.1(0.5)=0.55$.</p>
+    <p><strong>Off-policy n-step (my numbers, ratios from Tutorial 3 Q3).</strong> $n=2$ on the first two steps: $\rho_{0:1}=2\cdot2=4$. If $V(S_0)=5$, $G_{0:2}=12$, $\alpha=0.1$: $V(S_0)=5+0.1\cdot4\cdot(12-5)=7.8$.</p>
+  </details>
+
+  <p class="small muted">Read more: <a href="chapters/ch07.html#nstep-td">Ch 7 §7.1 n-step TD</a> · <a href="chapters/ch07.html#nstep-sarsa">§7.2 n-step Sarsa</a> · <a href="chapters/ch07.html#offpolicy">§7.3 off-policy n-step</a> · <a href="chapters/ch07.html#tree-backup">§7.5 tree backup</a> · <a href="formulas.html#ch7">formula sheet</a></p>
+</section>

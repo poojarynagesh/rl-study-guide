@@ -64,3 +64,5 @@ http://incompleteideas.net/book/the-book-2nd.html.
 
 
 **Printable formula sheet:** `RL_Formula_Sheet.pdf` (A4, with a "when to use" note per formula; lecture-taught formulas first, optional appendix). Regenerate after editing `formulas.html` with `python tools/make_formula_pdf.py` (needs Chrome or Edge).
+
+**Exam know-how page:** `knowhow.html` collects the patterns of the sample papers per algorithm (methods, stopping rules, "is it optimal?" tests, traps). Built from `tools/knowhow_parts/` by `python tools/make_knowhow.py`.

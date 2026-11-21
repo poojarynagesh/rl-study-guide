@@ -29,6 +29,7 @@ PAGES = [
     ("algorithms", "algorithms.html"),
     ("hyper", "hyperparameters.html"),
     ("formulas", "formulas.html"),
+    ("knowhow", "knowhow.html"),
     ("quiz", "quiz.html"),
 ]
 

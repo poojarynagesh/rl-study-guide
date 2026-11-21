@@ -1,0 +1,358 @@
+<section class="kh" id="kh-bandits">
+  <h2 id="bandits">Multi-armed bandits</h2>
+  <p class="asked"><span class="src">Asked in:</span> <span class="chip">Midterm 1 Q1</span> <span class="chip">Tutorial 2 Q2</span> <span class="chip">Jan 2021 Q2</span> <span class="chip">Aug 2020 Q2</span> <span class="chip">Jan 2021 Q3</span> <span class="chip">Aug 2020 Q3</span> <span class="chip">Tutorial 3 Q2</span> <span class="chip">Tutorial 3 Q4</span></p>
+  <div class="box def"><span class="box-title">Know this cold</span>
+    <ul>
+      <li><strong>Judge an arm by its expected reward</strong> $\E[r]=\sum r\,P(r)$, never by its largest possible reward. A rare huge payout is the standard decoy.</li>
+      <li><strong>ε-greedy</strong> with $k$ arms: greedy arm has probability $1-\varepsilon+\varepsilon/k$; every other arm has $\varepsilon/k$. The greedy arm <em>also</em> gets its share of the random pick.</li>
+      <li><strong>Ties</strong> in $\argmax$: split the $(1-\varepsilon)$ mass equally among the $m$ tied arms, so each tied arm gets $(1-\varepsilon)/m+\varepsilon/k$.</li>
+      <li><strong>UCB:</strong> $A_t=\argmax_a\big[Q_t(a)+c\sqrt{\ln t/N_t(a)}\big]$, natural log, $t$ = index of the step being decided. An arm with $N=0$ has infinite bonus and is tried first (lecture: UCB forces every arm to be played once).</li>
+      <li><strong>Sample average (incremental):</strong> $Q_{n+1}=Q_n+\tfrac1n(R_n-Q_n)$. Needs only $Q$ and $N$ per arm. Good for stationary arms; the step $1/n\to0$ so it adapts slowly if the arm drifts.</li>
+      <li><strong>Constant step $\alpha$:</strong> $Q\leftarrow Q+\alpha(R-Q)$. A reward received $j$ updates ago has weight $\alpha(1-\alpha)^j$; the initial value keeps weight $(1-\alpha)^n$. It tracks non-stationary arms but never fully converges (Robbins-Monro needs $\sum\alpha_n^2\lt\infty$).</li>
+      <li><strong>Gradient bandit:</strong> $\pi_t(a)=e^{H_t(a)}/\sum_b e^{H_t(b)}$; $H_{t+1}(a)=H_t(a)+\alpha(R_t-\bar R_t)\big(\mathbb 1[a=A_t]-\pi_t(a)\big)$ for <em>every</em> arm $a$ (chosen and not chosen). Only differences of $H$ matter; $H\equiv0$ gives $\pi=1/k$. A baseline is free because $\sum_x\partial\pi(x)/\partial H(a)=0$.</li>
+      <li><strong>Indicator trick:</strong> to find the arm with the largest $P(R\ge x)$, replace the reward by $Z=\mathbb 1\{R\ge x\}$; then $\E[Z]=P(R\ge x)$ and the ordinary bandit algorithm applies to $Z$.</li>
+    </ul>
+  </div>
+  <div class="box key"><span class="box-title">Method — step by step</span>
+    <ol>
+      <li><strong>"Which arm is best?"</strong> Compute $\E[r_i]$ for every arm; the answer is the arm with the largest mean. Add the variance if risk is asked.</li>
+      <li><strong>"Describe a procedure when distributions are unknown"</strong> (4 marks): initialise $Q=0,N=0$; choose by ε-greedy (or UCB); observe $R$; $N\leftarrow N+1$; $Q\leftarrow Q+\frac1N(R-Q)$; argue $Q\to\E[r]$ by the law of large numbers and that $\varepsilon\gt0$ samples every arm infinitely often. Write all four lines; the marks are for the update rule and the justification.</li>
+      <li><strong>UCB question:</strong> compute $\ln t$ once, then $Q(a)+c\sqrt{\ln t/N(a)}$ for every arm, pick the max. State the chosen arm and why (largest optimistic estimate), not just the numbers.</li>
+      <li><strong>ε-greedy probabilities:</strong> find the greedy arm(s) first, then fill the table and check that it sums to 1.</li>
+      <li><strong>Calculus on $\E[R]$:</strong> write $f(p)=\E[R]$ as a function of the parameter, solve $f'(p)=0$, confirm $f''\lt0$, check the endpoints of the interval.</li>
+      <li><strong>Non-stationary:</strong> switch to constant $\alpha$, state the weight $\alpha(1-\alpha)^j$ and why $1/N$ fails.</li>
+    </ol>
+  </div>
+  <div class="box exam"><span class="box-title">Question patterns and what to do</span>
+    <div class="table-wrap"><table>
+      <tr><th>If the question says…</th><th>Do this</th></tr>
+      <tr><td>"You are told only the possible rewards, not the probabilities — which arm most/least?" (Tutorial 2 Q2a)</td><td>Gamble on the arm with the biggest possible reward (naive guess) and say explicitly that it ignores probabilities; part (c), after the means, reverses it.</td></tr>
+      <tr><td>"Find $\E[r_1],\E[r_2],\E[r_3]$" and rank</td><td>$\sum r\,p$ per arm; pull the largest mean most. Regret of arm $i$ per pull $=\max_j\E[r_j]-\E[r_i]$.</td></tr>
+      <tr><td>"Give action probabilities under ε-greedy"</td><td>Greedy $1-\varepsilon+\varepsilon/k$, others $\varepsilon/k$; if two arms share the max, split $(1-\varepsilon)$ between them.</td></tr>
+      <tr><td>"After this update, recalculate the ε-greedy probabilities" (Tutorial 3 Q4c)</td><td>Update $Q$ first, then check whether the $\argmax$ changed. If the greedy arm is unchanged the probabilities are unchanged.</td></tr>
+      <tr><td>"Which arm does UCB select?" with counts $N$ given</td><td>Evaluate $U(a)=Q(a)+c\sqrt{\ln t/N(a)}$ for every arm. The least-tried arm often wins even with a lower $Q$.</td></tr>
+      <tr><td>"Rewards are non-stationary" / "Compare constant $\alpha=0.25$ with the sample average" (Midterm 1 Q1c, Tutorial 3 Q2)</td><td>Run $V\leftarrow V+\alpha(G-V)$ step by step; the sample average of $n$ values ignores the start value; constant $\alpha$ keeps $(1-\alpha)^n$ of it.</td></tr>
+      <tr><td>"The best arm is the one with the largest $P(R\ge10)$" (Aug 2020 Q3)</td><td>Indicator $Z=\mathbb 1\{R\ge10\}$, then $Q(a)\leftarrow Q(a)+\frac1{N(a)}(Z-Q(a))$ with ε-greedy or UCB selection; the answer is the arm with the largest $Q$. For $R\in[a,b]$ use that indicator.</td></tr>
+      <tr><td>"Reward $=1-p$ with probability $p$, else 0; which $p$ is best?" (Aug 2020 Q2, Jan 2021 Q3)</td><td>$\E[R]=p(1-p)$; table for the given arms; calculus gives $p=\tfrac12$, maximum $\tfrac14$, $f''=-2$.</td></tr>
+      <tr><td>"Write/derive the gradient-bandit update"</td><td>State softmax, the update for chosen and non-chosen arms, and the role of the baseline $\bar R$ (variance reduction, no bias).</td></tr>
+    </table></div>
+  </div>
+  <div class="box pitfall"><span class="box-title">Traps and tricky points</span>
+    <ul>
+      <li><strong>Greedy share trap:</strong> $P(\text{greedy})=1-\varepsilon+\varepsilon/k$, not $1-\varepsilon$. With $\varepsilon=0.1,k=3$ it is $0.9333$, not $0.9$. The probability that the <em>chosen</em> arm is non-greedy is only $\varepsilon(k-1)/k$.</li>
+      <li><strong>Large payoff, tiny probability:</strong> arm 3 in Tutorial 2 has the biggest reward (200) but the smallest mean (4.32).</li>
+      <li><strong>UCB with $N=0$:</strong> division by zero means "pick it first"; do not skip such an arm.</li>
+      <li><strong>UCB is not best-$Q$:</strong> in Midterm 1 the arm with $Q=1.2$ beats the arm with $Q=1.4$ because it was pulled once.</li>
+      <li>Larger $c$ means more exploration; the bonus shrinks as $N$ grows.</li>
+      <li><strong>Sample average with $\alpha=1/n$:</strong> after $n$ returns the answer is the plain mean regardless of the start value; if your $1/n$ answer differs from the plain mean you made an error.</li>
+      <li>Constant $\alpha$ puts weight $(1-\alpha)^n$ on the initial estimate, so a bad start biases it (optimistic initial values exploit this to force early exploration).</li>
+      <li>Gradient bandit: <em>non-chosen</em> arms move the opposite way by $\alpha(R-\bar R)\pi(b)$. Forgetting that part is the common error.</li>
+      <li>A linear expected reward (gain $a$ with probability $p$, loss $-b$ otherwise) has its optimum at an endpoint, not at an interior stationary point.</li>
+    </ul>
+  </div>
+  <details class="kh-worked"><summary>Worked micro-example (numbers from a sample paper)</summary>
+    <p><strong>UCB (Midterm 1 Q1; the question text is reconstructed in the solutions):</strong> $Q=(1.0,1.4,1.2)$, $N=(4,9,1)$, $t=15$, $c=1$, $\ln15=2.708$.<br>
+    $U(1)=1.0+\sqrt{2.708/4}=1.823$; $U(2)=1.4+\sqrt{2.708/9}=1.949$; $U(3)=1.2+\sqrt{2.708/1}=2.846$. Choose arm 3. ε-greedy ($\varepsilon=0.1$): arm 2 gets $0.9333$, arms 1 and 3 get $0.0333$ each.</p>
+    <p><strong>ε-greedy with a tie (my own variant):</strong> $Q=(4,7,7,5)$, $\varepsilon=0.2$, $k=4$: tied arms $0.8/2+0.05=0.45$ each, others $0.05$; total $0.45+0.45+0.05+0.05=1$. Tutorial 3 Q4 without the tie, $Q=(4,7,2,5)$: greedy $0.85$, others $0.05$; after $Q(a_3)\leftarrow2+0.5(11-2)=6.5$ the greedy arm is still $a_2$, so nothing changes.</p>
+    <p><strong>Constant $\alpha$ (Tutorial 3 Q2):</strong> $V_0=5$, $\alpha=0.25$, returns $8,2,10,4$ give $5.75,\ 4.8125,\ 6.109375,\ 5.58203125$; the sample average is $6$. Weight left on the start value is $0.75^4=0.316$.</p>
+    <p><strong>Means (Tutorial 2 Q2):</strong> $\E[r_1]=\tfrac13+\tfrac56+4=5.167$; $\E[r_2]=0.6+2.28+2=4.88$; $\E[r_3]=0.8+1.52+2=4.32$. Regret of always pulling arm 3: $5.167-4.32=0.847$ per step.</p>
+    <p><strong>Gradient bandit (my own illustrative numbers):</strong> $k=3$, $H=0$, $\alpha=0.1$, pull arm 1 with $R=2$, $\bar R=1$. Then $H=(0.0667,-0.0333,-0.0333)$ and $\pi=(0.356,0.322,0.322)$. The three changes sum to zero.</p>
+  </details>
+  <p class="small muted">Read more: <a href="chapters/ch02.html#action-value">Ch 2 §2.2</a> · <a href="chapters/ch02.html#incremental">§2.4 incremental</a> · <a href="chapters/ch02.html#stepsize">§2.5 constant step</a> · <a href="chapters/ch02.html#ucb">§2.7 UCB</a> · <a href="chapters/ch02.html#gradient">§2.8 gradient bandit</a> · <a href="formulas.html#ch2">formula sheet</a></p>
+</section>
+
+<section class="kh" id="kh-returns">
+  <h2 id="returns">Returns and discounting</h2>
+  <p class="asked"><span class="src">Asked in:</span> <span class="chip">Midterm 1 Q3</span> <span class="chip">Aug 2020 Q5</span> <span class="chip">Tutorial 3 Q1</span> <span class="chip">Final 2025 Q2e</span></p>
+  <div class="box def"><span class="box-title">Know this cold</span>
+    <ul>
+      <li>$G_t=R_{t+1}+\gamma R_{t+2}+\gamma^2R_{t+3}+\cdots$ and the recursion $G_t=R_{t+1}+\gamma G_{t+1}$ with $G_T=0$ at termination. This identity is the root of every Bellman equation.</li>
+      <li>The return after a state starts with the reward on the arrow <em>leaving</em> it.</li>
+      <li>Constant reward $r$ forever: $G=r/(1-\gamma)$. The same reward starting only after $k$ steps: $\gamma^kr/(1-\gamma)$.</li>
+      <li>Periodic rewards $(r_1,\dots,r_n)$ repeating: $G_0=\dfrac{r_1+\gamma r_2+\cdots+\gamma^{n-1}r_n}{1-\gamma^n}$ (block sum times a geometric series in $\gamma^n$). Pattern $(2,-1)$: $\frac{2-\gamma}{1-\gamma^2}$.</li>
+      <li>Bounded rewards $|R|\le B$ and $\gamma\lt1$ give $|G_t|\le B/(1-\gamma)$. At $\gamma=1$ in a continuing task the sum may be infinite, and infinite returns cannot be ranked (lecture: reward 1 forever and rewards $1,\tfrac12,\tfrac13,\dots$ both give $\infty$).</li>
+      <li>$\gamma=0$: only the immediate reward counts (myopic). Larger $\gamma$ makes the agent far-sighted. Episodic tasks may use $\gamma=1$ if termination is reached in finite time.</li>
+      <li><strong>The optimal policy depends on $\gamma$:</strong> write the value of each policy as a function of $\gamma$ and compare; the best policy can flip at a crossover $\gamma$.</li>
+    </ul>
+  </div>
+  <div class="box key"><span class="box-title">Method — step by step</span>
+    <ol>
+      <li><strong>Finite episode:</strong> start at the end, $G_T=0$, and work backwards with $G_t=R_{t+1}+\gamma G_{t+1}$. Tabulate $G_t$ for every $t$; first-visit and every-visit MC then just pick entries.</li>
+      <li><strong>Periodic reward stream:</strong> group one period, sum with powers $1,\gamma,\dots,\gamma^{n-1}$, divide by $1-\gamma^n$. For $G_1$ shift the pattern (start from the second reward) and verify $G_0=R_1+\gamma G_1$.</li>
+      <li><strong>Effect of $\gamma$ on the optimal policy:</strong> for each deterministic policy write the Bellman equations of its cycle, solve for the value at the decision state, compare numerically at the $\gamma$ values asked, then solve $v_A(\gamma)=v_B(\gamma)$ for the crossover.</li>
+      <li><strong>$\gamma\to1$:</strong> the numerator tends to the block sum and the denominator to $0^+$. A non-zero block sum gives $\pm\infty$; a zero block sum gives a finite limit (take it with L'Hôpital).</li>
+    </ol>
+  </div>
+  <div class="box exam"><span class="box-title">Question patterns and what to do</span>
+    <div class="table-wrap"><table>
+      <tr><th>If the question says…</th><th>Do this</th></tr>
+      <tr><td>"Rewards are $3,-2,1,3,-2,1,\dots$; derive a closed form for $G_0$" (Midterm 1 Q3)</td><td>$G_0=\dfrac{3-2\gamma+\gamma^2}{1-\gamma^3}$; show the block-and-geometric-series step.</td></tr>
+      <tr><td>"Compute $G_1$ and verify $G_0=R_1+\gamma G_1$"</td><td>$G_1=\dfrac{-2+\gamma+3\gamma^2}{1-\gamma^3}$; plug numbers into both sides.</td></tr>
+      <tr><td>"What happens as $\gamma\uparrow1$?"</td><td>The block sum is $2\ne0$, so $G_0\to+\infty$; the undiscounted infinite return does not exist, hence $\gamma\lt1$ or episodic.</td></tr>
+      <tr><td>"Compute the return after each occurrence of $A$" (Tutorial 3 Q1)</td><td>Backward recursion; first-visit uses the first occurrence only, every-visit averages all.</td></tr>
+      <tr><td>"Which policy is optimal if $\gamma=0$? $0.5$? $0.9$?" (Aug 2020 Q5)</td><td>Write both cycle values, compare, and report ties as "both optimal" (see the worked example).</td></tr>
+      <tr><td>"Find the $\gamma$ at which the optimal policy changes"</td><td>Equate the two value expressions. If they share the factor $1/(1-\gamma^2)\gt0$, compare the numerators only. Different cycle lengths: solve the polynomial equation (standard result).</td></tr>
+      <tr><td>"A reward $+r$ arrives only at step $k$, or from step $k$ on"</td><td>Single reward $R_k$: weight $\gamma^{k-1}$ in $G_0$. Perpetual from step $k$: $\gamma^{k-1}r/(1-\gamma)$. Check the indexing before writing the power.</td></tr>
+    </table></div>
+  </div>
+  <div class="box pitfall"><span class="box-title">Traps and tricky points</span>
+    <ul>
+      <li><strong>Indexing:</strong> $R_{t+1}$ is the first reward of $G_t$ and is not discounted; $R_{t+2}$ gets $\gamma$.</li>
+      <li>Use the <em>same</em> denominator when comparing two periodic policies; mixing $1-\gamma$ with $1-\gamma^2$ without simplifying gives wrong crossovers.</li>
+      <li>A <strong>tie</strong> (both policies equal at the crossover) means both are optimal, not "neither".</li>
+      <li>The optimal policy is decided by the value at the <em>decision state</em>; the bottom states of the cycles have different values (e.g. $v_{\text{left}}(L)=4+\gamma v_{\text{left}}(T)$) but are not compared.</li>
+      <li>$G_t$ is not monotone in $t$; do not assume it decreases because $\gamma\lt1$ (the Exercise 3.8 sequence goes $2,6,8,4,2,0$).</li>
+      <li>With $\gamma=1$ the lecture rule is: allowed only for episodic tasks that terminate with probability one under the policy; do not apply $r/(1-\gamma)$ there.</li>
+    </ul>
+  </div>
+  <details class="kh-worked"><summary>Worked micro-example (numbers from a sample paper)</summary>
+    <p><strong>Midterm 1 Q3, $\gamma=0.9$:</strong> $G_0=\dfrac{3-1.8+0.81}{1-0.729}=\dfrac{2.01}{0.271}=7.417$; $G_1=\dfrac{-2+0.9+2.43}{0.271}=4.908$; check $3+0.9\cdot4.908=7.417$.</p>
+    <p><strong>Aug 2020 Q5</strong> (left: reward 0 then +4; right: reward +2 then 0; both return to the top state $T$): $v_{\text{left}}(T)=\frac{4\gamma}{1-\gamma^2}$, $v_{\text{right}}(T)=\frac{2}{1-\gamma^2}$. $\gamma=0$: $0$ vs $2$, right. $\gamma=0.5$: both $2.667$, tie. $\gamma=0.9$: $18.95$ vs $10.53$, left. Crossover $4\gamma=2$, i.e. $\gamma=\tfrac12$. Variation left $(0,+3)$, right $(+1,0)$: $3\gamma$ vs $1$, crossover $\gamma=\tfrac13$ (both give $1.125$ there).</p>
+    <p><strong>Backward recursion (lecture Exercise 3.8):</strong> $\gamma=0.5$, $R_1..R_5=-1,2,6,3,2$: $G_5=0,\ G_4=2,\ G_3=4,\ G_2=8,\ G_1=6,\ G_0=2$.</p>
+    <p><strong>Zero block sum (my own check):</strong> rewards $3,-2,-1$ repeating: $G_0=\frac{3-2\gamma-\gamma^2}{1-\gamma^3}\to\frac{-2-2\gamma}{-3\gamma^2}=\tfrac43$ as $\gamma\to1$ (at $\gamma=0.99$ it is $1.343$).</p>
+  </details>
+  <p class="small muted">Read more: <a href="chapters/ch03.html#returns">Ch 3 §3.3 returns</a> · <a href="chapters/ch03.html#unified">§3.4 unified notation</a> · <a href="formulas.html#ch3">formula sheet</a></p>
+</section>
+
+<section class="kh" id="kh-bellman">
+  <h2 id="bellman">Bellman equations</h2>
+  <p class="asked"><span class="src">Asked in:</span> <span class="chip">Final 2025 Q1</span> <span class="chip">Tutorial 2 Q3</span> <span class="chip">Jan 2021 Q5</span> <span class="chip">Tutorial 2 Q4</span> <span class="chip">Aug 2020 Q4</span> <span class="chip">Final 2025 Q2a</span> <span class="chip">Jan 2021 Q4a,c</span></p>
+  <div class="box def"><span class="box-title">Know this cold</span>
+    <ul>
+      <li>(a) $q_\pi(s,a)=\sum_{s',r}p(s',r\mid s,a)\,[r+\gamma v_\pi(s')]$.</li>
+      <li>(b) $v_\pi(s)=\sum_a\pi(a\mid s)\,q_\pi(s,a)$. Direction: $\pi$ averages over actions (agent), $p$ averages over $(s',r)$ (environment).</li>
+      <li>(c) $v_\pi(s)=\sum_a\pi(a\mid s)\sum_{s',r}p(s',r\mid s,a)[r+\gamma v_\pi(s')]$.</li>
+      <li>(e) Q-Bellman: $q_\pi(s,a)=\sum_{s',r}p(s',r\mid s,a)\big[r+\gamma\sum_{a'}\pi(a'\mid s')q_\pi(s',a')\big]$. Yes, it exists.</li>
+      <li><strong>Optimality forms:</strong> $v_*(s)=\max_a\sum p[r+\gamma v_*(s')]$; $q_*(s,a)=\sum p[r+\gamma\max_{a'}q_*(s',a')]$; $v_*(s)=\max_aq_*(s,a)$.</li>
+      <li><strong>3-argument form</strong> with $r(s,a)$ and $p(s'\mid s,a)$: $q(s,a)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v(s')$. Deterministic MDP: $q(s,a)=r+\gamma v(s')$.</li>
+      <li><strong>Existence/uniqueness:</strong> $T_\pi v=r_\pi+\gamma P_\pi v$ is a $\gamma$-contraction in $\|\cdot\|_\infty$; Banach gives a unique fixed point, and since $v_\pi$ satisfies the equation (law of total expectation applied to $G_t=R_{t+1}+\gamma G_{t+1}$), the solution <em>is</em> $v_\pi$. The iteration $v_{k+1}=T_\pi v_k$ converges from any start.</li>
+      <li><strong>Matrix form:</strong> $v=r_\pi+\gamma P_\pi v\Rightarrow v=(I-\gamma P_\pi)^{-1}r_\pi$; invertible because the spectral radius of $\gamma P_\pi$ is $\le\gamma\lt1$ (Neumann series $\sum_k(\gamma P_\pi)^k$).</li>
+      <li>$v(\text{terminal})=0$ always. The optimal value $v_*$ is unique; optimal policies need not be (ties); there are $|\mathcal A|^{|\mathcal S|}$ deterministic policies.</li>
+    </ul>
+  </div>
+  <div class="box key"><span class="box-title">Method — step by step</span>
+    <ol>
+      <li>Decide the <strong>type</strong>: a given policy means the expectation form (weights $\pi$); "optimal" means $\max$ over actions.</li>
+      <li>Build a table of $(s,a,s',r,p)$ rows first. The reward is attached to the transition, so the expected one-step reward of an action is $\sum p\,r$.</li>
+      <li>Write one equation per non-terminal state; terminal states contribute 0.</li>
+      <li><strong>Contraction proof</strong> (2 marks): $|T_\pi u(s)-T_\pi v(s)|=\gamma\big|\sum_a\pi\sum p\,(u(s')-v(s'))\big|\le\gamma\|u-v\|_\infty$ because the rewards cancel and the weights $\pi p$ sum to 1. For the optimality operator also use $|\max_af(a)-\max_ag(a)|\le\max_a|f(a)-g(a)|$.</li>
+      <li>Conclude: complete space of bounded functions, Banach fixed-point theorem, unique solution, identify it as $v_\pi$ (or $v_*$).</li>
+      <li>Solve by substitution or $(I-\gamma P_\pi)^{-1}r_\pi$, then <strong>plug the answer back</strong> into every equation as a check.</li>
+    </ol>
+  </div>
+  <div class="box exam"><span class="box-title">Question patterns and what to do</span>
+    <div class="table-wrap"><table>
+      <tr><th>If the question says…</th><th>Do this</th></tr>
+      <tr><td>"Give $q_\pi$ in terms of $v_\pi$ and the four-argument $p$"</td><td>Formula (a). Check that the bracket contains $r+\gamma v_\pi(s')$, summed over $(s',r)$.</td></tr>
+      <tr><td>"Give $v_\pi$ in terms of $q_\pi$ and $\pi$"</td><td>Formula (b). For the optimal case $v_*=\max_aq_*$.</td></tr>
+      <tr><td>"Show the Bellman equation has a solution; identify it"</td><td>Contraction + Banach + "the solution is $v_\pi$" (never stop at "it is unique").</td></tr>
+      <tr><td>"Can one write a Q-Bellman equation?"</td><td>Yes, write (e), and add that it is again a $\gamma$-contraction with unique solution $q_\pi$.</td></tr>
+      <tr><td>"Why is it not a contraction when $\gamma=1$?"</td><td>The factor $\gamma$ disappears; convergence only for episodic/proper policies where the terminal state is reached with probability one.</td></tr>
+      <tr><td>"Write the Bellman equation for the equiprobable policy and solve" (Tutorial 2 Q4c, Jan 2021 Q4a)</td><td>Average the actions with weights $\pi$; solve the linear system; verify.</td></tr>
+      <tr><td>"Write the Bellman equation for the optimal policy" (Final Q2a, Jan 2021 Q4c)</td><td>Replace the policy average by $\max$; a state with a single action has no $\max$.</td></tr>
+      <tr><td>"Write $q$ using the 3-argument $p$ and $r(s,a)$"</td><td>$q=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v(s')$. Expected reward $r(s,a)=\sum_{s',r}r\,p(s',r\mid s,a)$.</td></tr>
+      <tr><td>"Write in matrix form"</td><td>$v=r_\pi+\gamma P_\pi v$, solution $(I-\gamma P_\pi)^{-1}r_\pi$; define $P_\pi(s,s')=\sum_a\pi(a\mid s)p(s'\mid s,a)$.</td></tr>
+      <tr><td>"Can the policy be recovered from $q_*$ alone?"</td><td>Yes, greedy in $q_*$, no model needed. From $v_*$ alone you need the model for the one-step lookahead (standard result).</td></tr>
+    </table></div>
+  </div>
+  <div class="box pitfall"><span class="box-title">Traps and tricky points</span>
+    <ul>
+      <li><strong>Expectation vs optimality:</strong> using $\max$ when a policy is given (or the reverse) is the most common error. Name which type you write.</li>
+      <li><strong>Reward attached to the transition:</strong> in the four-room MDP $A_1$ in state 1 has expected reward $0.3\cdot1=0.3$, not 1; action $A$ in state 2 has $0.3\cdot0.5=0.15$.</li>
+      <li>$\sum_{s',r}$ in the 4-argument form sums over pairs; in the 3-argument form the reward is outside the sum.</li>
+      <li>Terminal states: $v=0$, and an absorbing goal with $\gamma=1$ is what keeps the sums finite.</li>
+      <li>Do not forget the $\sum_a\pi(a\mid s)$ in (c); a bare $\sum_{s',r}$ describes only a fixed action.</li>
+      <li>Uniqueness holds for $v_*$ but <em>not</em> for $\pi_*$ (ties allowed); the lecture example is state $A$ where all actions lead to $A'$ with +10, so all tie.</li>
+      <li>"Contraction" needs a norm: the sup-norm. The $\max$ operator is non-expansive, which is why the optimality operator is still a $\gamma$-contraction.</li>
+    </ul>
+  </div>
+  <details class="kh-worked"><summary>Worked micro-example (numbers from a sample paper)</summary>
+    <p><strong>Three-cell gridworld (Tutorial 2 Q4, $\gamma=0.8$, equiprobable):</strong> $v_1=0.4v_1+0.4v_2$, $v_2=0.5+0.4v_1+0.4v_3$, $v_3=-0.5+0.4v_1+0.4v_3$. Matrix form: $P_\pi=\begin{pmatrix}.5&.5&0\\.5&0&.5\\.5&0&.5\end{pmatrix}$, $r_\pi=(0,0.5,-0.5)$. Then $(I-0.8P_\pi)^{-1}r_\pi=(0.2,\,0.3,\,-0.7)$ (checked numerically). The largest eigenvalue modulus of $0.8P_\pi$ is $0.8\lt1$.</p>
+    <p><strong>Four-room MDP optimality equations (Final Q2a, $\gamma=1$):</strong> $V(1)=\max\{0.3+0.7V(2),\ 0.3+0.5V(1)\}$, $V(2)=0.15+0.3V(1)$. Solution $V_*(1)=0.6$, $V_*(2)=0.33$; $A_1$ would give $0.3+0.7\cdot0.33=0.531\lt0.6$, so $A_2$ is optimal. Fixed policy $A_1$: $V_\pi(1)=\frac{81}{158}=0.5127$, $V_\pi(2)=\frac{24}{79}=0.3038$.</p>
+  </details>
+  <p class="small muted">Read more: <a href="chapters/ch03.html#values">Ch 3 §3.5 value functions</a> · <a href="chapters/ch03.html#optimal">§3.6 optimality</a> · <a href="chapters/ch04.html#evaluation">Ch 4 §4.1</a> · <a href="formulas.html#ch3">formula sheet</a></p>
+</section>
+
+<section class="kh" id="kh-peval">
+  <h2 id="peval">Policy evaluation</h2>
+  <p class="asked"><span class="src">Asked in:</span> <span class="chip">Aug 2020 Q6</span> <span class="chip">Midterm 1 Q2</span> <span class="chip">Tutorial 2 Q4</span> <span class="chip">Final 2025 Q2d</span></p>
+  <div class="box def"><span class="box-title">Know this cold</span>
+    <ul>
+      <li>Policy evaluation computes $v_\pi$ for a <em>fixed</em> $\pi$. Two ways: <strong>exact</strong> (solve the $n$ linear equations $v=r_\pi+\gamma P_\pi v$) or <strong>iterative</strong> $v_{k+1}(s)=\sum_a\pi(a\mid s)\sum_{s',r}p(s',r\mid s,a)[r+\gamma v_k(s')]$ from $v_0=0$ (or any start).</li>
+      <li><strong>Synchronous (two-array):</strong> every state in sweep $k+1$ uses only $v_k$. <strong>In-place (Gauss-Seidel):</strong> uses already-updated values within the sweep, so the numbers depend on the state order given in the question. Both converge to $v_\pi$.</li>
+      <li><strong>Stopping:</strong> $\Delta\leftarrow\max_s|v_{\text{new}}(s)-v_{\text{old}}(s)|$ over a full sweep; stop when $\Delta\lt\theta$. The initial guess does not change the limit, only the speed.</li>
+      <li>For $\gamma\lt1$ the iteration error shrinks like $\gamma^k\|v_0-v_\pi\|_\infty$ (standard result, from the contraction).</li>
+      <li><strong>Greedy action at sweep $k$:</strong> $\argmax_a\sum p[r+\gamma v_k(s')]$, computed from $v_k$ <em>including the reward</em>. At $v_0=0$ every action ties unless the rewards differ.</li>
+      <li><strong>Symmetry:</strong> states that are mirror images under a symmetry of the MDP and policy have equal values at every sweep; use it to cut work and as a check.</li>
+    </ul>
+  </div>
+  <div class="box key"><span class="box-title">Method — step by step</span>
+    <ol>
+      <li>List the actions with their $\pi$ weights and, for each state, the (reward, next state) of every action. Mark goals/terminals with $v=0$.</li>
+      <li><strong>Exact:</strong> one linear equation per state, eliminate by substitution (use symmetry to reduce the unknowns), then verify in every equation.</li>
+      <li><strong>Iterative:</strong> write the sweep formula once, then compute $v_1,v_2,\dots$ as a table with one column per state; keep the previous row visible.</li>
+      <li>For each cell write the four terms $r+\gamma v_k(s')$ before averaging; off-grid moves keep $s'=s$ with their (penalty) reward.</li>
+      <li><strong>Greedy action at each $k$:</strong> for each state compare $r(s,a)+\gamma v_k(s')$ over actions; list all tied actions.</li>
+      <li>State the stopping rule ($\Delta\lt\theta$) and, if asked, compute $\Delta$ for the last sweep.</li>
+    </ol>
+  </div>
+  <div class="box exam"><span class="box-title">Question patterns and what to do</span>
+    <div class="table-wrap"><table>
+      <tr><th>If the question says…</th><th>Do this</th></tr>
+      <tr><td>"Using iterative policy evaluation from 0, find $v_1,v_2,v_3$" (Aug 2020 Q6a)</td><td>Synchronous sweeps with the equiprobable $\tfrac14$ weights; a table of 7 states by 3 sweeps; use the diagonal symmetry as a check.</td></tr>
+      <tr><td>"Identify the greedy action at each $k=1,2,3$" (Aug 2020 Q6b)</td><td>Compare $r+v_k(s')$ per action; report ties (state 2: Down or Left; state 4: all four). The greedy policy can stabilise while the values are still far from converged.</td></tr>
+      <tr><td>"Find $v_\pi$ by solving the Bellman equations" (Tutorial 2 Q4c, Midterm 1 Q2a)</td><td>Exact linear solve; verify by substitution.</td></tr>
+      <tr><td>"Using value iteration from 0, find $v_1,v_2,v_3$" for a <em>fixed random</em> policy (Tutorial 2 Q4d)</td><td>Read it as iterative evaluation of $\pi$ (expectation, no max) and mention the true-VI reading with $\max$ as the alternative.</td></tr>
+      <tr><td>"In-place / Gauss-Seidel sweeps in the order 1,2,…,7"</td><td>Overwrite as you go; later states in the same sweep see the new values. The intermediate numbers differ from the two-array version.</td></tr>
+      <tr><td>"How many sweeps until it stops changing?"</td><td>Policy evaluation converges only in the limit; use $\Delta\lt\theta$ and report the sweep count, or the bound $\gamma^k\|v_0-v_\pi\|\lt\varepsilon$.</td></tr>
+      <tr><td>"Converged $v_\pi$ with symmetry (7 equations)"</td><td>Unknowns $a=v(1)=v(3)=v(5)=v(7)$, $b=v(2)=v(6)$, $c=v(4)$; three equations.</td></tr>
+    </table></div>
+  </div>
+  <div class="box pitfall"><span class="box-title">Traps and tricky points</span>
+    <ul>
+      <li><strong>Wall penalty:</strong> an off-grid action gives reward $-2$ and the state does not change; the next value is $v_k(s)$ itself, not $v_k$ of a neighbour. State 4 (interior) never hits a wall.</li>
+      <li>A move <em>into</em> a goal still gets the step reward $-1$ and next value $0$.</li>
+      <li>Greedy at $k=0$: all zeros means all actions tie; the greedy policy is meaningless until $v_k$ carries information.</li>
+      <li>Greedy w.r.t. $v_\pi$ is one improvement step, <strong>not</strong> necessarily the optimal policy.</li>
+      <li>Do not mix sync and in-place; read the question for the sweep order. $v_k$ in the table means after $k$ full sweeps.</li>
+      <li>Equal values by coincidence: in Tutorial 2 Q4 the sweep $v_2=(0.2,0.3,-0.7)$ already equals the exact answer and $v_3$ is unchanged ($\Delta=0$). This is a special case; do not claim it in general.</li>
+      <li>Rounding: carry exact fractions ($-2.1875$, $-4.03125$) until the end; do not round between sweeps.</li>
+    </ul>
+  </div>
+  <details class="kh-worked"><summary>Worked micro-example (numbers from a sample paper)</summary>
+    <p><strong>Aug 2020 Q6</strong> ($3\times3$ grid, goals top-left and bottom-right, states 1..7, wall $-2$, other moves $-1$, equiprobable):</p>
+    <div class="table-wrap"><table>
+      <tr><th>$k$</th><th>$v(1)$</th><th>$v(2)$</th><th>$v(3)$</th><th>$v(4)$</th><th>$v(5)$</th><th>$v(6)$</th><th>$v(7)$</th></tr>
+      <tr><td>1</td><td>-1.25</td><td>-1.5</td><td>-1.25</td><td>-1.0</td><td>-1.25</td><td>-1.5</td><td>-1.25</td></tr>
+      <tr><td>2</td><td>-2.1875</td><td>-2.875</td><td>-2.1875</td><td>-2.25</td><td>-2.1875</td><td>-2.875</td><td>-2.1875</td></tr>
+      <tr><td>3</td><td>-3.0781</td><td>-4.0313</td><td>-3.0781</td><td>-3.1875</td><td>-3.0781</td><td>-4.0313</td><td>-3.0781</td></tr>
+    </table></div>
+    <p>$v_2(1)=\tfrac14[(-1+0)+(-1-1.5)+(-1-1)+(-2-1.25)]=\tfrac14(-1-2.5-2-3.25)=-2.1875$. $\Delta$ after sweep 3 is $1.156$ (state 2), far from small. The exact $v_\pi=(-9,-12,-9,-10,-9,-12,-9)$ (from $a=-9,b=-12,c=-10$) is reached only in the limit (about 55 sweeps for $\Delta\lt10^{-3}$, my computation).</p>
+    <p><strong>In-place, order 1..7 (my computation):</strong> sweep 1 gives $(-1.25,-1.8125,-1.25,-1.625,-2.1094,-1.8125,-2.1094)$, different from the synchronous row though it converges to the same $v_\pi$.</p>
+    <p><strong>Greedy at $k=1,2,3$:</strong> 1 Left, 2 Down or Left, 3 Up, 4 all four, 5 Down, 6 Up or Right, 7 Right.</p>
+  </details>
+  <p class="small muted">Read more: <a href="chapters/ch04.html#evaluation">Ch 4 §4.1</a> · <a href="chapters/ch04.html#efficiency">§4.7 efficiency</a> · <a href="formulas.html#ch4">formula sheet</a></p>
+</section>
+
+<section class="kh" id="kh-pi">
+  <h2 id="pi">Policy improvement and policy iteration</h2>
+  <p class="asked"><span class="src">Asked in:</span> <span class="chip">Midterm 1 Q2b</span> <span class="chip">Midterm 1 Q5</span> <span class="chip">Final 2025 Q2 (variation)</span> <span class="chip">Aug 2020 Q6b</span></p>
+  <div class="box def"><span class="box-title">Know this cold</span>
+    <ul>
+      <li><strong>Improvement step:</strong> $\pi'(s)=\argmax_aq_\pi(s,a)$ with $q_\pi(s,a)=\sum_{s',r}p(s',r\mid s,a)[r+\gamma v_\pi(s')]$. Deterministic MDP: $q_\pi(s,a)=r+\gamma v_\pi(s')$.</li>
+      <li><strong>Policy improvement theorem:</strong> if $q_\pi(s,\pi'(s))\ge v_\pi(s)$ for all $s$ then $v_{\pi'}\ge v_\pi$ everywhere (strictly somewhere if the inequality is strict somewhere).</li>
+      <li><strong>Policy iteration:</strong> evaluate $\pi$ exactly, improve greedily, repeat. <strong>Terminate when the policy is stable</strong> ($\pi'=\pi$).</li>
+      <li><strong>Why stable means optimal</strong> (lecture 12, §8): if the greedy $\pi'$ has $v_{\pi'}=v_\pi$ then $v_\pi(s)=\max_a\sum p[r+\gamma v_\pi(s')]$, which is the Bellman optimality equation, whose unique solution is $v_*$. It is not a mere local optimum.</li>
+      <li>Number of deterministic policies $=|\mathcal A|^{|\mathcal S|}$ (3 states, 2 actions: 8). Each improvement is at least as good, so with consistent tie-breaking PI terminates in finitely many outer steps. The inner evaluation may need many sweeps.</li>
+      <li><strong>Ties:</strong> keep the current action unless another is strictly better. Alternatively two policies can differ yet have the same value everywhere, which is also a stopping sign (lecture).</li>
+      <li>Stochastic $\pi$: $v_\pi(s)=\sum_a\pi(a\mid s)q_\pi(s,a)$; so $q_\pi(s,\pi(s))=v_\pi(s)$ for a deterministic $\pi$, a free sanity check.</li>
+    </ul>
+  </div>
+  <div class="box key"><span class="box-title">Method — step by step</span>
+    <ol>
+      <li><strong>Evaluate</strong> $\pi$ exactly (linear system, substitute and verify).</li>
+      <li>For <em>every</em> state and <em>every</em> action compute $q_\pi(s,a)$; fill a table.</li>
+      <li>Check that the current action's $q$ equals $v_\pi(s)$ (consistency).</li>
+      <li>$\pi'(s)=\argmax_aq_\pi(s,a)$; list which states changed. Apply the tie rule.</li>
+      <li>"Is it optimal?" Not yet: evaluate $\pi'$ and improve again. If nothing changes, state "policy stable, so $v_\pi$ satisfies Bellman optimality, so $\pi=\pi_*$."</li>
+      <li>If only a partial question is asked ("improvement at state D"), still compute $q$ for all actions in that state and say whether to switch.</li>
+    </ol>
+  </div>
+  <div class="box exam"><span class="box-title">Question patterns and what to do</span>
+    <div class="table-wrap"><table>
+      <tr><th>If the question says…</th><th>Do this</th></tr>
+      <tr><td>"Perform policy improvement at state D" (Midterm 1 Q2b)</td><td>$q_\pi(D,M)$ and $q_\pi(D,O)$ from $v_\pi$; switch only if the other action is strictly larger.</td></tr>
+      <tr><td>"Perform policy improvement; can we conclude the improved policy is optimal?" (Midterm 1 Q5c)</td><td>Improvement gives $\pi'\ge\pi$ only. Answer: not yet; evaluate $\pi'$ and check that improvement changes nothing.</td></tr>
+      <tr><td>"Run policy iteration to convergence"</td><td>Repeat evaluate-improve; stop when the policy is stable; report $\pi_*$ and $v_*$.</td></tr>
+      <tr><td>"How many deterministic policies?"</td><td>$|\mathcal A|^{|\mathcal S|}$ (with state-dependent action sets: the product of the action counts).</td></tr>
+      <tr><td>"Prove the policy improvement theorem"</td><td>Expand $v_\pi(s)\le q_\pi(s,\pi'(s))=\E_{\pi'}[R+\gamma v_\pi(S')]\le\E_{\pi'}[R+\gamma q_\pi(S',\pi'(S'))]\le\cdots\le v_{\pi'}(s)$.</td></tr>
+      <tr><td>"Policy iteration vs value iteration"</td><td>PI: full evaluation plus improvement, few iterations, explicit policy. VI: one sweep with a max, many cheap sweeps (see the value-iteration section).</td></tr>
+      <tr><td>"Improve the policy from $V_\pi$ for the four-room MDP" (Final Q2 variation)</td><td>$q_\pi(1,A_2)=0.3+0.5\cdot0.5127=0.556\gt q_\pi(1,A_1)=0.5127$, so switch to $A_2$.</td></tr>
+    </table></div>
+  </div>
+  <div class="box pitfall"><span class="box-title">Traps and tricky points</span>
+    <ul>
+      <li><strong>"Policy changed" does not mean "optimal".</strong> You must show that the next improvement gives no change.</li>
+      <li>An improvement step must compare against <em>all</em> actions, including ones the current policy never uses.</li>
+      <li>Compare $q_\pi(s,a)$ values, not rewards. In Midterm 1 Q2 the immediate reward of Operate (2) beats Maintain ($-2$), but $q_\pi(D,\text{Maintain})=33.39\gt q_\pi(D,\text{Operate})=20.03$.</li>
+      <li>Ties: switching between equally good actions can cycle forever; use a fixed tie-break or "keep current".</li>
+      <li>Improvement is evaluated against the old $v_\pi$; do not update $v$ inside the improvement step.</li>
+      <li>$v_{\pi'}\ge v_\pi$ is guaranteed; $v_{\pi'}\gt v_\pi$ in every state is not.</li>
+      <li>The optimal <em>value</em> is unique, the optimal <em>policy</em> may not be.</li>
+    </ul>
+  </div>
+  <details class="kh-worked"><summary>Worked micro-example (numbers from a sample paper)</summary>
+    <p><strong>Midterm 1 Q5 ($\gamma=0.5$, deterministic MDP, question text reconstructed):</strong> $\pi=(a,a,b)$ gives $v_\pi=(\frac{10}{3},\frac83,\frac{11}{3})$. $q_\pi$: state 1: $a$ $3.333$, $b$ $2.833$; state 2: $a$ $2.667$, $b$ $4.833$; state 3: $a$ $1.333$, $b$ $3.667$. So $\pi'=(a,b,b)$, only state 2 changes.</p>
+    <p><strong>Next round (my computation):</strong> evaluating $\pi'$ gives $v_{\pi'}=(\frac{32}{7},\frac{36}{7},\frac{30}{7})=(4.571,5.143,4.286)$, each at least $v_\pi$. Then $q$: state 1 $a$ $4.571$ vs $b$ $3.143$; state 2 $a$ $3.286$ vs $b$ $5.143$; state 3 $a$ $2.571$ vs $b$ $4.286$. No state changes, so the policy is stable and $\pi_*=(a,b,b)$. Of the $2^3=8$ policies it has the largest value in every state.</p>
+    <p><strong>Midterm 1 Q2 (machine G/D, $\gamma=0.9$):</strong> $v_\pi(G)=39.32$, $v_\pi(D)=33.39$; $q_\pi(D,\text{Maintain})=33.39$ and $q_\pi(D,\text{Operate})=2+0.9\cdot0.6\cdot33.39=20.03$ (the solutions file prints 20.01; the decision is the same), so keep Maintain.</p>
+  </details>
+  <p class="small muted">Read more: <a href="chapters/ch04.html#improvement">Ch 4 §4.2 improvement</a> · <a href="chapters/ch04.html#pi">§4.3 policy iteration</a> · <a href="chapters/ch04.html#gpi">§4.6 GPI</a> · <a href="formulas.html#ch4">formula sheet</a></p>
+</section>
+
+<section class="kh" id="kh-vi">
+  <h2 id="vi">Value iteration</h2>
+  <p class="asked"><span class="src">Asked in:</span> <span class="chip">Final 2025 Q2b,c</span> <span class="chip">Midterm 1 Q4</span> <span class="chip">Tutorial 2 Q4d</span> <span class="chip">Jan 2021 Q4c,d</span></p>
+  <div class="box def"><span class="box-title">Know this cold</span>
+    <ul>
+      <li><strong>Update:</strong> $V_{k+1}(s)=\max_a\sum_{s',r}p(s',r\mid s,a)[r+\gamma V_k(s')]$; deterministic: $\max_a[r(s,a)+\gamma V_k(s')]$. It is the Bellman optimality equation as an assignment. Start $V_0=0$, $V(\text{terminal})=0$.</li>
+      <li><strong>Synchronous:</strong> every state uses the old vector $V_k$ (two arrays). In-place (Gauss-Seidel) gives different intermediate numbers.</li>
+      <li><strong>Stopping rule:</strong> sweep all states, $\Delta=\max_s|V_{k+1}(s)-V_k(s)|$; stop when $\Delta\lt\theta$. Output the greedy policy $\pi(s)=\argmax_a\sum p[r+\gamma V(s')]$.</li>
+      <li><strong>What $\Delta\lt\theta$ guarantees</strong> (standard result; the bound is quoted in the Midterm 1 solutions): $\|V_{k+1}-V_*\|_\infty\le\dfrac{\gamma}{1-\gamma}\|V_{k+1}-V_k\|_\infty$. So $\Delta\lt\theta$ gives error $\le\gamma\theta/(1-\gamma)$; to guarantee error $\varepsilon$ choose $\theta=\varepsilon(1-\gamma)/\gamma$. Also $\|V_k-V_*\|\le\gamma^k\|V_0-V_*\|$.</li>
+      <li><strong>The policy stabilises before the values converge.</strong> The greedy policy w.r.t. $V_k$ is generally <em>not</em> guaranteed optimal for finite $k$. It is optimal once it is greedy w.r.t. $V_*$.</li>
+      <li><strong>Verify optimality of a candidate:</strong> (i) the candidate $v$ satisfies the Bellman optimality equation in every state; or (ii) evaluate the candidate policy and policy improvement gives no change.</li>
+      <li><strong>$\gamma=1$:</strong> convergence needs termination (absorbing goals, proper policies, $V(\text{terminal})=0$); the contraction argument no longer applies.</li>
+      <li><strong>VI vs PI:</strong> a VI sweep costs $O(|\mathcal S|^2|\mathcal A|)$, there is no explicit policy until the end, and many iterations are needed; PI needs an evaluation (many sweeps or a linear solve) per iteration but few iterations. Modified PI interposes a few sweeps.</li>
+    </ul>
+  </div>
+  <div class="box key"><span class="box-title">Method — step by step</span>
+    <ol>
+      <li>Write the update formula with $V_k$ on the right and $V_{k+1}$ on the left, and state "synchronous, $V_0=0$".</li>
+      <li>For each state compute the action values $[r+\gamma V_k(s')]$ for <em>every</em> action in a small table; $V_{k+1}$ is the row maximum.</li>
+      <li>Record both the new $V$ and the maximising action(s); the policy "greedy w.r.t. $V_k$" is read from the table built from $V_k$.</li>
+      <li>Compute $\Delta_k=\max_s|V_{k+1}-V_k|$; compare with $\theta$ if asked.</li>
+      <li>"Is the greedy policy optimal?" Say: no guarantee unless it is greedy w.r.t. $V_*$; show $V_*$ (solve the optimality equations or iterate further) and compare.</li>
+      <li>For threshold questions ("smallest $L$..."), write the two competing action values as functions of $L$ and solve the inequality.</li>
+    </ol>
+  </div>
+  <div class="box exam"><span class="box-title">Question patterns and what to do</span>
+    <div class="table-wrap"><table>
+      <tr><th>If the question says…</th><th>Do this</th></tr>
+      <tr><td>"Write the value-iteration scheme" (Final Q2b)</td><td>$V_0=0$, $V_{n+1}(s)=\max_a\{\cdot\}$ from the old $V_n$; synchronous.</td></tr>
+      <tr><td>"Find $V_5(1),V_5(2)$" (Final Q2c)</td><td>Table with the two action columns for state 1; update both states from the old vector. Answer $0.58125,\ 0.31875$.</td></tr>
+      <tr><td>"Perform two iterations, give the greedy policy, is it optimal?" (Midterm 1 Q4)</td><td>$V_1,V_2$ with all action values; greedy table; "no guarantee, $V_2$ is a 2-step approximation; optimal only if greedy w.r.t. $V_*$ or if Bellman optimality holds."</td></tr>
+      <tr><td>"When do you stop?"</td><td>$\Delta\lt\theta$, plus the bound $\gamma\theta/(1-\gamma)$ on the distance to $V_*$.</td></tr>
+      <tr><td>"How many iterations for accuracy $\varepsilon$?"</td><td>$\gamma^k\|V_0-V_*\|\le\varepsilon$, so $k\ge\ln(\varepsilon/\|V_0-V_*\|)/\ln\gamma$ (standard result).</td></tr>
+      <tr><td>"Does value iteration converge with $\gamma=1$?"</td><td>Only with absorbing/proper structure (the goals in the four-room MDP); otherwise values can diverge.</td></tr>
+      <tr><td>"Value iteration vs policy iteration"</td><td>Use the cost comparison above; neither dominates; both converge for discounted finite MDPs.</td></tr>
+      <tr><td>"Smallest $L$ for which Operate is not optimal in state $L$" (Jan 2021 Q4d)</td><td>The replace value $-M+\gamma V(1)$ is the same in every state; operating in $L$ costs $5L$ per step. For $\gamma=1$, $V^*(1)=0$: operating is worse once $5L\gt100$, so $L=21$.</td></tr>
+      <tr><td>"Use value iteration on a small instance ($L=3$) and find the optimal policy"</td><td>Iterate to convergence, then read the greedy actions; check against the threshold structure "operate up to state $k$, replace beyond" (standard result).</td></tr>
+    </table></div>
+  </div>
+  <div class="box pitfall"><span class="box-title">Traps and tricky points</span>
+    <ul>
+      <li><strong>$\Delta\lt\theta$ bounds the value error, not the policy.</strong> The greedy policy is usually already optimal earlier, but only the bound $\gamma\theta/(1-\gamma)$ tells you how far $V$ is from $V_*$.</li>
+      <li><strong>Greedy at $V_k$ can be wrong at small $k$:</strong> in Midterm 1 Q4 the greedy policy w.r.t. $V_1$ is $(a,b,a)$ and w.r.t. $V_2$ is $(b,a,a)$; the latter is optimal and stays so while $V$ keeps changing up to $V_*=(6.967,5.574,7.459)$ (my computation).</li>
+      <li>Do not use updated values inside the same sweep unless the question says in-place.</li>
+      <li>$V_n$ labelling: $V_1$ is after the first sweep. "$V_5$" means five sweeps.</li>
+      <li>Ties at an early iteration (four-room $n=1$: both actions $0.3$) are real ties, not errors; the greedy action becomes $A_2$ from $n=2$.</li>
+      <li>States with a single action have no max; do not invent an alternative.</li>
+      <li>The $L=21$ answer for machine replacement compares one day's operating cost with the replacement cost. The rigorous undiscounted argument says that operating forever in $L$ would need $V=-5L+V$, impossible, so replacing is always at least as good. Mention both if marks are at stake.</li>
+      <li>With $\gamma\lt1$ the threshold changes: it needs the discounted comparison $-5L+\gamma V(L)$ vs $-M+\gamma V(1)$, which is not a simple $5L\gt M$.</li>
+    </ul>
+  </div>
+  <details class="kh-worked"><summary>Worked micro-example (numbers from a sample paper)</summary>
+    <p><strong>Final 2025 Q2 (four-room, $\gamma=1$):</strong> $V_{n+1}(1)=\max\{0.3+0.7V_n(2),\,0.3+0.5V_n(1)\}$, $V_{n+1}(2)=0.15+0.3V_n(1)$.</p>
+    <div class="table-wrap"><table>
+      <tr><th>$n$</th><th>$A_1$ value</th><th>$A_2$ value</th><th>$V_n(1)$</th><th>$V_n(2)$</th></tr>
+      <tr><td>1</td><td>0.3</td><td>0.3</td><td>0.3</td><td>0.15</td></tr>
+      <tr><td>2</td><td>0.405</td><td>0.45</td><td>0.45</td><td>0.24</td></tr>
+      <tr><td>3</td><td>0.468</td><td>0.525</td><td>0.525</td><td>0.285</td></tr>
+      <tr><td>4</td><td>0.4995</td><td>0.5625</td><td>0.5625</td><td>0.3075</td></tr>
+      <tr><td>5</td><td>0.51525</td><td>0.58125</td><td>0.58125</td><td>0.31875</td></tr>
+    </table></div>
+    <p>The limit is $V_*=(0.6,0.33)$. Tie at $n=1$, $A_2$ greedy from $n=2$ on, long before the values converge.</p>
+    <p><strong>Midterm 1 Q4 ($\gamma=0.8$, question text reconstructed):</strong> $V_1=(2,4,3)$, $V_2=(5.2,4,6.2)$. Greedy w.r.t. $V_2$: $s_1$: $a=5.2$, $b=1+0.8\cdot6.2=5.96\Rightarrow b$; $s_2$: $a=4.16$, $b=4\Rightarrow a$; $s_3$: $a=6.2$, $b=2\Rightarrow a$. Stopping-bound check (my computation, $V_*=(6.967,5.574,7.459)$): after the 3rd sweep $\Delta=0.76$, bound $\frac{0.8}{0.2}\cdot0.76=3.04$, true error $1.414$. The bound holds but is loose. With $\gamma=0.9$ and $\theta=0.01$ the guarantee is $0.09$.</p>
+    <p><strong>Machine replacement (Jan 2021 Q4d):</strong> $\gamma=1$, $V^*(1)=0$: replace $=-100$, operate in $L$ costs $-5L$ per day; $L=20$ ties at $-100$ and $L=21$ gives $-105\lt-100$. <em>My own value iteration for $\gamma=0.9$, $M=100$:</em> for $L=3$ and $L=4$ Operate is optimal everywhere; for $L\ge5$ the optimal policy operates in states 1-4 and replaces from state 5, with $V^*(1)=-160.34$. So with $\gamma=0.9$ the smallest $L$ for which Operate is not optimal in state $L$ is 5, not 21, which is why the question fixes $\gamma$ and $V^*(1)=0$.</p>
+  </details>
+  <p class="small muted">Read more: <a href="chapters/ch04.html#vi">Ch 4 §4.4 value iteration</a> · <a href="chapters/ch04.html#async">§4.5 asynchronous DP</a> · <a href="chapters/ch04.html#efficiency">§4.7 efficiency</a> · <a href="formulas.html#ch4">formula sheet</a></p>
+</section>

@@ -20,6 +20,7 @@
     { id: "algorithms", href: "algorithms.html", num: "A", title: "Algorithm catalogue & comparisons", group: "Revision" },
     { id: "hyper", href: "hyperparameters.html", num: "H", title: "Hyperparameters & step sizes", group: "Revision" },
     { id: "formulas", href: "formulas.html", num: "F", title: "Formula sheet", group: "Revision" },
+    { id: "knowhow", href: "knowhow.html", num: "K", title: "Exam know-how by algorithm", group: "Revision" },
     { id: "quiz", href: "quiz.html", num: "Q", title: "Mixed exam practice", group: "Revision" },
   ];
   // Pages that exist in the repo right now (the nav hides links to pages not yet written).
