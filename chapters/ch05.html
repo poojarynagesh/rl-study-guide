@@ -11,6 +11,7 @@
 <script defer src="../assets/search-index.js"></script>
 <script defer src="../assets/quizzes/ch05.js"></script>
 <script defer src="../assets/quizzes/ch05-exam.js"></script>
+<script defer src="../assets/quizzes/ch05-lec.js"></script>
 <script defer src="../assets/quiz.js"></script>
 <script defer src="../assets/site.js"></script>
 <style>
@@ -87,6 +88,21 @@
   <div class="algo-foot">Returns are computed <strong>backwards</strong> with $G\leftarrow\gamma G+R_{t+1}$ (eq. 3.9). Exercise 5.9: replace the list by a count: $N(S_t)\mathrel{+}=1$; $V(S_t)\leftarrow V(S_t)+\frac{1}{N(S_t)}[G-V(S_t)]$.</div>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: first visit vs every visit on two trajectories <span class="lec-date">Sep 21</span></span>
+  <p>Board example with states 1–4. Trajectory 1 visits $2,4,2,1,3,4,2$ then terminates; trajectory 2 visits $4,1,3,4,2,1,3$. Each time step gives a return $G_t$ — 14 in all.</p>
+  <ul>
+    <li><strong>First visit</strong> keeps, per episode, only the return after the first occurrence of each state: for state 2 that is $G_0^{(1)}$ and $G_4^{(2)}$, so $\hat V_{\rm FV}(2)=\tfrac12\big(G_0^{(1)}+G_4^{(2)}\big)$. "First" resets in every episode.</li>
+    <li><strong>Every visit</strong> keeps all of them: $\hat V_{\rm EV}(2)=\tfrac14\big(G_0^{(1)}+G_2^{(1)}+G_6^{(1)}+G_4^{(2)}\big)$.</li>
+  </ul>
+  <div class="table-wrap"><table>
+    <tr><th></th><th>First visit</th><th>Every visit</th></tr>
+    <tr><td>Samples per state per episode</td><td>at most one</td><td>one per occurrence</td></tr>
+    <tr><td>Statistical structure</td><td>independent across episodes — clean law-of-large-numbers argument</td><td>returns within an episode share most of their rewards → <strong>correlated</strong></td></tr>
+    <tr><td>Prefer when…</td><td>episodes are plentiful</td><td>episodes are scarce or expensive — extract more from each</td></tr>
+  </table></div>
+  <p>Both converge; neither is universally better. And "model-free" does not drop the Markov assumption — the process is still Markov, we just don't know its probabilities.</p>
+</div>
 <h3>Example 5.1 — Blackjack</h3>
 <ul>
   <li>Episodic, undiscounted (γ = 1); reward +1 win, −1 lose, 0 draw (also the return). Actions: <strong>hit</strong> or <strong>stick</strong>. Infinite deck. Dealer sticks on ≥ 17.</li>
@@ -129,6 +145,16 @@
 <p>Same methods, but visits are to state–action pairs. <strong>Problem</strong>: under a deterministic π, only one action per state is ever observed, so other actions' estimates never improve. This is the problem of <strong>maintaining exploration</strong>.</p>
 <p><strong>Exploring starts (ES)</strong>: every episode starts in a state–action pair, and every pair has non-zero probability of being the start ⇒ all pairs visited infinitely often. Useful in simulation, but cannot be relied on when learning from real interaction.</p>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: the coverage problem and exploring starts <span class="lec-date">Sep 23</span></span>
+  <p>A deterministic policy that always picks $a_1$ in $s$ never produces the pair $(s,a_2)$, so $Q_\pi(s,a_2)$ gets no samples and the greedy step cannot compare actions. <strong>Exploring starts</strong>: every pair has $P(S_0=s,A_0=a)\gt0$; take $a$ once, then follow π — the return is a valid sample of $Q_\pi(s,a)$.</p>
+  <ul>
+    <li>Under first-visit MC each <em>pair</em> is updated at most once per episode, but one episode updates many different pairs.</li>
+    <li>A pair that is rarely chosen as a start is estimated slowly — the assumption guarantees visits only asymptotically.</li>
+    <li>Limitation: real systems usually can't be reset to an arbitrary state with a forced action — this motivates ε-soft and off-policy methods.</li>
+    <li>With finitely many returns, $Q$ is noisy, so greedy changes can be premature; the improvement guarantee is exact only for the true $Q_\pi$.</li>
+  </ul>
+</div>
 <h2 id="control">5.3 Monte Carlo control</h2>
 <div class="eq">
 $$\pi_0\xrightarrow{E}q_{\pi_0}\xrightarrow{I}\pi_1\xrightarrow{E}q_{\pi_1}\xrightarrow{I}\pi_2\xrightarrow{E}\cdots\xrightarrow{I}\pi_*\xrightarrow{E}q_*$$
@@ -204,6 +230,17 @@ $$q_\pi(s,\pi'(s)) = \frac{\varepsilon}{|\mathcal A(s)|}\sum_a q_\pi(s,a) + (1-\
 </div>
 <p>(The max is ≥ any weighted average with non-negative weights summing to 1.) Equality holds only when π is optimal <strong>among ε-soft policies</strong> — shown by "moving the ε-softness inside the environment" (with prob. ε the environment re-picks the action at random); the best general policy there equals the best ε-soft policy here. <strong>Trade-off</strong>: we only reach the best ε-soft policy, but we no longer need exploring starts.</p>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: a real off-policy problem — traffic signals <span class="lec-date">Sep 23</span></span>
+  <p>A junction runs a hard-wired cycle of fixed green times. An adaptive RL controller would read congestion and choose, say, 38 s, 23 s and 15 s for three phases. But the adaptive controller has never been deployed, so <em>all logs come from the fixed controller</em> — the <strong>behaviour policy $b$</strong>; the adaptive one is the <strong>target policy π</strong>. Testing an untried policy on live traffic may be unsafe, so we must evaluate π from $b$'s data.</p>
+  <p><strong>Coverage</strong> $\pi(a\mid s)\gt0\Rightarrow b(a\mid s)\gt0$. With actions $a_1,\dots,a_6$: if π uses $\{a_1,a_4,a_5\}$ and $b$ uses $\{a_1,\dots,a_5\}$, coverage holds — extra actions in $b$ are harmless. Reverse the roles and it fails: actions π needs ($a_2,a_3$) never appear in the data.</p>
+  <div class="table-wrap"><table>
+    <tr><th></th><th>On-policy</th><th>Off-policy</th></tr>
+    <tr><td>Data from</td><td>the policy being learned</td><td>a different behaviour policy</td></tr>
+    <tr><td>Variance / speed</td><td>lower, usually faster</td><td>higher, usually slower</td></tr>
+    <tr><td>Generality</td><td>special case ($b=\pi$)</td><td>more general: reuse logs, demonstrations</td></tr>
+  </table></div>
+</div>
 <h2 id="off-policy">5.5 Off-policy prediction via importance sampling</h2>
 <div class="box key"><span class="box-title">The dilemma of all learning control methods</span>
 <p>They want action values for <em>optimal</em> behaviour, but must behave non-optimally to explore. On-policy is a compromise (learns about a near-optimal policy that still explores). Off-policy uses <strong>two policies</strong>: the <strong>target policy</strong> π (learned about; becomes optimal; may be deterministic) and the <strong>behaviour policy</strong> $b$ (generates data; exploratory).</p></div>
@@ -257,6 +294,15 @@ $$V(s)\doteq\frac{\sum_{t\in\mathcal T(s)}\rho_{t:T(t)-1}G_t}{\sum_{t\in\mathcal
   <div class="demo-out" id="is-out"></div>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: how to read the importance ratio <span class="lec-date">Sep 28</span></span>
+  <ul>
+    <li>The environment factors $p(S_{k+1},R_{k+1}\mid S_k,A_k)$ are identical under π and $b$ and <strong>cancel</strong> — even if they were time-dependent — so $\rho$ needs only the two policies, not the model. No trajectory generated by π is ever needed.</li>
+    <li>$\rho\gt1$: the observed actions are more likely under π → up-weight. $0\lt\rho\lt1$ → down-weight. $\rho=0$: some action is impossible under π → the episode contributes nothing. $b=\pi$ gives $\rho=1$.</li>
+    <li><strong>Where the variance comes from</strong>: one step with $\pi(a|s)=0.8$, $b(a|s)=0.01$ has ratio 80; a few such steps multiply to enormous weights, so whether a rare episode happens to occur swings the estimate. It is $\rho G_t$, not the raw rewards, that is highly variable.</li>
+    <li><strong>Weighted IS</strong> divides by $\sum\rho$, so weights sum to 1: lower variance, biased for finite samples, consistent. If every weight so far is 0, it is undefined until a π-compatible episode arrives.</li>
+  </ul>
+</div>
 <h3>Example 5.5 — infinite variance</h3>
 <p>One state $s$; <em>right</em> → terminate with reward 0; <em>left</em> → back to $s$ w.p. 0.9, or terminate with +1 w.p. 0.1. Target: always left ⇒ $v_\pi(s)=1$. Behaviour: left/right ½ each. Episodes ending with <em>right</em> have ρ = 0; an episode of $k+1$ lefts has ρ = $2^{k+1}$. The second moment of the scaled return:</p>
 <div class="eq">
@@ -346,6 +392,15 @@ $$\E[\rho_{t:T-1}R_{t+k}] = \E[\rho_{t:t+k-1}R_{t+k}] \;\Rightarrow\; \tilde G_t
 </div>
 <p>$V(s)=\sum_{t\in\mathcal T(s)}\tilde G_t/|\mathcal T(s)|$ is unbiased (first-visit) with possibly lower variance. No consistent per-decision <em>weighted</em> version is known.</p>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: taming noisy updates (project idea) <span class="lec-date">Sep 28</span></span>
+  <p>Many RL updates have the form $x_{n+1}=x_n+\alpha_n[f(x_n)+\xi_n]$ (direction + noise). When the noisy term swings wildly — e.g. because of large importance ratios — two simple fixes are worth testing:</p>
+  <ul>
+    <li><strong>Sign update</strong>: $x_{n+1}=x_n+\alpha_n\,\mathrm{sgn}(f(x_n)+\xi_n)$ — each step moves exactly $\pm\alpha_n$.</li>
+    <li><strong>Clipping</strong>: $x_{n+1}=x_n+\alpha_n\,\mathrm{clip}(f(x_n)+\xi_n;A,B)$ — keep magnitudes inside $[A,B]$, cap the extremes.</li>
+  </ul>
+  <p>Neither is guaranteed to help every algorithm — that is exactly what a project experiment should check. Algorithm families for projects: <em>value-based</em> (Q-learning, DQN, experience replay — value-iteration-like) and <em>policy-based</em> (policy gradient, actor–critic, TRPO, PPO — policy-iteration-like); test beds such as Mountain Car, cart-pole, tic-tac-toe on larger boards, Atari, Gym environments.</p>
+</div>
 <h2 id="summary">5.10 Summary — MC vs DP</h2>
 <div class="table-wrap"><table>
   <tr><th></th><th>Dynamic programming (Ch 4)</th><th>Monte Carlo (Ch 5)</th></tr>

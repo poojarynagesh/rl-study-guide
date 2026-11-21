@@ -40,7 +40,7 @@
         '<button class="btn ghost cq-retry" type="button">Shuffle &amp; restart</button></div>';
       order.forEach((qi, k) => {
         const q = bank[qi];
-        const tag = q.tag === "exam" ? '<span class="cq-tag">Exam-style</span>' : "";
+        const tag = q.tag === "exam" ? '<span class="cq-tag">Exam-style</span>' : q.tag === "lecture" ? '<span class="cq-tag cq-tag-lec">From lectures</span>' : "";
         h += '<div class="cq-q' + (q.tag ? " cq-" + q.tag : "") + '" data-k="' + k + '"><div class="cq-text"><span class="cq-n">' + (k + 1) + "</span><div>" + tag + q.q + "</div></div>";
         if (q.type === "num") {
           h += '<div class="cq-num"><input type="text" inputmode="decimal" placeholder="Your answer" aria-label="Numeric answer"><button class="btn" type="button">Check</button></div>';

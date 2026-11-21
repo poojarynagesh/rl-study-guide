@@ -1,8 +1,9 @@
-# RL Study Guide — Sutton & Barto, Chapters 1–9
+# RL Study Guide — Sutton & Barto, Chapters 1–7, 9, 13 and 16 (§16.5)
 
 An interactive, offline-friendly study website for *Reinforcement Learning: An
-Introduction* (Sutton & Barto, 2nd edition, 2020), covering Chapters 1–7 and 9
-(Chapter 8 is out of scope). Built for exam preparation.
+Introduction* (Sutton & Barto, 2nd edition, 2020), covering Chapters 1–7, 9 and 13
+(policy gradient methods) plus Chapter 16 §16.5 (DQN, with a note on DRQN).
+Chapters 8, 10–12 and the rest of 14–17 are out of scope. Built for exam preparation.
 
 Each chapter page has:
 
@@ -13,6 +14,7 @@ Each chapter page has:
 - all key formulas (with book equation numbers)
 - the hyperparameters involved and what each one controls
 - an interactive simulation you can re-run with different settings
+- the course professor's own explanations, worked examples and tips, merged into the matching sections as dated "From the lectures" boxes
 - self-test questions with model answers
 - a scored chapter quiz (multiple choice, true/false, numeric) with instant
   feedback and explanations; best scores show on the home page

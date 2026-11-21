@@ -1,3 +1,7 @@
 *.png
 __pycache__/
 .DS_Store
+lecture_notes_RL/
+RL_Book/
+Sample_Papers/
+tools/_old_*.txt

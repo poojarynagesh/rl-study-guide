@@ -11,6 +11,7 @@
 <script defer src="../assets/search-index.js"></script>
 <script defer src="../assets/quizzes/ch04.js"></script>
 <script defer src="../assets/quizzes/ch04-exam.js"></script>
+<script defer src="../assets/quizzes/ch04-lec.js"></script>
 <script defer src="../assets/quiz.js"></script>
 <script defer src="../assets/site.js"></script>
 </head>
@@ -103,6 +104,16 @@ Initialize V(s) arbitrarily, for s ∈ S, and V(terminal) to 0
 <div class="box key"><span class="box-title">What Figure 4.1 teaches</span>
 <p>The greedy policy w.r.t. $v_k$ is already optimal from <strong>k = 3</strong>, long before $v_k$ converges. Evaluation beyond that point does not change the greedy policy — motivation for <strong>truncating</strong> policy evaluation (value iteration, §4.4).</p></div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: details of the 4×4 gridworld sweep <span class="lec-date">Sep 7</span></span>
+  <ul>
+    <li><strong>A wall move still costs −1.</strong> The agent stays put, but a step has been used. Terminal (goal) states are fixed at value 0 — nothing is earned after the episode ends.</li>
+    <li>With $V_0\equiv0$, the first sweep gives just the expected one-step reward: $V_1(s)=-1$ for every non-terminal state. Each further sweep pushes information one step further back from the goals.</li>
+    <li>A policy that is greedy with respect to $V_0\equiv0$ is uninformative — every action ties. Greedy choices only become meaningful as the values separate.</li>
+    <li>Why −1 per step? It turns the task into a <strong>shortest-path</strong> problem: fewer steps ⇒ less accumulated penalty.</li>
+    <li>Typical thresholds mentioned: θ = 0.01, 0.05 or 0.1 — smaller θ means more sweeps and more accuracy.</li>
+  </ul>
+</div>
 <h2 id="improvement">4.2 Policy improvement</h2>
 <p>Given $v_\pi$, is it better to pick $a\ne\pi(s)$ in $s$ and follow π thereafter?</p>
 <div class="eq">
@@ -133,6 +144,13 @@ $$\pi'(s)\doteq\argmax_a q_\pi(s,a) = \argmax_a\sum_{s',r}p(s',r\mid s,a)\big[r+
   <li>Extends to <strong>stochastic</strong> policies; with ties, any split of probability among maximising actions is allowed, as long as sub-maximal actions get 0.</li>
 </ul>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: advantage, greedy rows, and why "stable" means globally optimal <span class="lec-date">Sep 16</span></span>
+  <p><strong>Is a different action worth it?</strong> Compare $q_\pi(s,a)$ with $v_\pi(s)$; the difference $A_\pi(s,a)=q_\pi(s,a)-v_\pi(s)$ is the <em>advantage</em>: positive = better than the current behaviour, 0 = equally good, negative = worse.</p>
+  <p><strong>Greedy improvement, one state at a time.</strong> If state 1 has $q_\pi(1,\cdot)=(0.5,\ 6.8,\ 1.9,\ 5.4)$ then $\pi'(1)=\arg\max=$ action 2 (while $\max=6.8$ is a <em>value</em>, not an action). Repeat for every state to get the whole new table, e.g. $1\to2,\ 2\to1,\ 3\to4,\ 4\to2$.</p>
+  <p><strong>Proof idea of the improvement theorem</strong>: $v_\pi(s)\le q_\pi(s,\pi'(s))=\mathbb E_{\pi'}[R_{t+1}+\gamma v_\pi(S_{t+1})]$; apply the same inequality at $S_{t+1}$, then $S_{t+2}$, … ; the leftover $\gamma^nv_\pi(S_{t+n})\to0$, leaving $v_{\pi'}(s)$.</p>
+  <p><strong>Not a local optimum.</strong> If greedy improvement changes nothing, $v_\pi$ satisfies the Bellman <em>optimality</em> equation — a max over every action in every state — whose solution is unique. So the stable policy is globally optimal, not stuck at a local peak.</p>
+</div>
 <h2 id="pi">4.3 Policy iteration</h2>
 <div class="eq">
 $$\pi_0\xrightarrow{E}v_{\pi_0}\xrightarrow{I}\pi_1\xrightarrow{E}v_{\pi_1}\xrightarrow{I}\pi_2\xrightarrow{E}\cdots\xrightarrow{I}\pi_*\xrightarrow{E}v_*$$
@@ -169,6 +187,15 @@ $$\pi_0\xrightarrow{E}v_{\pi_0}\xrightarrow{I}\pi_1\xrightarrow{E}v_{\pi_1}\xrig
 <h3>Example 4.2 — Jack's car rental</h3>
 <p>Two locations, ≤ 20 cars each; rent = +$\$10$; moving a car overnight = −$\$2$ (≤ 5 cars). Requests and returns are <strong>Poisson</strong> ($\lambda$ = 3, 4 requests; 3, 2 returns). γ = 0.9, continuing. State = cars at each location at day's end; action = net cars moved (−5…+5). Policy iteration from "never move" finds the optimal policy in <strong>4 improvements</strong> ($\pi_0\to\pi_4$). Moral: <strong>policy iteration often converges in surprisingly few iterations</strong>. (Exercise 4.7 adds a free shuttle and a parking cost — nonlinearities DP handles easily but other optimisers do not.)</p>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: why policy iteration terminates, and how to stop <span class="lec-date">Sep 16</span></span>
+  <ul>
+    <li>A finite MDP has $m^n$ deterministic policies ($\prod_s|\mathcal A(s)|$ if action sets differ). Each improvement step is at least as good everywhere and strictly better somewhere until the policy is stable, so the outer loop ends after finitely many policy changes.</li>
+    <li>The finite bound counts <em>policy changes</em>; each inner evaluation is itself stopped when the largest change in a sweep, Δ, falls below θ.</li>
+    <li>Two signs of convergence: no action changes (policy-stable), or a changed policy has the same value everywhere (ties between optimal actions). Use a fixed tie-breaking rule so the algorithm doesn't flip forever between equally good actions.</li>
+    <li>Successive policies are <strong>at least as good</strong>, not necessarily strictly better.</li>
+  </ul>
+</div>
 <h2 id="vi">4.4 Value iteration</h2>
 <p>Policy evaluation inside policy iteration may need many sweeps. It can be <strong>truncated</strong> without losing convergence. Stopping after <strong>one sweep</strong> gives <strong>value iteration</strong>:</p>
 <div class="eq">
@@ -228,6 +255,12 @@ $$q_{k+1}(s,a) = \sum_{s',r}p(s',r\mid s,a)\Big[r+\gamma\max_{a'}q_k(s',a')\Big]
 <div class="box exam"><span class="box-title">Exercise 4.8 — why such a curious policy?</span>
 <p>With $p_h&lt;0.5$ every bet has negative expected value, so the gambler wants to reach $\$100$ in <strong>as few flips as possible</strong> ("bold play"). At $\$50$, one all-in bet wins with probability $p_h$ directly. At $\$51$, betting $\$1$ keeps a chance to reach a better position (e.g. $\$52$, or back to $\$50$ where the all-in option still exists) — so betting all $\$49$ needed would waste the extra dollar. The spikes at 25, 50, 75 reflect positions from which one or two bold bets reach the goal. Many optimal policies exist (ties). With $p_h&gt;0.5$ the game is favourable and small "timid" bets become optimal. As θ → 0 the value function is stable, but the plotted policy may flicker among tied actions due to floating-point ties.</p></div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: is one loop faster than two? <span class="lec-date">Sep 16</span></span>
+  <p>A student argued that value iteration (one loop) must beat policy iteration (two nested loops). <strong>Not necessarily.</strong> In policy iteration's inner loop the policy is fixed, so the Bellman equation is <em>linear</em> and evaluation is stable. Value iteration's $\max_a$ makes every backup <em>nonlinear</em> and the implied greedy action can keep changing, which can need many sweeps. Which is faster depends on the MDP (transition structure, $n$, $m$, γ, θ). Both use the same state and action sets.</p>
+  <p><strong>Why value iteration converges</strong>: the optimality operator $T_*$ is a γ-contraction in the max-norm, $\lVert T_*U-T_*V\rVert_\infty\le\gamma\lVert U-V\rVert_\infty$, so $\lVert V_k-v_*\rVert_\infty\le\gamma^k\lVert V_0-v_*\rVert_\infty$ from any start.</p>
+  <p><strong>DP as the template for the rest of the course</strong>: Monte Carlo control and SARSA imitate policy iteration from samples; Q-learning is a sample-based value-iteration backup; actor–critic (critic evaluates, actor improves) echoes policy iteration.</p>
+</div>
 <h2 id="async">4.5 Asynchronous dynamic programming</h2>
 <ul>
   <li>Major drawback of the methods above: they <strong>sweep the entire state set</strong>. Backgammon (10<sup>20</sup> states) at a million updates/s would take over a thousand years per sweep.</li>

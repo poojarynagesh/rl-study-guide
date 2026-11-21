@@ -626,3 +626,11 @@ body.focus .content { max-width: 780px; }
 .cq-text table { width: auto; margin: 10px 0 4px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; border-collapse: separate; border-spacing: 0; }
 .cq-text th, .cq-text td { padding: 5px 12px; font-size: 14px; text-align: center; font-variant-numeric: tabular-nums; }
 .cq-text .tw { overflow-x: auto; max-width: 100%; }
+
+/* Professor's lecture content (E1 277o class notes) */
+.box.prof { border-color: var(--s7); background: color-mix(in srgb, var(--s7) 7%, var(--surface)); }
+.box.prof .box-title { color: var(--s7); }
+.box.prof .box-title::before { background: var(--s7); content: "✎"; }
+.box.prof .lec-date { font: 600 11.5px var(--font); color: var(--text-3); margin-left: 6px; letter-spacing: .02em; }
+.cq-tag.cq-tag-lec { color: var(--s7); background: color-mix(in srgb, var(--s7) 9%, transparent); border-color: color-mix(in srgb, var(--s7) 35%, transparent); }
+.cq-q.cq-lecture { border-left: 3px solid var(--s7); }

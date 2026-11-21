@@ -11,6 +11,7 @@
 <script defer src="../assets/search-index.js"></script>
 <script defer src="../assets/quizzes/ch07.js"></script>
 <script defer src="../assets/quizzes/ch07-exam.js"></script>
+<script defer src="../assets/quizzes/ch07-lec.js"></script>
 <script defer src="../assets/quiz.js"></script>
 <script defer src="../assets/site.js"></script>
 <style>
@@ -111,6 +112,16 @@ $$\max_s\Big|\E_\pi[G_{t:t+n}\mid S_t=s]-v_\pi(s)\Big| \le \gamma^n\max_s\Big|V_
 <p>The expected n-step return is a better estimate of $v_\pi$ than $V$ is, in the worst-state sense — so all n-step TD methods converge to the correct predictions under appropriate conditions. TD(0) and MC are the extreme members of a family of <strong>sound</strong> methods.</p>
 <p class="small"><strong>Exercise 7.1</strong> — with V fixed, the n-step error is a sum of TD errors: $G_{t:t+n}-V(S_t)=\sum_{k=t}^{\min(t+n,T)-1}\gamma^{k-t}\delta_k$ (generalising 6.6).</p>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: where the n-step target comes from, and why it helps <span class="lec-date">Oct 14 &amp; 19</span></span>
+  <ul>
+    <li><strong>Unroll the Bellman equation</strong>: substitute $v_\pi(s')$ into itself to get $v_\pi(s)=\mathbb E_\pi[R_{t+1}+\gamma R_{t+2}+\gamma^2v_\pi(S_{t+2})]$, and after $n$ substitutions the "n-step Bellman equation" $v_\pi(s)=\mathbb E_\pi\big[\sum_{k=1}^{n}\gamma^{k-1}R_{t+k}+\gamma^nv_\pi(S_{t+n})\big]$ — exactly what $G_{t:t+n}$ samples.</li>
+    <li><strong>Less weight on a poor estimate</strong>: with γ = 0.9 and n = 10 the bootstrap term carries $0.9^{10}\approx0.349$ instead of 0.9 — early, inaccurate values matter less and real rewards matter more (lower bias, typically higher variance).</li>
+    <li><strong>Error-reduction property</strong>: the expected-target error contracts by $\gamma^n$: $\max_s|\mathbb E_\pi[G_{t:t+n}\mid S_t=s]-v_\pi(s)|\le\gamma^n\max_s|V_{t+n-1}(s)-v_\pi(s)|$. With γ = 0.5, n = 3: factor 0.125 vs 0.5 for one-step TD. This is about expected bias; it does not mean the largest n gives the lowest sampled error.</li>
+    <li>With $V$ fixed, the n-step error is a discounted sum of one-step errors: $G_{t:t+n}-V(S_t)=\sum_{k=t}^{t+n-1}\gamma^{k-t}\delta_k$ (Exercise 7.1).</li>
+    <li><strong>Termination inside the window</strong>: at $t=T-4$ with $n=6$, only four rewards remain: $G_{t:t+6}=R_{T-3}+\gamma R_{T-2}+\gamma^2R_{T-1}+\gamma^3R_T$ — the Monte Carlo return, with no bootstrap ($V(S_T)=0$).</li>
+  </ul>
+</div>
 <h3>Example 7.1 — n-step TD on the random walk</h3>
 <p>5-state walk, first episode C → D → E → right (+1), all $V=0.5$: one-step updates only $V(E)$; two-step updates $V(D)$ and $V(E)$; three-step or more updates all three visited states toward 1, by the same amount.</p>
 <p>Figure 7.2 uses a <strong>19-state</strong> walk with outcome <strong>−1 on the left</strong>, +1 on the right, values initialised to 0. Measure: RMS error over the 19 states at the end of each episode, averaged over the first 10 episodes and 100 runs.</p>
@@ -133,6 +144,19 @@ $$\max_s\Big|\E_\pi[G_{t:t+n}\mid S_t=s]-v_\pi(s)\Big| \le \gamma^n\max_s\Big|V_
   <details><summary>Ex 7.2 — Would using the sum of TD errors (with V changing each step) in place of the n-step error be better or worse?</summary><div class="ans"><p>It is a slightly different algorithm: each TD error would use the latest estimate, so information from updates made within the last n steps is used sooner. Empirically the two behave similarly on the random walk; the TD-error-sum version can be slightly better for small α and slightly less stable for large α. (The book leaves this as a programming experiment.)</p></div></details>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: one episode under 1-, 2- and 3-step TD, and choosing n <span class="lec-date">Oct 19</span></span>
+  <p>Random walk, all values 0.5, α = 0.1, γ = 1. Episode $C\xrightarrow0D\xrightarrow0E\xrightarrow1G$:</p>
+  <div class="table-wrap"><table>
+    <tr><th>Method</th><th>V(C)</th><th>V(D)</th><th>V(E)</th><th>Why</th></tr>
+    <tr><td>1-step</td><td>0.50</td><td>0.50</td><td>0.55</td><td>only E's target sees the +1; D's target $0+V(E)=0.5$</td></tr>
+    <tr><td>2-step</td><td>0.50</td><td>0.55</td><td>0.55</td><td>D's target $0+1=1$; C's target $0+0+V(E)=0.5$</td></tr>
+    <tr><td>3-step</td><td>0.55</td><td>0.55</td><td>0.55</td><td>C's target $0+0+1=1$</td></tr>
+  </table></div>
+  <p>The reward travels back $n$ states per episode — but the update for $S_t$ must <strong>wait</strong> $n$ transitions (1-step: immediately; Monte Carlo: until the end). The equal 0.55s are special to zero intermediate rewards and γ = 1.</p>
+  <p><strong>Choosing n.</strong> On the 19-state walk (n = 1, 2, 4, …, 512; RMS error over the first 10 episodes, averaged over 100 runs) every n gives a U-shaped curve in α, the best α differs by n, intermediate n (up to about 16) did best, and very large n drifted towards Monte Carlo's worse error. Tune n and α together.</p>
+  <p><strong>Research aside — adapting n while learning</strong> (two timescales): a fast recursion updates values with step $a_m$, a slow one adjusts n (e.g. to reduce variance) with step $b_m$; both satisfy Robbins–Monro and $b_m/a_m\to0$, e.g. $a_m=1/m^{2/3}$, $b_m=1/m$. The fast one sees n as frozen; the slow one sees values as already converged — just as policy evaluation should run faster than policy improvement.</p>
+</div>
 <h2 id="nstep-sarsa">7.2 n-step Sarsa</h2>
 <p>Switch states for state–action pairs and use an ε-greedy policy. One-step Sarsa is now called <strong>Sarsa(0)</strong>.</p>
 <div class="eq">
@@ -198,6 +222,16 @@ All store and access operations (for S_t, A_t, and R_t) can take their index mod
   <div id="ws-chart"></div>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: reading Figure 7.4, and n-step Sarsa as a sum of TD errors <span class="lec-date">Oct 21</span></span>
+  <ul>
+    <li>The path in the figure is <strong>not</strong> the optimal path — it is what the agent happened to do in one training episode (steps −1, goal 0, values initialised to 0). After it, one-step Sarsa strengthens only the last pair before the goal; ten-step Sarsa strengthens the last ten; a pair 11 steps back is untouched by that episode.</li>
+    <li>On-policy means <em>every</em> action in the segment, $A_t,\dots,A_{t+n}$, is drawn from the same ε-greedy (or consistently parameterised UCB) policy. Only $Q(S_t,A_t)$ changes in an update; α = 0.1 is a reasonable default.</li>
+    <li><strong>Exercise 7.4</strong>: with $\delta_k=R_{k+1}+\gamma Q_k(S_{k+1},A_{k+1})-Q_{k-1}(S_k,A_k)$,
+      $$G_{t:t+n}=Q_{t-1}(S_t,A_t)+\sum_{k=t}^{\min(t+n,T)-1}\gamma^{k-t}\delta_k.$$
+      Each bootstrap term is added in one δ and subtracted in the next (telescoping). If the episode ends first, the leftover $\gamma^{T-t}Q(S_T,\cdot)$ is 0 because terminal Q-values are 0 — hence the min in the upper limit.</li>
+  </ul>
+</div>
 <h3>n-step Expected Sarsa</h3>
 <div class="eq">
 $$G_{t:t+n}\doteq R_{t+1}+\dots+\gamma^{n-1}R_{t+n}+\gamma^n\bar V_{t+n-1}(S_{t+n}),\quad t+n\lt T \qquad \bar V_t(s)\doteq\sum_a\pi(a\mid s)Q_t(s,a)$$
@@ -255,6 +289,14 @@ All store and access operations (for S_t, A_t, and R_t) can take their index mod
     <span class="k">Until</span> τ = T − 1</pre>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: off-policy n-step updates in practice <span class="lec-date">Oct 21</span></span>
+  <ul>
+    <li>Example: ten actions, but experience says only A and B are promising. The target π puts its probability on A and B; the behaviour $b$ spreads over all ten. Coverage ($\pi\gt0\Rightarrow b\gt0$) is needed, or a ratio would divide by zero.</li>
+    <li>The ratio multiplies the <strong>whole increment</strong>: $V\leftarrow V+\alpha\rho_{t:t+n-1}[G_{t:t+n}-V]$. If any action in the window is impossible under π, $\rho=0$ and the value is left unchanged — that segment says nothing about π.</li>
+    <li>For n-step Sarsa the product starts at $t+1$: $\rho_{t+1:t+n}$, because $Q(S_t,A_t)$ is already conditioned on the first action $A_t$; only the later actions need correcting.</li>
+  </ul>
+</div>
 <h2 id="control-variates">7.4 *Per-decision methods with control variates</h2>
 <p>Write the n-step return recursively, $G_{t:h}=R_{t+1}+\gamma G_{t+1:h}$ with $G_{h:h}\doteq V_{h-1}(S_h)$. Simply multiplying by $\rho_t$ would make the target 0 whenever $\rho_t=0$ (shrinking the estimate, high variance). Instead:</p>
 <div class="eq">

@@ -11,6 +11,7 @@
 <script defer src="../assets/search-index.js"></script>
 <script defer src="../assets/quizzes/ch01.js"></script>
 <script defer src="../assets/quizzes/ch01-exam.js"></script>
+<script defer src="../assets/quizzes/ch01-lec.js"></script>
 <script defer src="../assets/quiz.js"></script>
 <script defer src="../assets/site.js"></script>
 </head>
@@ -84,6 +85,15 @@
   <p>"RL is a kind of unsupervised learning because there are no labels." — <strong>No.</strong> RL maximises a reward signal; finding structure is at most a useful sub-step. The book calls RL a <em>third paradigm</em>.</p>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: the three paradigms by analogy <span class="lec-date">Aug 3</span></span>
+  <ul>
+    <li><strong>Supervised</strong> — a classroom: the teacher tells the student exactly what is right.</li>
+    <li><strong>Unsupervised</strong> — a five-year-old learning to ride a bicycle: nobody tells the child anything; it falls, adjusts and discovers balance on its own.</li>
+    <li><strong>Reinforcement</strong> — a mother teaching a baby who cannot understand language: an angry face for cranky behaviour, a chocolate for good behaviour. There <em>is</em> feedback, but it only says how good the behaviour was, never what the right behaviour is.</li>
+  </ul>
+  <p>The professor's one-line definition: <strong>RL is dynamic decision making under uncertainty.</strong> The reward "will not tell you that this is the best thing you could have done"; the environment only changes its state and lets the agent <em>sense</em> whether its action was good.</p>
+</div>
 <h3>Exploration vs. exploitation</h3>
 <p>To get a lot of reward the agent must <strong>exploit</strong> actions it already knows are good; to find such actions it must <strong>explore</strong> actions it has not tried. Neither can be pursued exclusively without failing. On a stochastic task each action must be tried many times to get a reliable estimate of its expected reward. The dilemma "has been intensively studied by mathematicians for many decades, yet remains unresolved" — Chapter 2 studies it in its simplest setting.</p>
 
@@ -100,6 +110,20 @@
   <li>The agent uses <strong>experience to improve</strong> over time.</li>
 </ul>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: applications discussed in class <span class="lec-date">Aug 3</span></span>
+  <div class="table-wrap"><table>
+    <tr><th>Application</th><th>States</th><th>Actions</th><th>Remark</th></tr>
+    <tr><td>Traffic-signal control (Bangalore junctions)</td><td>Congestion measured by cameras on each lane</td><td>Green-time of each <em>phase</em> (group of lanes that go green together)</td><td>The professor's own work: ~20–25% less congestion than fixed 60-second timers; road infrastructure limits more</td></tr>
+    <tr><td>Self-driving car</td><td>Positions/speeds of nearby vehicles, road conditions</td><td>Change lane, speed up/slow down, turn</td><td>Lane change is hard: safe distance, others' speeds, no collision</td></tr>
+    <tr><td>Drone swarm surveillance</td><td>Drone positions, coverage</td><td>Where each drone moves</td><td>"Self-organisation": keep apart (no redundant footage), maximise coverage, relay data</td></tr>
+    <tr><td>Healthcare</td><td>Patient's condition and response</td><td>Medicine and dosage</td><td>A robot could handle minor ailments once it knows what state information to watch</td></tr>
+    <tr><td>Semiconductor fab</td><td>Demand, machine status</td><td>Which product, which wafer, deposition thickness</td><td>Demand is dynamic</td></tr>
+    <tr><td>Networks</td><td>Traffic, battery/solar energy</td><td>Bandwidth per application; energy per sensor node</td><td>Ad hoc wireless sensor networks</td></tr>
+    <tr><td>Go / AlphaGo</td><td>Board positions: more than $10^{100}$ states</td><td>Moves</td><td>Too many states to even store a value vector → function approximation (Ch. 9)</td></tr>
+  </table></div>
+  <p class="small">The professor also cited game playing against Kasparov (1997). Note for accuracy: IBM's Deep Blue relied mainly on search; the classic RL milestone in games is Tesauro's TD-Gammon (backgammon, early 1990s).</p>
+</div>
 <h2 id="elements">1.3 Elements of reinforcement learning</h2>
 <div class="grid-2">
   <div class="card"><h4>1 · Policy $\pi$</h4><p>Maps perceived states to actions — the agent's way of behaving. A lookup table, a simple function, or an extensive search. May be <strong>stochastic</strong>. <em>The policy alone is sufficient to determine behaviour.</em></p></div>
@@ -121,6 +145,31 @@
   <tr><td>Where in the book</td><td>Ch. 5 (MC), 6 (TD), 7 (n-step)</td><td>Ch. 4 (DP — needs a perfect model), Ch. 8 (Dyna)</td></tr>
 </table></div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: the interaction loop, policies as tables, and data <span class="lec-date">Aug 5</span></span>
+  <p><strong>The loop.</strong> At time 0 the environment is in $S_0$; the agent observes it and picks $A_0$. In response <em>two things happen together</em>: the environment moves (randomly, by probabilities the agent may not know) to $S_1$ <em>and</em> gives reward $R_1$. Then the agent picks $A_1$, and so on. States belong to the environment, actions to the agent, rewards are what the environment gives back; in general rewards depend on states and actions.</p>
+  <p><strong>Who chooses the policy?</strong> The agent — "nobody gives the agent a policy". It may start from an arbitrary (even random) policy and refine it from data. The environment is <strong>oblivious</strong> to the policy being used.</p>
+  <div class="grid-2">
+    <div><p><strong>Deterministic policy</strong> $\pi:\mathcal S\to\mathcal A$ — a lookup table. With $\mathcal S=\{1,2,3,4\}$, $\mathcal A=\{A,B\}$:</p>
+      <div class="table-wrap"><table><tr><th>state</th><td>1</td><td>2</td><td>3</td><td>4</td></tr><tr><th>action</th><td>A</td><td>B</td><td>B</td><td>A</td></tr></table></div>
+      <p class="small">"Once you freeze on the policy, the actions get frozen to the state." There are $|\mathcal A|^{|\mathcal S|}=2^4=16$ such tables.</p></div>
+    <div><p><strong>Stochastic policy</strong> $\pi(a|s)=P(A_t=a\mid S_t=s)$ — each row sums to 1:</p>
+      <div class="table-wrap"><table><tr><th>state</th><th>$\pi(A|s)$</th><th>$\pi(B|s)$</th></tr><tr><td>1</td><td>0.5</td><td>0.5</td></tr><tr><td>2</td><td>0.6</td><td>0.4</td></tr><tr><td>3</td><td>0.3</td><td>0.7</td></tr><tr><td>4</td><td>0.1</td><td>0.9</td></tr></table></div>
+      <p class="small">Some rows may be 0/1, but if all are, the policy is deterministic.</p></div>
+  </div>
+  <p><strong>What the agent actually has.</strong> The model $P(S_{t+1}=s'\mid S_t=s,A_t=a)$ is usually unknown ("with what probability will there be an accident if I turn left? — impossible to tell"). What the agent does have is <strong>data</strong>: tuples $(S_n,A_n,R_{n+1},S_{n+1})$, $n\ge0$. RL asks what sense can be made of this data.</p>
+  <p><strong>Preview of the whole course</strong>: fix a policy → find its value function → improve the policy → evaluate again → … converging to an optimal policy. "These are not heuristic methods — they rest on sound theory." With 4 states and 2 actions this takes seconds; with $10^{50}$ states and 1000 actions we must approximate the value function, and then "optimal" means optimal for the approximation architecture — usually still close to the true optimum.</p>
+</div>
+<div class="box prof">
+  <span class="box-title">From the lectures: how the course is organised <span class="lec-date">Aug 3</span></span>
+  <div class="table-wrap"><table>
+    <tr><th>Block</th><th>Chapters</th><th>Idea</th></tr>
+    <tr><td>Model-based</td><td>1–4 (bandits, MDPs, DP)</td><td>The transition probabilities are known — how do we use them to decide under uncertainty?</td></tr>
+    <tr><td>Model-free, no approximation</td><td>5 (Monte Carlo), 6 (TD), 7</td><td>Learn values exactly from data. MC is "trajectory-based": wait for the whole episode. TD updates incrementally.</td></tr>
+    <tr><td>Model-free with approximation</td><td>9 (and DQN, 2015), 13 (REINFORCE, actor–critic, TRPO, PPO)</td><td>Too many states to estimate each value — approximate. Done properly, little accuracy is lost and much compute is saved.</td></tr>
+  </table></div>
+  <p class="small">Exploration vs exploitation, introduced through bandits (Ch. 2), is a challenge specific to RL — it does not arise in supervised or unsupervised learning.</p>
+</div>
 <h2 id="scope">1.4 Limitations and scope</h2>
 <p>RL relies heavily on the concept of <strong>state</strong> — the input to policy and value function. The book treats state informally as "whatever information is available to the agent about its environment" and does <em>not</em> address how to construct the state signal; its concern is deciding what to do given the state.</p>
 
@@ -165,6 +214,10 @@ $$V(S_t) \leftarrow V(S_t) + \alpha\big[\,V(S_{t+1}) - V(S_t)\,\big]$$
   <p>This trade-off (convergence on stationary problems vs. tracking on nonstationary ones) is developed formally in <a href="ch02.html#stepsize">§2.5</a>.</p>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: modelling a two-player game as one agent <span class="lec-date">Aug 5</span></span>
+  <p>In chess the state is the board (where each piece is; captured pieces are deleted; pawns of one colour need not be distinguished). Chess is a <strong>two-player</strong> game; to treat it as a single-agent RL problem, assume the opponent plays a fixed strategy and make the opponent <em>part of the environment</em>. Each decision cycle has two moves: the agent moves, the opponent replies, and the agent then sees the <strong>net</strong> board after both — that board is the next state. "The environment is not playing": it responds to the agent's move by changing state and giving a reward. Tic-tac-toe in this section is modelled exactly this way.</p>
+</div>
 <h3>What the example shows</h3>
 <ul>
   <li>Learning while interacting with an environment (the opponent).</li>

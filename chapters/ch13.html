@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 13 · Policy Gradient Methods — RL Study Guide</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/quizzes/ch13.js"></script>
+<script defer src="../assets/quizzes/ch13-exam.js"></script>
+<script defer src="../assets/quizzes/ch13-lec.js"></script>
+<script defer src="../assets/quiz.js"></script>
+<script defer src="../assets/site.js"></script>
+</head>
+<body data-page="ch13" data-root="..">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Chapter 13 · Book pp. 321–338</div>
+  <h1>Policy Gradient Methods</h1>
+  <p class="lead">So far we learned <strong>action values</strong> and derived the policy from them. Here the <strong>policy itself is parameterised</strong>, $\pi(a\mid s,\boldsymbol\theta)$, and $\boldsymbol\theta$ is moved by <strong>gradient ascent on a performance measure</strong> $J(\boldsymbol\theta)$. A value function may help (actor–critic) but is not needed to select actions.</p>
+  <div class="meta">
+    <span class="chip">Softmax in action preferences</span>
+    <span class="chip">Short corridor</span>
+    <span class="chip">Policy gradient theorem</span>
+    <span class="chip">REINFORCE</span>
+    <span class="chip">Baseline</span>
+    <span class="chip">Actor–critic</span>
+    <span class="chip">Two step sizes α ≪ β</span>
+    <span class="chip">Gaussian policy</span>
+  </div>
+</div>
+
+<div class="box exam">
+  <span class="box-title">Exam focus for this chapter</span>
+  <ul>
+    <li>Why parameterise the policy: softmax over preferences can approach determinism <em>or</em> any stochastic mix; smooth change of probabilities; the short-corridor example (optimum ≈ 0.59).</li>
+    <li>The assumptions on $\pi(a\mid s,\boldsymbol\theta)$ and the <strong>policy gradient theorem</strong> $\nabla J\propto\sum_s\mu(s)\sum_aq_\pi(s,a)\nabla\pi(a\mid s,\boldsymbol\theta)$ — and why no derivative of $\mu$ appears. Know the unrolling proof.</li>
+    <li>The log-derivative trick $\nabla\pi/\pi=\nabla\ln\pi$ and the <strong>REINFORCE</strong> update $\boldsymbol\theta\leftarrow\boldsymbol\theta+\alpha\gamma^tG_t\nabla\ln\pi(A_t\mid S_t,\boldsymbol\theta)$.</li>
+    <li><strong>Baseline</strong>: $\sum_a\nabla\pi(a\mid s)=\nabla1=0$, so any action-independent $b$ leaves the expected gradient unchanged; purpose = variance reduction.</li>
+    <li><strong>Actor–critic</strong>: $\delta_t=R+\gamma\hat v(S')-\hat v(S)$ drives both $\boldsymbol\theta$ (actor) and $\mathbf w$ (critic); critic step β ≫ actor step α (two time-scales).</li>
+    <li><strong>Gaussian policy</strong> for continuous actions: $\nabla_{\theta_\mu}\ln\pi=\frac{a-\mu}{\sigma^2}\mathbf x_\mu$ and $\nabla_{\theta_\sigma}\ln\pi=\big(\frac{(a-\mu)^2}{\sigma^2}-1\big)\mathbf x_\sigma$.</li>
+    <li>Expect <strong>numerical</strong> questions (TD error, one update step, softmax/sigmoid gradients) plus short trick-based derivations (zero-mean score, pulling a baseline out of a sum).</li>
+  </ul>
+</div>
+
+<p>All earlier methods were <em>action-value methods</em>: learn $q$, then act (nearly) greedily. Policy gradient methods learn a <strong>parameterised policy</strong> that selects actions without consulting a value function. Notation: policy parameter $\boldsymbol\theta\in\mathbb R^{d'}$ (so as not to clash with the value weights $\mathbf w\in\mathbb R^d$), and
+$\pi(a\mid s,\boldsymbol\theta)=\Pr\{A_t=a\mid S_t=s,\boldsymbol\theta_t=\boldsymbol\theta\}$. We want to <strong>maximise</strong> a scalar performance measure $J(\boldsymbol\theta)$ by approximate gradient ascent:</p>
+<div class="eq">
+$$\boldsymbol\theta_{t+1}=\boldsymbol\theta_t+\alpha\,\widehat{\nabla J(\boldsymbol\theta_t)}\qquad\text{with}\qquad \E\big[\widehat{\nabla J(\boldsymbol\theta_t)}\big]\approx\nabla J(\boldsymbol\theta_t)$$
+<div class="eq-name"><span>Policy-gradient ascent (stochastic estimate of the gradient)</span><span class="ref">(13.1)</span></div>
+</div>
+<p>Methods that also learn a value function for the policy are <strong>actor–critic</strong> methods: <em>actor</em> = the learned policy, <em>critic</em> = the learned value function (usually $\hat v$).</p>
+
+<h2 id="policy-approx">13.1 Policy approximation and its advantages</h2>
+<p>The policy may be parameterised in any way, provided $\pi(a\mid s,\boldsymbol\theta)$ is <strong>differentiable</strong> in $\boldsymbol\theta$ (the gradient exists and is finite). For a discrete, not-too-large action set the usual choice is the <strong>soft-max in action preferences</strong>:</p>
+<div class="eq">
+$$\pi(a\mid s,\boldsymbol\theta)\doteq\frac{e^{h(s,a,\boldsymbol\theta)}}{\sum_{b}e^{h(s,b,\boldsymbol\theta)}},\qquad h(s,a,\boldsymbol\theta)=\boldsymbol\theta^\top\mathbf x(s,a)\ \text{(linear)}\ \text{or a neural network}$$
+<div class="eq-name"><span>Soft-max over preferences; linear preferences</span><span class="ref">(13.2), (13.3)</span></div>
+</div>
+<p>The denominator just makes the probabilities sum to 1. Note that the preferences $h$ are <strong>not</strong> action values — they are not driven toward any particular numbers; they are driven to produce the best policy.</p>
+
+<h3>Advantages over ε-greedy on action values</h3>
+<ol>
+  <li><strong>Can approach a deterministic policy.</strong> ε-greedy always keeps probability ε of a random action. A soft-max on <em>action values</em> would not help (the values converge to finite, different numbers ⇒ probabilities strictly between 0 and 1, and a temperature schedule is hard to choose). With <em>preferences</em>, if the optimal policy is deterministic the preference of the best action is driven toward $+\infty$ relative to the others.</li>
+  <li><strong>Can represent any action probabilities</strong> — i.e. a genuinely <strong>stochastic</strong> optimal policy (e.g. bluffing in poker). When function approximation is heavy, the best approximate policy is often stochastic; action-value methods have no natural way to find it.</li>
+  <li><strong>The policy may be simpler to approximate than $q$</strong> (e.g. Tetris) ⇒ faster learning and a better asymptotic policy.</li>
+  <li><strong>Prior knowledge</strong> about the desired form of the policy can be injected through the parameterisation — often the most important practical reason.</li>
+  <li><strong>Smoothness</strong> (theoretical): with $\boldsymbol\theta$ continuous, action probabilities change <em>smoothly</em>; in ε-greedy a tiny change in estimated values can flip the greedy action and change probabilities abruptly. This is why policy-gradient methods have stronger convergence guarantees.</li>
+</ol>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: parameterised policies, $J(\boldsymbol\theta)$ and the admission-control example <span class="lec-date">Nov 4</span></span>
+  <p><strong>What is new.</strong> Before, $\pi(a\mid s)$ had no parameter; now the action probabilities themselves depend on $\boldsymbol\theta$. The value function <em>may or may not</em> be used when updating $\boldsymbol\theta$ — the professor stressed it is <strong>not necessary</strong> (it enters only in actor–critic methods).</p>
+  <p><strong>$J$ need not be a value function.</strong> $J:\mathbb R^{d'}\to\mathbb R$ is whatever performance function we want to optimise. Policy-gradient methods <em>maximise</em> a reward-type $J$ (update with $+\alpha\widehat{\nabla J}$); if $J$ is a <em>loss</em> you minimise it, i.e. update with $-\alpha\widehat{\nabla J}$.</p>
+  <p><strong>Router admission control.</strong> A controller decides, for each arriving packet, to <em>admit</em> or <em>drop</em> it. Goals conflict: high throughput means admitting everything, few overflow drops and low delay mean keeping the queue short — you want the <strong>middle ground</strong>, a queue length near a target $N$ (an empty queue wastes throughput; a full one drops packets and adds delay).</p>
+  <ul>
+    <li><strong>Without a value function:</strong> $J(\boldsymbol\theta)=\E\big[|Q_n-N|\big]$ (queue length $Q_n$ vs target $N$) — a loss to be <strong>minimised</strong>. Parameter: $\theta$ = probability of admitting a packet (drop with probability $1-\theta$).</li>
+    <li><strong>With a value function:</strong> design rewards (penalty per drop, reward per delivery, larger penalty for larger delay) and <em>maximise</em> the value over the policy parameter.</li>
+  </ul>
+  <p><strong>Assumptions on the policy class</strong> (needed for the theory): (1) $\pi(a\mid s,\boldsymbol\theta)&gt;0$ for <em>all</em> $a,s,\boldsymbol\theta$; (2) differentiable in $\boldsymbol\theta$; (3) $\nabla_{\boldsymbol\theta}\pi$ exists and is finite. Softmax satisfies all three: every action has positive probability for any $\boldsymbol\theta$, and at $\boldsymbol\theta=\mathbf 0$ all numerators are $e^0=1$, so with $n$ actions each gets probability $1/n$. A neural network for $h$ works equally well. (A purely greedy deterministic policy violates (1).)</p>
+</div>
+
+<h3>Example 13.1 — short corridor with switched actions</h3>
+<p>Three non-terminal states in a row, then the goal G; reward $-1$ per step; actions <em>left</em> and <em>right</em>. They behave normally in the first and third states (left in the first state means "stay"), but are <strong>reversed in the second state</strong>. With features $\mathbf x(s,\text{right})=(1,0)^\top$, $\mathbf x(s,\text{left})=(0,1)^\top$ for all $s$, every state looks identical to the function approximator. An ε-greedy action-value method must therefore pick right w.p. $1-\varepsilon/2$ everywhere or left w.p. $1-\varepsilon/2$ everywhere. With ε = 0.1 these give $J=v(S)\approx-44$ and $\approx-82$. A <strong>specific stochastic mix</strong> is far better: the optimum is $\Pr(\text{right})\approx0.59$ with $J\approx-11.6$.</p>
+
+<div class="box key"><span class="box-title">Solving the corridor exactly (Exercise 13.1)</span>
+<p>Let $p=\Pr(\text{right})$ in every state and $v_1,v_2,v_3$ the values of the three states (start = state 1).</p>
+<div class="eq">
+$$v_1=-1+p\,v_2+(1-p)v_1,\qquad v_2=-1+p\,v_1+(1-p)v_3,\qquad v_3=-1+(1-p)v_2$$
+</div>
+<p>Solving: $v_1=v_2-\tfrac1p$ and $v_2\,p(1-p)=-(3-p)$, hence</p>
+<div class="eq">
+$$J(p)=v_1=-\frac{2(2-p)}{p(1-p)},\qquad J'(p)=0\iff p^2-4p+2=0\iff p^*=2-\sqrt2\approx0.586,\quad J(p^*)\approx-11.66$$
+</div>
+<div class="table-wrap"><table>
+  <tr><th>$p=\Pr(\text{right})$</th><th>0.05 (ε-greedy left)</th><th>0.25</th><th>0.50</th><th>0.586 (optimal)</th><th>0.75</th><th>0.95 (ε-greedy right)</th></tr>
+  <tr><td>$J(p)$</td><td>−82.1</td><td>−18.7</td><td>−12.0</td><td>−11.66</td><td>−13.3</td><td>−44.2</td></tr>
+</table></div>
+<p>$J\to-\infty$ as $p\to0$ or $1$: an almost deterministic policy gets stuck bouncing in the reversed state — which is exactly why determinism is wrong here.</p></div>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: why the corridor defeats value methods <span class="lec-date">Nov 4</span></span>
+  <p>The professor plotted $J(\boldsymbol\theta)$ against the probability of "right": the two ε-greedy policies sit at the <strong>two ends</strong> of the curve (ε-greedy right at about −44, ε-greedy left at about −82, ε = 0.1) and the optimal stochastic policy is <strong>in the middle</strong> (≈ 0.59, about −11.6). The point: with state-independent features an ε-greedy value method has <em>no way to choose a state-dependent or intermediate mixture</em>; a parameterised stochastic policy can represent and learn it. This is the motivation for the whole chapter.</p>
+</div>
+
+<h2 id="pg-theorem">13.2 The policy gradient theorem</h2>
+<p>With a continuous parameter, the effect of $\boldsymbol\theta$ on the <em>action selection</em> is smooth. But $J$ also depends on the <strong>state distribution</strong>, which depends on $\boldsymbol\theta$ in a way that is typically unknown (it depends on the environment). The theorem gives the gradient <strong>without</strong> the derivative of that distribution. Episodic case, $J(\boldsymbol\theta)\doteq v_{\pi_{\boldsymbol\theta}}(s_0)$ (13.4):</p>
+<div class="eq">
+$$\nabla J(\boldsymbol\theta)\ \propto\ \sum_s\mu(s)\sum_aq_\pi(s,a)\,\nabla\pi(a\mid s,\boldsymbol\theta)$$
+<div class="eq-name"><span>Policy gradient theorem (episodic)</span><span class="ref">(13.5)</span></div>
+</div>
+<p>$\mu$ is the on-policy distribution under $\pi$ (Ch 9, eq. 9.2); in the episodic case the constant of proportionality is the mean episode length (a positive number). The gradient acts <strong>only on $\pi$</strong>, never on $q_\pi$ or on $\mu$.</p>
+
+<details class="card" style="margin:14px 0"><summary style="cursor:pointer;font-weight:650">Proof of the policy gradient theorem (episodic case) — unrolling</summary>
+<p class="small">Write $\nabla$ for $\nabla_{\boldsymbol\theta}$ and suppress the dependence on $\boldsymbol\theta$. For any $s\in\mathcal S$:</p>
+<div class="eq">
+$$\begin{aligned}
+\nabla v_\pi(s)&=\nabla\Big[\sum_a\pi(a\mid s)q_\pi(s,a)\Big]=\sum_a\Big[\nabla\pi(a\mid s)\,q_\pi(s,a)+\pi(a\mid s)\,\nabla q_\pi(s,a)\Big]\\
+&=\sum_a\Big[\nabla\pi(a\mid s)\,q_\pi(s,a)+\pi(a\mid s)\sum_{s',r}p(s',r\mid s,a)\,\nabla\big(r+v_\pi(s')\big)\Big]\\
+&=\sum_a\Big[\nabla\pi(a\mid s)\,q_\pi(s,a)+\pi(a\mid s)\sum_{s'}p(s'\mid s,a)\,\nabla v_\pi(s')\Big]
+\end{aligned}$$
+</div>
+<p class="small">The gradient of $q_\pi$ reaches only $v_\pi(s')$, because $p$ and $r$ do not depend on $\boldsymbol\theta$. The result has the <em>same form</em> for $\nabla v_\pi(s')$, so unroll again and again:</p>
+<div class="eq">
+$$\nabla v_\pi(s)=\sum_{x\in\mathcal S}\ \underbrace{\sum_{k=0}^{\infty}\Pr(s\to x,k,\pi)}_{\eta(x)}\ \sum_a\nabla\pi(a\mid x)\,q_\pi(x,a)$$
+</div>
+<p class="small">where $\Pr(s\to x,k,\pi)$ is the probability of going from $s$ to $x$ in $k$ steps under $\pi$ (the recursion ends because $\nabla v_\pi(\text{terminal})=0$). Then, with $s=s_0$:</p>
+<div class="eq">
+$$\nabla J(\boldsymbol\theta)=\sum_x\eta(x)\sum_a\nabla\pi(a\mid x)q_\pi(x,a)=\Big(\sum_{s'}\eta(s')\Big)\sum_x\underbrace{\frac{\eta(x)}{\sum_{s'}\eta(s')}}_{\mu(x)}\sum_a\nabla\pi(a\mid x)q_\pi(x,a)\ \propto\ \sum_x\mu(x)\sum_aq_\pi(x,a)\nabla\pi(a\mid x)\ \ \blacksquare$$
+</div></details>
+
+<div class="box key"><span class="box-title">Why this is the right form</span>
+<ul>
+  <li>It needs $\nabla\pi$ (known, because we chose the functional form) and $q_\pi$ (which can be <em>estimated</em>), but <strong>not</strong> $\nabla q_\pi$ nor $\partial\mu/\partial\boldsymbol\theta$.</li>
+  <li>It makes <strong>sample-based</strong> gradient estimation possible: states $S_t$ visited by the agent are already distributed according to $\mu$.</li>
+  <li>Similar theorems hold for the discounted-start and average-reward formulations (13.6 below).</li>
+</ul></div>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: reading the theorem, and why "∝" is allowed <span class="lec-date">Nov 11</span></span>
+  <p><strong>Where the proof is used.</strong> The professor derived the theorem exactly by the unrolling above (assuming $\gamma=1$, episodic, with a finite action set so the gradient can go inside the sum). The one-line summary of the argument: <em>product rule → the gradient of $q$ only hits $v(s')$ → apply the same relation again and again until the terminal state, where $\nabla v=0$ → collect the "probability of being in $x$ after $k$ steps" terms into $\eta(x)$ → normalise to $\mu(x)$</em>. $\mu(x)$ is the long-run distribution of finding the process in state $x$ and $\sum_{s'}\eta(s')$ is the proportionality factor.</p>
+  <p><strong>Why it is useful</strong> (his words): $q_\pi(s,a)$ can be estimated by running trajectories from $s$, taking $a$ and then following $\pi_{\boldsymbol\theta}$, whereas $\nabla_{\boldsymbol\theta}q_\pi$ would be hard to estimate; $\nabla_{\boldsymbol\theta}\pi$ is easy because the policy has a known functional form (e.g. softmax). Average-reward versions exist but were <em>not covered</em> in this course.</p>
+</div>
+<div class="box prof">
+  <span class="box-title">From the lectures (tutorial): "proportional to" and the dependence of $\mu$ on $\boldsymbol\theta$ <span class="lec-date">Nov 20</span></span>
+  <ul>
+    <li><strong>Gradient ascent</strong>, not descent, on $J$ (a student said "descent" first): we move in the direction that <em>improves</em> performance.</li>
+    <li><strong>Why dropping a factor is fine.</strong> The missing factor is $\sum_s\eta(s)$ — a sum of non-negative terms, i.e. <strong>positive</strong>. If $\mathbf g=c\,\hat{\mathbf g}$ with $c&gt;0$, both point the same way, so following $\hat{\mathbf g}$ still improves performance; only the effective step size is rescaled. The condition is <em>positivity</em>, not merely "a constant": with a negative factor $\hat{\mathbf g}$ would point the opposite way and "ascent" would become descent.</li>
+    <li><strong>$\mu$ is the stationary distribution of the current policy.</strong> Each $\boldsymbol\theta$ gives a different $\pi_{\boldsymbol\theta}$ and therefore a different $\mu$ — changing $\boldsymbol\theta$ changes $\mu$. The theorem's value is precisely that we never need $\nabla_{\boldsymbol\theta}\mu$; the expectation in the sampled version is over $\mu$ and $\pi$ together.</li>
+  </ul>
+</div>
+
+<h2 id="reinforce">13.3 REINFORCE: Monte Carlo policy gradient</h2>
+<p>Because the right-hand side of (13.5) is a weighted sum over states with weights $\mu$, it is an <strong>expectation</strong> over $S_t\sim\mu$ when following $\pi$:</p>
+<div class="eq">
+$$\nabla J(\boldsymbol\theta)\propto\E_\pi\Big[\sum_aq_\pi(S_t,a)\,\nabla\pi(a\mid S_t,\boldsymbol\theta)\Big]$$
+<div class="eq-name"><span>Expectation form</span><span class="ref">(13.6)</span></div>
+</div>
+<p>Sampling just $S_t$ and keeping the sum over actions gives the <strong>all-actions</strong> method $\boldsymbol\theta_{t+1}=\boldsymbol\theta_t+\alpha\sum_a\hat q(S_t,a,\mathbf w)\nabla\pi(a\mid S_t,\boldsymbol\theta)$ (13.7) — it needs a learned $\hat q$. REINFORCE goes one step further and samples the <em>action</em> too, by the <strong>multiply-and-divide-by-π trick</strong>:</p>
+<div class="eq">
+$$\begin{aligned}\nabla J&\propto\E_\pi\Big[\sum_a\pi(a\mid S_t,\boldsymbol\theta)\,q_\pi(S_t,a)\frac{\nabla\pi(a\mid S_t,\boldsymbol\theta)}{\pi(a\mid S_t,\boldsymbol\theta)}\Big]=\E_\pi\Big[q_\pi(S_t,A_t)\frac{\nabla\pi(A_t\mid S_t,\boldsymbol\theta)}{\pi(A_t\mid S_t,\boldsymbol\theta)}\Big]\\&=\E_\pi\Big[G_t\,\frac{\nabla\pi(A_t\mid S_t,\boldsymbol\theta)}{\pi(A_t\mid S_t,\boldsymbol\theta)}\Big]\qquad(\E_\pi[G_t\mid S_t,A_t]=q_\pi(S_t,A_t))\end{aligned}$$
+</div>
+<p>Replace the expectation by the single sample (stochastic gradient ascent) and use $\nabla\pi/\pi=\nabla\ln\pi$:</p>
+<div class="eq">
+$$\boldsymbol\theta_{t+1}\doteq\boldsymbol\theta_t+\alpha\,G_t\,\frac{\nabla\pi(A_t\mid S_t,\boldsymbol\theta_t)}{\pi(A_t\mid S_t,\boldsymbol\theta_t)}=\boldsymbol\theta_t+\alpha\,G_t\,\nabla\ln\pi(A_t\mid S_t,\boldsymbol\theta_t)$$
+<div class="eq-name"><span>REINFORCE update (as derived; $\gamma=1$)</span><span class="ref">(13.8)</span></div>
+</div>
+<ul>
+  <li><strong>Interpretation</strong>: each increment is proportional to the return $G_t$ times the vector $\nabla\pi/\pi$, the direction in parameter space that most increases the probability of repeating $A_t$ on future visits to $S_t$. It is large for actions that are rarely chosen (small $\pi$) and that earned a large return — moves toward actions with high return.</li>
+  <li><strong>Unbiased</strong> (the expected update is the true gradient direction) and, with small enough α, guaranteed to converge to a local optimum — the theoretical strength of the policy-gradient approach.</li>
+  <li>As a Monte Carlo method it has <strong>high variance and learns slowly</strong>, and it needs <strong>complete episodes</strong> (episodic tasks only).</li>
+  <li>With discounting the exact update carries a factor $\gamma^t$ (Exercise 13.2): $\boldsymbol\theta_{t+1}=\boldsymbol\theta_t+\alpha\gamma^tG_t\nabla\ln\pi(A_t\mid S_t,\boldsymbol\theta_t)$ — later steps count for less. Many implementations drop it.</li>
+  <li><strong>Eligibility vector</strong> $\nabla\ln\pi(a\mid s,\boldsymbol\theta)$. For softmax with linear preferences (13.3): $\nabla\ln\pi(a\mid s,\boldsymbol\theta)=\mathbf x(s,a)-\sum_b\pi(b\mid s,\boldsymbol\theta)\mathbf x(s,b)$ (13.9) — the feature of the chosen action minus the policy-average feature.</li>
+</ul>
+<div class="algo">
+  <div class="algo-head"><span class="name">REINFORCE: Monte-Carlo Policy-Gradient Control (episodic) for π*</span><span class="tags"><span class="tag on">on-policy</span><span class="tag">policy gradient</span><span class="tag">no bootstrap</span></span></div>
+<pre><span class="k">Input</span>: a differentiable policy parameterization π(a|s, θ)
+<span class="k">Algorithm parameter</span>: step size α &gt; 0
+Initialize policy parameter θ ∈ ℝ^d' (e.g., to 0)
+<span class="k">Loop forever</span> (for each episode):
+    Generate an episode S₀, A₀, R₁, …, S_{T−1}, A_{T−1}, R_T, following π(·|·, θ)
+    <span class="k">Loop for each step of the episode</span> t = 0, 1, …, T − 1:
+        G ← Σ_{k=t+1}^{T} γ^{k−t−1} R_k                         <span class="c">(G_t)</span>
+        θ ← θ + α γᵗ G ∇ln π(A_t | S_t, θ)</pre>
+</div>
+<p>The book's Figure 13.1 shows REINFORCE on the short corridor: with a good α (≈ 2⁻¹³) it climbs toward the optimum $J\approx-11.6$ over a few hundred episodes; too large or small α is much worse.</p>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: deriving REINFORCE step by step <span class="lec-date">Nov 11</span></span>
+  <p>The professor listed what is <strong>known</strong> and <strong>unknown</strong> in the theorem: $\nabla\pi$ is known (the form of the policy is our choice); $\mu(x)$ is unknown (a steady-state quantity); $q_\pi$ is unknown (it would need the model $p(s',r\mid s,a)$). Then four moves:</p>
+  <ol>
+    <li>$\mu$ is a distribution ⇒ the sum over states becomes an expectation over the observed $S_t$.</li>
+    <li>Multiply and divide by $\pi(a\mid S_t)$ ⇒ the sum over actions becomes an expectation over the action actually taken, $A_t\sim\pi(\cdot\mid S_t)$ (the two expectations merge into one over $(S_t,A_t)$).</li>
+    <li>$q_\pi(S_t,A_t)$ is unknown ⇒ replace by the sampled return $G_t$.</li>
+    <li>The model is unknown so the expectation cannot be evaluated ⇒ drop it and use the single sample.</li>
+  </ol>
+  <p>Terminology: it is "Monte Carlo" because it uses the full return $G_t$; people often just say "the policy gradient algorithm" or "policy-gradient Monte Carlo". The class derivation assumed $\gamma=1$; the $\gamma^t$ factor of the book's version (and the $I=\gamma^t$ in actor–critic) is the discounted correction and is often dropped in practice.</p>
+  <p><strong>Why it is inefficient</strong>: after every policy change you must generate a fresh trajectory and wait for its complete return before the next update. <em>Tutorial add-on (Nov 20):</em> the two practical problems with the raw policy-gradient equation are (1) $G_t$ needs a complete trajectory, and (2) the expectation cannot be computed because the dynamics are unknown (sampling fixes this; bootstrapping fixes (1)).</p>
+</div>
+<div class="box prof">
+  <span class="box-title">From the lectures (tutorial): worked example — a sigmoid policy with two actions <span class="lec-date">Nov 20</span></span>
+  <p>Two actions with $\pi(A_1\mid s,\theta)=\sigma(\theta)=\dfrac{1}{1+e^{-\theta}}$ and $\pi(A_2\mid s,\theta)=1-\sigma(\theta)$. At $\theta=0$ both have probability ½.</p>
+  <div class="eq">
+  $$\frac{d}{d\theta}\ln\pi(A_1)=\frac{d}{d\theta}\big[-\ln(1+e^{-\theta})\big]=\frac{e^{-\theta}}{1+e^{-\theta}}=1-\sigma(\theta)\qquad\frac{d}{d\theta}\ln\pi(A_2)=-\sigma(\theta)$$
+  </div>
+  <p>So at $\theta=0$ the score is $+\tfrac12$ for $A_1$ and $-\tfrac12$ for $A_2$. A REINFORCE step after taking $A_1$ with return $G$ is $\Delta\theta=\alpha G\cdot\tfrac12$; after taking $A_2$ it is $-\alpha G\cdot\tfrac12$. (Check the zero-mean property: $\tfrac12\cdot\tfrac12+\tfrac12\cdot(-\tfrac12)=0$.) E.g. $\alpha=0.1$, $G=4$, $A_1$ taken: $\Delta\theta=0.2$, $\pi(A_1)$ rises from 0.5 to $\sigma(0.2)\approx0.550$.</p>
+</div>
+
+<h2 id="baseline">13.4 REINFORCE with baseline</h2>
+<p>Generalise the theorem by comparing $q_\pi(s,a)$ to an arbitrary <strong>baseline</strong> $b(s)$ that does <strong>not depend on the action</strong>:</p>
+<div class="eq">
+$$\nabla J(\boldsymbol\theta)\propto\sum_s\mu(s)\sum_a\big(q_\pi(s,a)-b(s)\big)\nabla\pi(a\mid s,\boldsymbol\theta)$$
+<div class="eq-name"><span>Policy gradient theorem with baseline</span><span class="ref">(13.10)</span></div>
+</div>
+<p>It is valid because the extra term vanishes:</p>
+<div class="eq">
+$$\sum_ab(s)\nabla\pi(a\mid s,\boldsymbol\theta)=b(s)\,\nabla\sum_a\pi(a\mid s,\boldsymbol\theta)=b(s)\,\nabla1=0$$
+</div>
+<p>The corresponding update (sampled exactly as before):</p>
+<div class="eq">
+$$\boldsymbol\theta_{t+1}\doteq\boldsymbol\theta_t+\alpha\big(G_t-b(S_t)\big)\frac{\nabla\pi(A_t\mid S_t,\boldsymbol\theta_t)}{\pi(A_t\mid S_t,\boldsymbol\theta_t)}$$
+<div class="eq-name"><span>REINFORCE with baseline</span><span class="ref">(13.11)</span></div>
+</div>
+<div class="box key"><span class="box-title">What a baseline does (and does not do)</span>
+<ul>
+  <li><strong>No bias</strong>: the expected update is unchanged for any $b$ that is independent of the action. It may be a constant or any function of the state.</li>
+  <li><strong>Variance</strong>: a good baseline can cut variance a lot (not guaranteed for an arbitrary $b$). A natural choice is an estimate of the state value, $b(S_t)=\hat v(S_t,\mathbf w)$: then $G_t-\hat v(S_t)$ says whether the return was <em>better or worse than usual from this state</em>, so actions are no longer all pushed up merely because returns are positive (e.g. all rewards positive, or a $-1$-per-step task).</li>
+  <li><strong>Why baselines matter in practice</strong>: Figure 13.2 — REINFORCE with a baseline learns much faster on the short corridor.</li>
+</ul></div>
+<p>The baseline can be learned by a Monte Carlo method, since REINFORCE is already Monte Carlo — with a second step size $\alpha^{\mathbf w}$. Book rule of thumb: for a linear $\hat v$, $\alpha^{\mathbf w}=0.1/\E\big[\|\nabla\hat v(S_t,\mathbf w)\|^2_\mu\big]$; the policy step $\alpha^{\boldsymbol\theta}$ is harder to set (depends on the range of rewards and the policy parameterisation).</p>
+<div class="algo">
+  <div class="algo-head"><span class="name">REINFORCE with Baseline (episodic) for estimating π_θ ≈ π*</span><span class="tags"><span class="tag on">on-policy</span><span class="tag">policy gradient</span><span class="tag">no bootstrap</span></span></div>
+<pre><span class="k">Input</span>: a differentiable policy parameterization π(a|s, θ)
+<span class="k">Input</span>: a differentiable state-value function parameterization v̂(s, w)
+<span class="k">Algorithm parameters</span>: step sizes α^θ &gt; 0, α^w &gt; 0
+Initialize policy parameter θ ∈ ℝ^d' and state-value weights w ∈ ℝ^d (e.g., to 0)
+<span class="k">Loop forever</span> (for each episode):
+    Generate an episode S₀, A₀, R₁, …, S_{T−1}, A_{T−1}, R_T, following π(·|·, θ)
+    <span class="k">Loop for each step of the episode</span> t = 0, 1, …, T − 1:
+        G ← Σ_{k=t+1}^{T} γ^{k−t−1} R_k                         <span class="c">(G_t)</span>
+        δ ← G − v̂(S_t, w)
+        w ← w + α^w δ ∇v̂(S_t, w)
+        θ ← θ + α^θ γᵗ δ ∇ln π(A_t | S_t, θ)</pre>
+</div>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: why a baseline changes nothing in expectation, and what it requires <span class="lec-date">Nov 11 · Nov 20</span></span>
+  <p><strong>The trick</strong> (named in class as one to learn): pull $b(s)$ out of the action sum because it doesn't depend on $a$; swap gradient and sum; $\sum_a\pi=1$ is a constant, so its gradient is zero. In the lecture a student answered the question "what is $\sum_a\nabla\pi(a\mid s)$?" correctly: <strong>zero</strong>.</p>
+  <p><strong>Score function has zero mean (tutorial Problem B).</strong> For a fixed state,</p>
+  <div class="eq">
+  $$\E_{A\sim\pi}\big[\nabla\ln\pi(A\mid s,\boldsymbol\theta)\big]=\sum_a\pi(a\mid s)\frac{\nabla\pi(a\mid s)}{\pi(a\mid s)}=\sum_a\nabla\pi(a\mid s)=\nabla\sum_a\pi(a\mid s)=\nabla1=\mathbf 0$$
+  </div>
+  <p>Hence $\E[b\,\nabla\ln\pi]=b\cdot\mathbf 0=0$ whenever $b$ can be taken out of the expectation over $A$.</p>
+  <ul>
+    <li><strong>Condition on $b$</strong>: it must be <strong>independent of the action</strong>. The TA stressed it need not even depend on the state ("terminal state" is <em>not</em> the condition). A baseline like $b(s,a)=\hat q(s,a)$ is not allowed in general — it cannot be pulled out of $\sum_a$.</li>
+    <li><strong>Purpose = variance reduction</strong> (not "to get the advantage" — the advantage can be established independently). Warning: <em>not every baseline reduces variance</em>; we hope the chosen one does. The common choice $\hat v(S_t,\mathbf w)$ makes $G_t-\hat v(S_t)$ an estimate of the <strong>advantage</strong> $q_\pi-v_\pi$.</li>
+    <li><strong>Which baseline is best?</strong> The professor said the variance-minimising baseline is the value function itself, $b(s)=v_\pi(s)$ (legitimate since it depends only on the state). Strictly the exact minimiser is a $\|\nabla\ln\pi\|^2$-weighted version of $v_\pi$; $v_\pi$ is the standard near-optimal choice. Problem: $v_\pi$ is unknown ⇒ it has to be learned ⇒ actor–critic.</li>
+  </ul>
+</div>
+
+<h2 id="actor-critic">13.5 Actor–critic methods</h2>
+<p>In REINFORCE with baseline, $\hat v(S_t)$ is a baseline only: it is formed <em>before</em> the action and cannot assess it. In an <strong>actor–critic</strong>, the value function is also applied to the <em>next</em> state: reward plus discounted next value is the <strong>one-step return</strong> $G_{t:t+1}$, a bootstrapped estimate of the actual return — a way of <em>assessing the action</em>. That learned value function is the <strong>critic</strong>. One-step actor–critic is the analogue of TD(0)/Sarsa(0):</p>
+<div class="eq">
+$$\boldsymbol\theta_{t+1}=\boldsymbol\theta_t+\alpha\big(G_{t:t+1}-\hat v(S_t,\mathbf w)\big)\frac{\nabla\pi(A_t\mid S_t,\boldsymbol\theta_t)}{\pi(A_t\mid S_t,\boldsymbol\theta_t)}=\boldsymbol\theta_t+\alpha\,\delta_t\,\frac{\nabla\pi(A_t\mid S_t,\boldsymbol\theta_t)}{\pi(A_t\mid S_t,\boldsymbol\theta_t)}$$
+<div class="eq-name"><span>One-step actor–critic</span><span class="ref">(13.12)–(13.14)</span></div>
+</div>
+<div class="eq">
+$$\delta_t\doteq R_{t+1}+\gamma\hat v(S_{t+1},\mathbf w)-\hat v(S_t,\mathbf w)\qquad\text{(TD error)}$$
+</div>
+<p>The critic is learned with <strong>semi-gradient TD(0)</strong> (Chapter 9): $\mathbf w\leftarrow\mathbf w+\alpha^{\mathbf w}\delta\nabla\hat v(S,\mathbf w)$. Everything is <strong>fully online and incremental</strong>: each transition is processed as it happens and never revisited.</p>
+<div class="algo">
+  <div class="algo-head"><span class="name">One-step Actor–Critic (episodic), for estimating π_θ ≈ π*</span><span class="tags"><span class="tag on">on-policy</span><span class="tag boot">bootstraps</span><span class="tag">actor + critic</span></span></div>
+<pre><span class="k">Input</span>: a differentiable policy parameterization π(a|s, θ)
+<span class="k">Input</span>: a differentiable state-value function parameterization v̂(s, w)
+<span class="k">Parameters</span>: step sizes α^θ &gt; 0, α^w &gt; 0
+Initialize policy parameter θ ∈ ℝ^d' and state-value weights w ∈ ℝ^d (e.g., to 0)
+<span class="k">Loop forever</span> (for each episode):
+    Initialize S (first state of episode)
+    I ← 1
+    <span class="k">Loop while S is not terminal</span> (for each time step):
+        A ∼ π(·|S, θ)
+        Take action A, observe S', R
+        δ ← R + γ v̂(S', w) − v̂(S, w)          <span class="c">(if S' is terminal, then v̂(S', w) ≐ 0)</span>
+        w ← w + α^w δ ∇v̂(S, w)
+        θ ← θ + α^θ I δ ∇ln π(A | S, θ)
+        I ← γ I
+        S ← S'</pre>
+</div>
+<div class="box pitfall"><span class="box-title">Bias in actor–critic</span>
+<p>The one-step return introduces <strong>bias</strong> into the gradient, in exchange for lower variance and fully online updates. The bias is <em>not</em> because of bootstrapping as such: the actor would still be biased if the critic were learned by Monte Carlo. As with TD, the bias–variance trade-off can be tuned with $n$-step returns or $\lambda$-returns (Ch 7, 12): replace $G_{t:t+1}$ by $G_{t:t+n}$ or $G^\lambda_t$.</p></div>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: actor–critic as REINFORCE with two changes <span class="lec-date">Nov 11</span></span>
+  <p>Starting from REINFORCE with baseline, make two replacements: (1) full return $G_t\to$ one-step return $R_{t+1}+\gamma\hat v(S_{t+1},\mathbf w)$; (2) baseline $\to$ the estimate $\hat v(S_t,\mathbf w)$. The update can be done as soon as the tuple $(S_t,A_t,R_{t+1},S_{t+1})$ arrives. With $\mathbf w$ frozen the performance cannot be optimal — $\mathbf w$ must also be learned, by TD(0) with function approximation; for a <em>linear</em> $\hat v=\mathbf w^\top\mathbf x(s)$, $\nabla_{\mathbf w}\hat v=\mathbf x(S_t)$.</p>
+  <div class="eq">
+  $$\boldsymbol\theta_{t+1}=\boldsymbol\theta_t+\alpha\,\delta_t\,\nabla\ln\pi(A_t\mid S_t,\boldsymbol\theta_t)\ \text{(actor)},\qquad \mathbf w_{t+1}=\mathbf w_t+\beta\,\delta_t\,\nabla_{\mathbf w}\hat v(S_t,\mathbf w_t)\ \text{(critic)}$$
+  </div>
+  <p>The <strong>same $\delta_t$</strong> appears in both, and both are bootstrapped. (Note the lecture's notation: actor step α, critic step β; the book calls them $\alpha^{\boldsymbol\theta}$ and $\alpha^{\mathbf w}$.) Why "error": the bracket compares the <em>target</em> (reward + discounted next value) with the current estimate $\hat v(S_t)$: "target minus actual".</p>
+  <div class="table-wrap"><table>
+    <tr><th></th><th>REINFORCE (Monte Carlo)</th><th>Actor–critic</th></tr>
+    <tr><td>Signal</td><td>full return $G_t$ (− optional baseline)</td><td>one-step TD error $\delta_t$</td></tr>
+    <tr><td>Update time</td><td>after the whole episode</td><td>after every tuple</td></tr>
+    <tr><td>Bootstrapping</td><td>no</td><td>yes (actor and critic)</td></tr>
+    <tr><td>Baseline</td><td>must be supplied</td><td>learned $\hat v(S,\mathbf w)$</td></tr>
+    <tr><td>Parameters</td><td>$\boldsymbol\theta$ (+ $\mathbf w$ for a learned baseline)</td><td>$\boldsymbol\theta$ and $\mathbf w$</td></tr>
+  </table></div>
+  <p><strong>Versus policy iteration.</strong> PI has two nested loops: an outer policy update and, after each, an inner loop that must run until the value of that policy has converged. Actor–critic <em>removes the nesting</em>: both updates run at every step, and the step-size separation $\alpha\ll\beta$ supplies the separation of time-scales that the nesting provided. The overall effect is much the same.</p>
+</div>
+<div class="box prof">
+  <span class="box-title">From the lectures: why the actor must be slower than the critic ($\alpha\ll\beta$) <span class="lec-date">Nov 11 · Nov 20</span></span>
+  <p><strong>Rule:</strong> the two step sizes differ and in general $\alpha\ll\beta$ — e.g. critic $\beta=0.5$, actor $\alpha\approx0.0005$. With time-varying step sizes the conditions are</p>
+  <ol>
+    <li>$\alpha_t,\beta_t&gt;0$;</li>
+    <li>$\sum_t\alpha_t=\sum_t\beta_t=\infty$;</li>
+    <li>$\sum_t\alpha_t^2&lt;\infty$, $\sum_t\beta_t^2&lt;\infty$ (1–3: the usual stochastic-approximation conditions);</li>
+    <li>the distinguishing one: $\displaystyle\lim_{t\to\infty}\frac{\alpha_t}{\beta_t}=0$, i.e. $\alpha_t=o(\beta_t)$.</li>
+  </ol>
+  <p><strong>Example:</strong> $\alpha_t=\frac1{t+1}$, $\beta_t=\frac1{(t+1)^\kappa}$ with $\kappa\in(0.5,1)$ (e.g. 0.7 or 0.8). $\kappa&gt;0.5$ gives $\sum\beta_t^2&lt;\infty$; $\kappa\le1$ gives $\sum\beta_t=\infty$; and $\alpha_t/\beta_t=(t+1)^{\kappa-1}\to0$ needs $\kappa&lt;1$. E.g. with $\kappa=0.7$ and $t+1=10^5$: ratio $=10^{-1.5}\approx0.032$.</p>
+  <p><strong>Why (intuition from the tutorial).</strong> $\hat v(\cdot,\mathbf w)$ tries to approximate $v_{\pi_{\boldsymbol\theta}}$, the value of the <em>current</em> policy. When $\boldsymbol\theta$ changes, the action probabilities change, so the expectation defining $v_\pi$ changes; the best $\mathbf w$ (minimiser of $\tfrac12\E[(v_\pi(S)-\hat v(S,\mathbf w))^2]$) therefore drifts too. If $\mathbf w$ moves much faster than $\boldsymbol\theta$, the critic sees an <em>almost stationary</em> policy and can track its value. Analogies used: a person walking beside a very fast train looks nearly at rest to a passenger (slow actor, fast critic); in cricket, a defensive and an aggressive batting policy give different values for the same match state.</p>
+  <p><strong>Two-time-scale argument (Nov 11, sketch).</strong> Write $\boldsymbol\theta_{t+1}=\boldsymbol\theta_t+\beta_t\frac{\alpha_t}{\beta_t}\delta_t\nabla\ln\pi$: the $\boldsymbol\theta$-increments are $\beta_t$ times something $\to0$, so $\boldsymbol\theta$ is quasi-static, while the $\mathbf w$-increments $\beta_t\delta_t\nabla\hat v$ do not shrink — $\mathbf w$ is the fast variable.</p>
+  <ol>
+    <li>Fast scale: for frozen $\boldsymbol\theta$, TD(0) converges to the TD fixed point $\mathbf w^*_{TD}(\boldsymbol\theta)$ (Ch 9).</li>
+    <li>Slow scale: substitute $\mathbf w^*_{TD}(\boldsymbol\theta_t)$ into $\delta_t$; then $\boldsymbol\theta$ converges to a <em>local maximum</em> of $v_{\pi_{\boldsymbol\theta}}$.</li>
+  </ol>
+  <p>The tutorial said the full theory is not needed — the intuition above is what to know.</p>
+</div>
+<div class="box prof">
+  <span class="box-title">From the lectures (tutorial): numerical TD error and one actor–critic step <span class="lec-date">Nov 20</span></span>
+  <p>Given: $S_t=S_1$, $A_t=A_1$, $R_{t+1}=4$, $S_{t+1}=S_2$, $\hat v(S_1)=5$, $\hat v(S_2)=8$ (tabular: $\mathbf w=(5,8)$), $\gamma=0.9$.</p>
+  <div class="eq">
+  $$\delta_t=4+0.9\times8-5=6.2$$
+  </div>
+  <ul>
+    <li>Critic step 0.1: $w_1\leftarrow5+0.1\times6.2=5.62$ ($w_2$ unchanged since $\nabla_{\mathbf w}\hat v(S_1)=(1,0)$).</li>
+    <li>Actor: the <em>same</em> $\delta=6.2$ multiplies $\nabla\ln\pi(A_1\mid S_1)$. With the sigmoid policy at $\theta=0$ (score $+\tfrac12$) and actor step 0.05: $\Delta\theta=0.05\times6.2\times0.5=0.155$.</li>
+  </ul>
+  <p><strong>Main message:</strong> compute $\delta_t$ <em>once</em> (the TA first slipped to 7.2 and 5 before correcting to 6.2 — compute carefully), then update both critic and actor with it. The class used the step sizes only to show the mechanics; realistic actor steps are much smaller than the critic's. (The recorded step values were partly garbled; the actor/critic numbers above are a recomputation, only $\delta=6.2$ is firm.)</p>
+</div>
+
+<h2 id="continuing">13.6 Policy gradient for continuing problems</h2>
+<p>For continuing tasks (no episodes) the performance measure is the <strong>average reward rate</strong>:</p>
+<div class="eq">
+$$J(\boldsymbol\theta)\doteq r(\pi)\doteq\lim_{h\to\infty}\frac1h\sum_{t=1}^h\E[R_t\mid S_0,A_{0:t-1}\sim\pi]=\sum_s\mu(s)\sum_a\pi(a\mid s)\sum_{s',r}p(s',r\mid s,a)\,r$$
+<div class="eq-name"><span>Average-reward objective ($\mu$ = stationary distribution)</span><span class="ref">(13.15), (13.16)</span></div>
+</div>
+<p>Values $v_\pi,q_\pi$ are defined w.r.t. the <strong>differential return</strong> $G_t=R_{t+1}-r(\pi)+R_{t+2}-r(\pi)+\dots$ (13.17). The policy gradient theorem <strong>keeps the same form</strong> (13.5) with "$=$" in place of "$\propto$" (the constant is 1, the proof is in the book). The one-step actor–critic simply replaces $\delta$ by the differential TD error and learns the average reward $\bar R$ too:</p>
+<div class="algo">
+  <div class="algo-head"><span class="name">Actor–Critic (continuing), for estimating π_θ ≈ π*</span><span class="tags"><span class="tag on">on-policy</span><span class="tag boot">bootstraps</span><span class="tag">average reward</span></span></div>
+<pre><span class="k">Input</span>: π(a|s, θ), v̂(s, w);  <span class="k">Parameters</span>: α^θ, α^w, α^R̄ &gt; 0
+Initialize R̄ ∈ ℝ, w, θ (e.g., to 0);  initialize S
+<span class="k">Loop forever</span> (for each time step):
+    A ∼ π(·|S, θ);   take action A, observe S', R
+    δ ← R − R̄ + v̂(S', w) − v̂(S, w)
+    R̄ ← R̄ + α^R̄ δ
+    w ← w + α^w δ ∇v̂(S, w)
+    θ ← θ + α^θ δ ∇ln π(A | S, θ)
+    S ← S'</pre>
+</div>
+<p class="small muted">Continuing case is brief: the discount factor is replaced by the differential return, there is no $\gamma^t$/$I$ factor, and no episode ever ends.</p>
+
+<h2 id="continuous">13.7 Policy parameterisation for continuous actions</h2>
+<p>With a huge or <strong>continuous action space</strong> we don't learn a probability per action; we learn the parameters of a <strong>probability distribution over actions</strong>. E.g. a <strong>Gaussian</strong> policy: $a\sim\mathcal N(\mu(s,\boldsymbol\theta),\sigma(s,\boldsymbol\theta)^2)$:</p>
+<div class="eq">
+$$\pi(a\mid s,\boldsymbol\theta)\doteq\frac{1}{\sigma(s,\boldsymbol\theta)\sqrt{2\pi}}\exp\!\Big(-\frac{(a-\mu(s,\boldsymbol\theta))^2}{2\sigma(s,\boldsymbol\theta)^2}\Big)$$
+<div class="eq-name"><span>Gaussian policy density (a probability <em>density</em>)</span><span class="ref">(13.19)</span></div>
+</div>
+<p>Split $\boldsymbol\theta=(\boldsymbol\theta_\mu,\boldsymbol\theta_\sigma)^\top$; the mean is linear in features and the standard deviation is kept <strong>positive</strong> by an exponential of a linear function:</p>
+<div class="eq">
+$$\mu(s,\boldsymbol\theta)\doteq\boldsymbol\theta_\mu^\top\mathbf x_\mu(s),\qquad\sigma(s,\boldsymbol\theta)\doteq\exp\!\big(\boldsymbol\theta_\sigma^\top\mathbf x_\sigma(s)\big)$$
+<div class="eq-name"><span>Mean and standard deviation</span><span class="ref">(13.20)</span></div>
+</div>
+<p>All the machinery of 13.2–13.5 applies unchanged (replace sums over actions by integrals); one only needs the eligibility vector $\nabla\ln\pi$ (Exercise 13.4):</p>
+<div class="eq">
+$$\nabla_{\boldsymbol\theta_\mu}\ln\pi(a\mid s,\boldsymbol\theta)=\frac{1}{\sigma^2}\big(a-\mu\big)\mathbf x_\mu(s),\qquad \nabla_{\boldsymbol\theta_\sigma}\ln\pi(a\mid s,\boldsymbol\theta)=\Big(\frac{(a-\mu)^2}{\sigma^2}-1\Big)\mathbf x_\sigma(s)$$
+</div>
+<ul>
+  <li><strong>Mean</strong>: move $\mu$ toward an action $a$ if it earned better-than-baseline return ($\delta&gt;0$), away if worse; the pull is stronger the further $a$ is from $\mu$ (in units of $\sigma^2$).</li>
+  <li><strong>Std</strong>: if the sampled $a$ was farther than one $\sigma$ from $\mu$ ($|a-\mu|&gt;\sigma$) and did well, $\sigma$ <em>grows</em> (explore more); if $a$ was within $\sigma$ and did well, $\sigma$ <em>shrinks</em> (exploit). The policy can thus <strong>anneal its own exploration</strong>.</li>
+  <li>Another standard case in the exercises: a <strong>Bernoulli-logistic unit</strong> (two actions, $\Pr(a{=}1)=\mathrm{logistic}(\boldsymbol\theta^\top\mathbf x)$) — the sigmoid policy above.</li>
+</ul>
+
+<div class="box prof">
+  <span class="box-title">From the lectures (tutorial): Problem A — Gaussian-policy gradients <span class="lec-date">Nov 20</span></span>
+  <p>The TA linked this to <strong>question 5 of the previous-year paper</strong>. Setup: Gaussian density with mean $\mu(s,\boldsymbol\theta)=\boldsymbol\theta_\mu^\top\mathbf x_\mu(s)$ and std $\sigma(s,\boldsymbol\theta)$; $\boldsymbol\theta$ is the concatenation of $\boldsymbol\theta_\mu$ and $\boldsymbol\theta_\sigma$. <strong>Method 1: take the log, then differentiate.</strong></p>
+  <div class="eq">
+  $$\ln\pi=-\ln\sigma-\ln\sqrt{2\pi}-\frac{(a-\mu)^2}{2\sigma^2}$$
+  </div>
+  <ul>
+    <li><strong>(a) w.r.t. $\boldsymbol\theta_\mu$</strong>: $-\ln\sigma$ and $\ln\sqrt{2\pi}$ have zero gradient; the last term gives $2(a-\mu)\cdot(-\nabla\mu)$ over $2\sigma^2$ with a sign flip from the minus in front ⇒ $\nabla_{\boldsymbol\theta_\mu}\ln\pi=\dfrac{a-\mu}{\sigma^2}\,\mathbf x_\mu(s)$. $\nabla_{\boldsymbol\theta_\mu}\mu=\mathbf x_\mu(s)$ is a <em>vector</em>, not a scalar.</li>
+    <li><strong>(b) w.r.t. $\boldsymbol\theta_\sigma$</strong>: $-\ln\sigma$ gives $-\nabla\sigma/\sigma$; the last term gives $+\frac{(a-\mu)^2}{\sigma^3}\nabla\sigma$ (the 2 from differentiating $\sigma^{-2}$ cancels the 2 in the denominator); factor out $\nabla\sigma$: $\nabla_{\boldsymbol\theta_\sigma}\ln\pi=\Big(\dfrac{(a-\mu)^2}{\sigma^2}-1\Big)\dfrac{\nabla_{\boldsymbol\theta_\sigma}\sigma}{\sigma}$. With $\sigma=\exp(\boldsymbol\theta_\sigma^\top\mathbf x_\sigma)$, $\nabla\sigma/\sigma=\mathbf x_\sigma$ (the book's form).</li>
+    <li><strong>Method 2 (exercise)</strong>: differentiate $\pi_{\boldsymbol\theta}$ directly w.r.t. $\boldsymbol\theta_\mu$, then divide by $\pi_{\boldsymbol\theta}$ — the same result.</li>
+  </ul>
+  <p><strong>Numeric check.</strong> $\mu=1$, $\sigma=2$, $a=3$: the mean coefficient is $(3-1)/4=0.5$, the std coefficient (before $\nabla\sigma/\sigma$) is $4/4-1=0$ — a sample exactly one $\sigma$ away carries no information about $\sigma$.</p>
+</div>
+
+<h2 id="summary">13.8 Summary</h2>
+<ul>
+  <li><strong>Policy-gradient methods</strong> parameterise the policy and do stochastic gradient ascent on $J(\boldsymbol\theta)$. Over action-value methods they can: approach deterministic <em>or</em> stochastic optima, handle continuous actions, change action probabilities smoothly (better convergence guarantees), and embed prior knowledge. Sometimes the policy is simpler than $q$; sometimes not — it depends.</li>
+  <li>The <strong>policy gradient theorem</strong> gives $\nabla J$ in a form that does not need the derivative of the state distribution.</li>
+  <li><strong>REINFORCE</strong>: unbiased, Monte Carlo, high variance, slow, episodic only. A <strong>baseline</strong> (action-independent) reduces variance without bias.</li>
+  <li><strong>Actor–critic</strong>: bootstrapped critic assesses the action; lower variance, online and incremental, but biased.</li>
+  <li>Not covered here: off-policy policy gradient, deterministic policy gradient (Silver et al.), natural policy gradient / TRPO — see the book's bibliographical remarks.</li>
+</ul>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: what the exam will look like (tutorial guidance) <span class="lec-date">Nov 20</span></span>
+  <ul>
+    <li>The syllabus reference for policy-gradient material is <strong>Chapter 13</strong>. The previous-year paper (shared on Teams) has question 5 on the Gaussian-policy derivation; question 1 was a standard definition-manipulation question (e.g. combining $Q$ with different numbers of arguments into fewer arguments), not a long derivation.</li>
+    <li>The TA expects <strong>mostly numerical questions</strong> plus derivation-style <em>sub-parts</em>. No full proof of the policy gradient theorem is expected; instead short questions reusing the <strong>tricks</strong>: show a term is zero ($\sum_a\nabla\pi=\nabla1=0$), interchange gradient and summation, pull an action-independent baseline out of the sum, multiply and divide by $\pi$. <em>Learn the tricks, not the proofs.</em></li>
+    <li>Final exam: <strong>29th (November)</strong>, in the ECE department (not the midterm venue); the month was not stated explicitly in the recording of the tutorial.</li>
+  </ul>
+</div>
+
+<h2 id="hyperparams">Hyperparameters in this chapter</h2>
+<div class="table-wrap"><table>
+  <tr><th>Parameter</th><th>Role</th><th>Guidance</th></tr>
+  <tr><td>α (or $\alpha^{\boldsymbol\theta}$)</td><td>Actor step size</td><td>Hard to set — depends on reward scale and parameterisation. Book (Fig 13.1): best around 2⁻¹³ for the short corridor; too large is unstable. In actor–critic keep it <strong>much smaller than β</strong> (lecture: e.g. β = 0.5, α ≈ 0.0005; $\alpha_t/\beta_t\to0$).</td></tr>
+  <tr><td>β (or $\alpha^{\mathbf w}$)</td><td>Critic / baseline step size</td><td>Linear $\hat v$: $\alpha^{\mathbf w}=0.1/\E[\|\nabla\hat v\|^2_\mu]$ (book). Faster than the actor in actor–critic.</td></tr>
+  <tr><td>Schedules $\alpha_t,\beta_t$</td><td>Convergence conditions</td><td>$\sum=\infty$, $\sum^2&lt;\infty$ for each, and $\alpha_t/\beta_t\to0$; e.g. $\frac1{t+1}$ and $\frac1{(t+1)^\kappa}$, $\kappa\in(0.5,1)$.</td></tr>
+  <tr><td>γ</td><td>Discount</td><td>Exact discounted REINFORCE / actor–critic include the factor $\gamma^t$ ($I$ in the pseudocode); often dropped in practice.</td></tr>
+  <tr><td>Policy parameterisation</td><td>Features $\mathbf x(s,a)$, NN architecture</td><td>Must give $\pi&gt;0$, differentiable. Lets you inject prior knowledge.</td></tr>
+  <tr><td>σ parameterisation</td><td>Gaussian policy</td><td>$\sigma=\exp(\boldsymbol\theta_\sigma^\top\mathbf x_\sigma)$ keeps it positive.</td></tr>
+  <tr><td>Baseline $b(s)$</td><td>Variance reduction</td><td>Any action-independent function; $\hat v(s,\mathbf w)$ is the standard choice.</td></tr>
+  <tr><td>n, λ</td><td>Bias–variance</td><td>$n$-step or λ-return critics trade bias against variance (Ch 7, 12).</td></tr>
+</table></div>
+
+<h2 id="selftest">Self-test</h2>
+<div class="quiz">
+  <details><summary>Why can a soft-max over action <em>preferences</em> approach a deterministic policy but ε-greedy (or soft-max over action <em>values</em>) cannot?</summary><div class="ans"><p>ε-greedy always keeps ε/|A| probability on non-greedy actions. Soft-max over values converges to probabilities set by the finite differences between true values. Preferences are not tied to any value: if the best action is deterministic, its preference is driven toward infinity relative to the rest.</p></div></details>
+  <details><summary>In the short corridor, why does ε-greedy fail and what is the best policy?</summary><div class="ans"><p>All states look identical under the features, so a value method must choose one mix everywhere (right w.p. 0.95 or left w.p. 0.95 for ε = 0.1, giving $J\approx-44$ or $-82$). A stochastic policy with $\Pr(\text{right})=2-\sqrt2\approx0.586$ gives $J\approx-11.66$.</p></div></details>
+  <details><summary>State the policy gradient theorem and say what is remarkable about it.</summary><div class="ans"><p>$\nabla J\propto\sum_s\mu(s)\sum_aq_\pi(s,a)\nabla\pi(a\mid s,\boldsymbol\theta)$. It contains no derivative of the state distribution $\mu$ (which depends on $\boldsymbol\theta$ through the unknown environment) and no $\nabla q_\pi$.</p></div></details>
+  <details><summary>Sketch the proof of the theorem.</summary><div class="ans"><p>$\nabla v_\pi(s)=\sum_a[\nabla\pi\,q_\pi+\pi\nabla q_\pi]$; $\nabla q_\pi$ reaches only $v_\pi(s')$ since $p,r$ don't depend on $\boldsymbol\theta$; unroll to terminal states ($\nabla v=0$); collect $\eta(x)=\sum_k\Pr(s\to x,k)$; normalise to $\mu(x)$, the constant $\sum\eta$ being the proportionality factor.</p></div></details>
+  <details><summary>Derive the REINFORCE update from the theorem.</summary><div class="ans"><p>Sum over states with weight $\mu$ = expectation over $S_t$; multiply and divide by $\pi(a\mid S_t)$ to turn the sum over actions into an expectation over $A_t$; replace $q_\pi(S_t,A_t)$ by $G_t$ (same expectation); drop the expectation: $\boldsymbol\theta\leftarrow\boldsymbol\theta+\alpha G_t\nabla\pi(A_t\mid S_t)/\pi(A_t\mid S_t)=\boldsymbol\theta+\alpha G_t\nabla\ln\pi$ (times $\gamma^t$ with discounting).</p></div></details>
+  <details><summary>Why does subtracting a state-dependent baseline not change the expected gradient?</summary><div class="ans"><p>$\sum_ab(s)\nabla\pi(a\mid s)=b(s)\nabla\sum_a\pi(a\mid s)=b(s)\nabla1=0$. The step that needs care: $b$ must be independent of $a$ to leave the sum.</p></div></details>
+  <details><summary>Show that the expected score function is zero.</summary><div class="ans"><p>$\E_A[\nabla\ln\pi(A\mid s)]=\sum_a\pi\,\frac{\nabla\pi}{\pi}=\sum_a\nabla\pi=\nabla\sum_a\pi=\nabla1=\mathbf0$.</p></div></details>
+  <details><summary>Why use a baseline? Does every baseline reduce variance?</summary><div class="ans"><p>To reduce variance (faster, more stable learning), without adding bias. Not every baseline reduces variance — a poor one can increase it. $\hat v(S_t)$ is the standard good choice; $G_t-\hat v(S_t)$ estimates the advantage.</p></div></details>
+  <details><summary>What changes from REINFORCE-with-baseline to one-step actor–critic?</summary><div class="ans"><p>$G_t$ is replaced by the one-step return $R_{t+1}+\gamma\hat v(S_{t+1},\mathbf w)$, so the signal becomes the TD error $\delta_t$. Updates are online after each transition. The critic $\hat v$ is learned by semi-gradient TD(0) with the same $\delta_t$. The price is bias.</p></div></details>
+  <details><summary>Why must the actor's step size be much smaller than the critic's?</summary><div class="ans"><p>The critic estimates $v_{\pi_{\boldsymbol\theta}}$, which moves whenever $\boldsymbol\theta$ moves. With $\alpha\ll\beta$ (i.e. $\alpha_t/\beta_t\to0$) the critic sees a nearly frozen policy and converges to its TD fixed point; the actor then follows the converged critic. This reproduces policy iteration's evaluate-then-improve separation without nested loops.</p></div></details>
+  <details><summary>Compute $\delta_t$ for $R=4$, $\gamma=0.9$, $\hat v(S)=5$, $\hat v(S')=8$, and update a tabular critic with step 0.1.</summary><div class="ans"><p>$\delta=4+7.2-5=6.2$; $w_S\leftarrow5+0.1\times6.2=5.62$.</p></div></details>
+  <details><summary>Give $\nabla\ln\pi$ for a Gaussian policy with $\mu=\boldsymbol\theta_\mu^\top\mathbf x_\mu$, $\sigma=\exp(\boldsymbol\theta_\sigma^\top\mathbf x_\sigma)$.</summary><div class="ans"><p>$\nabla_{\theta_\mu}\ln\pi=\frac{a-\mu}{\sigma^2}\mathbf x_\mu$ and $\nabla_{\theta_\sigma}\ln\pi=\big(\frac{(a-\mu)^2}{\sigma^2}-1\big)\mathbf x_\sigma$.</p></div></details>
+  <details><summary>For softmax with linear preferences, what is $\nabla\ln\pi(a\mid s,\boldsymbol\theta)$?</summary><div class="ans"><p>$\mathbf x(s,a)-\sum_b\pi(b\mid s,\boldsymbol\theta)\mathbf x(s,b)$: the chosen action's features minus the policy-weighted average of all actions' features.</p></div></details>
+</div>
+
+<h2 id="chapter-quiz-section" data-short="Chapter quiz">Chapter quiz — check your understanding</h2>
+<p class="small muted">Scored quiz: pick an answer (or type a number) to get instant feedback and an explanation. Questions marked <strong>Exam-style</strong> give you values to interpret or compute, the way exam problems do; <strong>From lectures</strong> questions come from the professor's classes and the tutorial. Your best score is saved in this browser and shown on the home page. "Shuffle &amp; restart" re-orders the questions.</p>
+<div class="cq" id="chapter-quiz"></div>
+
+</main>
+</body>
+</html>

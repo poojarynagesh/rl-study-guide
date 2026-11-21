@@ -11,6 +11,7 @@
 <script defer src="../assets/search-index.js"></script>
 <script defer src="../assets/quizzes/ch03.js"></script>
 <script defer src="../assets/quizzes/ch03-exam.js"></script>
+<script defer src="../assets/quizzes/ch03-lec.js"></script>
 <script defer src="../assets/quiz.js"></script>
 <script defer src="../assets/site.js"></script>
 </head>
@@ -88,6 +89,16 @@ $$p(s'\mid s,a) = \sum_{r} p(s',r\mid s,a) \qquad r(s,a) = \sum_r r\sum_{s'}p(s'
   <p>The probability of each possible $S_t, R_t$ depends <strong>only</strong> on the immediately preceding state and action $S_{t-1},A_{t-1}$, not on earlier history. This is a restriction on the <em>state</em>, not the decision process: the state must include all information about the past interaction that makes a difference for the future.</p>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: the Markov property, pictured <span class="lec-date">Aug 5</span></span>
+  <p>Draw time on one axis and states on the other. Two very different paths both arrive in state 2 at time 4. If the agent now takes action $a$, is the chance of moving to state 5 different for the two paths? Under the <strong>Markov assumption</strong>, no:
+  $$P(S_{t+1}=s'\mid S_t=s,A_t=a,S_{t-1},A_{t-1},\dots,S_0,A_0)=P(S_{t+1}=s'\mid S_t=s,A_t=a).$$
+  "Regardless of whatever path you have chosen", only the current state and action matter — so a policy $\pi(a\mid s)$ need only look at the current state.</p>
+  <ul>
+    <li>The course also assumes <strong>stationary dynamics</strong>: these probabilities do not change with $t$.</li>
+    <li>Markov is an assumption, not a law. If the dynamics depend on the past, the history (past states and actions) must be recorded and the policy becomes $\pi(a\mid s_0,a_0,\dots,s_t)$ — or the state must be enriched until it is Markov.</li>
+  </ul>
+</div>
 <h3>Where is the agent–environment boundary?</h3>
 <ul>
   <li><strong>Anything that cannot be changed arbitrarily by the agent is part of the environment.</strong> A robot's motors, linkages and sensors — and an animal's muscles and skeleton — belong to the environment.</li>
@@ -111,6 +122,14 @@ $$p(s'\mid s,a) = \sum_{r} p(s',r\mid s,a) \qquad r(s,a) = \sum_r r\sum_{s'}p(s'
 </table></div>
 <p class="small muted">Zero-probability rows (high-wait-low, low-wait-high, low-recharge-low) are omitted. In a <strong>transition graph</strong>, state nodes are large open circles, action nodes are small solid circles, and arrows out of an action node carry $p(s'\mid s,a)$ and $r(s,a,s')$ and sum to 1. Exercise 3.4 (the $p(s',r\mid s,a)$ table) has exactly these rows, with $r$ as its own column, since each $(s,a,s')$ here has a single reward.</p>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: the recycling robot as taught, and why not learn the model <span class="lec-date">Aug 19 &amp; 24</span></span>
+  <p>In class the battery-dies case carried a <strong>rescue penalty of −5</strong> (the book uses −3): from <em>low</em>, <em>search</em> keeps the robot low with probability β (reward $r_{\text{search}}$) and drains it with probability $1-\beta$ (reward −5, carried back to <em>high</em>); <em>recharge</em> goes to <em>high</em> with reward 0. So
+  $$r(\text{low},\text{search})=\beta\,r_{\text{search}}+(1-\beta)(-5).$$
+  A student asked why waiting forever in <em>high</em> never drains the battery: the table is a <strong>single-stage</strong> model — one decision step at a time; longer horizons come from applying it repeatedly.</p>
+  <p>Deriving $r(s,a,s')$: $P(R_{t+1}=r\mid s,a,s')=p(s',r\mid s,a)/p(s'\mid s,a)$, so $r(s,a,s')=\sum_r r\,\dfrac{p(s',r\mid s,a)}{\sum_{r'}p(s',r'\mid s,a)}$ (don't forget the factor $r$ — the professor's slip, corrected in class).</p>
+  <p><strong>Why the course goes model-free:</strong> "Learning the system model is not easy — it requires much more data than what our algorithms will need." So later chapters use the data $(S_t,A_t,R_{t+1},S_{t+1})$ directly, and approximation when there are $10^{100}$ states (e.g. city-wide traffic control).</p>
+</div>
 <h2 id="rewards">3.2 Goals and rewards</h2>
 <div class="box def">
   <span class="box-title">The reward hypothesis</span>
@@ -151,6 +170,17 @@ $$\text{If } R=+1 \text{ forever:}\quad G_t = \sum_{k=0}^{\infty}\gamma^k = \fra
   </ul>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: why γ &lt; 1 makes returns finite — and when γ = 1 is fine <span class="lec-date">Aug 31</span></span>
+  <p>If every reward satisfies $|R_{t+1}|\le B$, then by the triangle inequality
+  $$|G_t|\le B+\gamma B+\gamma^2B+\cdots=\frac{B}{1-\gamma}\qquad(0\le\gamma\lt1).$$
+  Even $\gamma=0.99$ gives the finite bound $100B$. With $\gamma=1$ the denominator vanishes and there is no bound.</p>
+  <ul>
+    <li><strong>Why γ = 1 fails for continuing tasks</strong>: a policy earning $1,1,1,\dots$ and one earning $1,\tfrac12,\tfrac13,\dots$ both have return $\infty$ (the harmonic series diverges), although the first is clearly better. Infinite returns cannot be ranked.</li>
+    <li><strong>Why γ = 1 is fine for episodic tasks</strong>: the sum has finitely many bounded terms — provided the policy is <strong>proper</strong>, i.e. it reaches the terminal state in finite time with probability one (with $n$ non-terminal states, a positive probability of terminating within $n$ steps). A bad policy that wanders forever would otherwise break the argument.</li>
+    <li>A return is a <strong>random</strong> quantity (actions and transitions are random); the value function is its <em>expectation</em>, which is what we compare.</li>
+  </ul>
+</div>
 <h3>Example 3.4 — pole balancing, two formulations</h3>
 <div class="table-wrap"><table>
   <tr><th>Formulation</th><th>Reward</th><th>Return</th></tr>
@@ -170,6 +200,17 @@ $$\text{If } R=+1 \text{ forever:}\quad G_t = \sum_{k=0}^{\infty}\gamma^k = \fra
   <p class="small muted">Defaults are Exercise 3.8 (γ = 0.5, T = 5).</p>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: three reward designs for pole balancing <span class="lec-date">Aug 31</span></span>
+  <p>Students first proposed rewards for a small angle or for corrective moves (30° → 20°). Plausible — but they assume the exact angle can be measured, which may not be true in practice. Compare three simpler designs (episode ends when the pole falls):</p>
+  <div class="table-wrap"><table>
+    <tr><th>Rewards</th><th>γ</th><th>Return $G_0$ if the pole falls at step $T$</th><th>Verdict</th></tr>
+    <tr><td>+1 each step survived, 0 on failure</td><td>1</td><td>number of steps survived</td><td>Return = survival time — exactly the goal</td></tr>
+    <tr><td>0 before failure, −1 on failure</td><td>1</td><td>$-1$ for <em>every</em> episode</td><td>Useless: falling at step 1 and at step 1000 look the same</td></tr>
+    <tr><td>0 before failure, −1 on failure</td><td>$0\lt\gamma\lt1$</td><td>$-\gamma^{T-1}$</td><td>Works: later failure ⇒ return closer to 0</td></tr>
+  </table></div>
+  <p>With $\gamma=0.9$: failing at step 1 gives −1, at step 3 gives $-0.81$, at step 10 gives $-0.9^9\approx-0.387$. "The absolute value of the reward matters less than whether its <strong>trend</strong> captures the real objective."</p>
+</div>
 <h2 id="unified">3.4 Unified notation for episodic and continuing tasks</h2>
 <p>Treat episode termination as entering a special <strong>absorbing state</strong> that transitions only to itself with reward 0. Then the episodic return equals the infinite sum, with or without discounting:</p>
 <div class="eq">
@@ -241,6 +282,19 @@ $$q_\pi(s,a) = \sum_{s',r}p(s',r\mid s,a)\Big[r+\gamma\sum_{a'}\pi(a'\mid s')\,q
 <div class="box exam"><span class="box-title">Exercise 3.14 — check the Bellman equation at the centre state</span>
 <p>Centre value 0.7, neighbours 2.3, 0.4, −0.4, 0.7, all rewards 0, each action prob. ¼: $\;0.9\times\tfrac14(2.3+0.4-0.4+0.7)=0.9\times0.75=0.675\approx0.7$ ✓.</p></div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: checking the gridworld values yourself <span class="lec-date">Sep 2</span></span>
+  <p>Equiprobable policy, $\gamma=0.9$; off-grid moves leave the agent in place with reward −1 (a "reflecting boundary").</p>
+  <ul>
+    <li><strong>State A</strong> (every action → A′, reward +10): the four ¼-weighted terms are identical, so $v_\pi(A)=10+0.9\,v_\pi(A')=10+0.9(-1.3)=8.83$. <em>Below</em> its reward of 10, because A′ is a negative-value state.</li>
+    <li><strong>State B</strong> (→ B′, reward +5): $5+0.9(0.4)=5.36$ — <em>above</em> its reward, because B′ is positive. A value is never just the one-step reward.</li>
+    <li><strong>Bottom-right corner D</strong>: Up → −1.2, Left → −1.4 (reward 0); Right and Down hit the wall (reward −1) and <em>return to D</em>. The self-loops put $v_\pi(D)$ on both sides:
+      $$v=\tfrac14(0+0-1-1)+0.9\cdot\tfrac14\big(-1.2-1.4+v+v\big)\ \Rightarrow\ 0.55v=-1.085\ \Rightarrow\ v\approx-1.97\ (\text{table: }-2.0).$$
+      Keep the $+\gamma v(s')$ sign — the −1 is the reward; $v$ itself just turns out negative.</li>
+    <li>Why are the bottom rows negative? There is no goal; they are far from A and B and the random policy often bumps into walls.</li>
+  </ul>
+  <p>Expected one-step reward under a policy (Aug 31): $\mathbb E_\pi[R_{t+1}\mid S_t=s]=\sum_r r\sum_a\pi(a\mid s)\sum_{s'}p(s',r\mid s,a)$. And remember: $q_\pi(s,a)$ takes action $a$ first — <em>even if π would never choose it</em> — and follows π only from the next step.</p>
+</div>
 <h3>Adding a constant to all rewards (Exercises 3.15, 3.16)</h3>
 <div class="eq">
 $$\text{Continuing: } G_t \to G_t + \sum_{k=0}^{\infty}\gamma^k c = G_t + \underbrace{\frac{c}{1-\gamma}}_{v_c}$$
@@ -295,6 +349,17 @@ q_*(s,a)&=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\max_{a'}q_*(s',a')
 <div class="eq-name"><span>All four Bellman equations with three-argument p and r(s,a)</span><span class="ref">Ex 3.29</span></div>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: reading optimality <span class="lec-date">Sep 2 &amp; 9</span></span>
+  <ul>
+    <li><strong>"Optimal" means optimal in every state</strong>: $v_{\pi_*}(s)=v_*(s)$ for all $s$, not just a chosen start state.</li>
+    <li><strong>$v_*$ is unique; $\pi_*$ need not be.</strong> If two candidate "optimal" values for a state were 7.9 and 8.4, the smaller could not be the maximum. Ties between actions (two equally short paths) give several optimal policies with the same $v_*$.</li>
+    <li>In the gridworld every action in A (or B) leads to the same place with the same reward, so <em>all four actions tie</em> there.</li>
+    <li><strong>Why the optimal gridworld values are all non-negative</strong>: the optimal policy never walks into a wall — it only takes value-maximising moves — whereas the random policy did so with probability ¼ near the edges.</li>
+    <li><strong>Reading $\pi_*$ off a Q-table</strong>: in each row (state) pick the action(s) with the largest $q_*(s,a)$; $v_*(s)=\max_aq_*(s,a)$.</li>
+    <li>Number of deterministic policies: $m^n$ for $n$ states and $m$ actions — exhaustive search is hopeless, hence Chapter 4. Two stochastic policies differ if their action probabilities differ in any state (0.1 vs 0.8 for $a_1$).</li>
+  </ul>
+</div>
 <h3>Example 3.8 — solving the gridworld</h3>
 <p>$v_*(A)=24.4$. From A the optimal policy collects +10, jumps to A′, and walks 4 steps back up to A: a 5-step cycle.</p>
 <div class="eq">

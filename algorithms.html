@@ -25,7 +25,7 @@
 <div class="hero">
   <div class="kicker">Revision</div>
   <h1>Algorithm catalogue &amp; comparisons</h1>
-  <p class="lead">Every algorithm from Chapters 2–9 in one place: what it estimates, its update target, whether it needs a model, bootstraps, or learns off-policy — and how it differs from its neighbours.</p>
+  <p class="lead">Every algorithm from Chapters 2–9, 13 and 16 (§16.5) in one place: what it estimates, its update target, whether it needs a model, bootstraps, or learns off-policy — and how it differs from its neighbours.</p>
 </div>
 
 <h2 id="catalogue">The catalogue</h2>
@@ -39,6 +39,8 @@
   <button data-f="boot">Bootstraps</button>
   <button data-f="off">Off-policy</button>
   <button data-f="fa">Function approx.</button>
+  <button data-f="pg">Policy gradient</button>
+  <button data-f="deep">Deep (neural net)</button>
 </div>
 <div class="table-wrap"><table id="cat">
   <thead><tr><th>Algorithm</th><th>Ch</th><th>Estimates</th><th>Update target / rule</th><th>Model</th><th>Boot-straps</th><th>Policy</th><th>Key hyper&shy;parameters</th></tr></thead>
@@ -136,6 +138,34 @@
   <tr><td>Step size</td><td>α</td><td>α</td><td>none (ε regulariser), never forgets</td></tr>
 </table></div>
 
+<h3>Value-based vs policy-gradient vs actor–critic (Ch 6 / 13)</h3>
+<div class="table-wrap"><table>
+  <tr><th></th><th>Value-based (Q-learning, Sarsa)</th><th>Policy gradient (REINFORCE)</th><th>Actor–critic</th></tr>
+  <tr><td>What is learned</td><td>$\hat q(s,a,\mathbf w)$; policy implicit (ε-greedy)</td><td>policy $\pi(a|s,\boldsymbol\theta)$ directly</td><td>policy (actor) <em>and</em> $\hat v$ (critic)</td></tr>
+  <tr><td>Update signal</td><td>TD error of the value</td><td>return $G_t$ (minus optional baseline $b(S_t)$)</td><td>one-step TD error $\delta_t$ (same $\delta$ for both)</td></tr>
+  <tr><td>Bootstraps</td><td class="yes">yes</td><td class="no">no (Monte Carlo)</td><td>yes (biased)</td></tr>
+  <tr><td>Update timing</td><td>every step</td><td>end of episode (episodic only)</td><td>every step, fully online</td></tr>
+  <tr><td>Bias / variance</td><td>biased, low variance</td><td>unbiased, high variance</td><td>biased, lower variance</td></tr>
+  <tr><td>Optimal policy it can represent</td><td>(near-)deterministic; ε-greedy always keeps ε exploration</td><td>deterministic or any stochastic mix (preferences can approach determinism)</td><td>same as policy gradient</td></tr>
+  <tr><td>Continuous actions</td><td>awkward ($\max_a$ over a continuum)</td><td>natural (Gaussian policy)</td><td>natural</td></tr>
+  <tr><td>Step sizes</td><td>α</td><td>α (plus $\alpha^{\mathbf w}$ if a baseline is learned)</td><td>actor α ≪ critic β (two time-scales)</td></tr>
+  <tr><td>Convergence</td><td>action probabilities can jump when the greedy action flips</td><td>smooth changes; local optimum for small α</td><td>local optimum when $\alpha_t/\beta_t\to0$</td></tr>
+  <tr><td>View</td><td>GPI (evaluate, then greedify)</td><td>gradient ascent on $J(\boldsymbol\theta)$</td><td>GPI without nested loops</td></tr>
+</table></div>
+
+<h3>Tabular Q-learning vs DQN (Ch 6 / §16.5)</h3>
+<div class="table-wrap"><table>
+  <tr><th></th><th>Tabular Q-learning</th><th>DQN</th></tr>
+  <tr><td>Representation</td><td>table $Q(s,a)$</td><td>deep conv net, 18 outputs, input $84\times84\times4$</td></tr>
+  <tr><td>Target</td><td>$R+\gamma\max_aQ(S',a)$ (same table)</td><td>$r+\gamma\max_{a'}Q(s',a';\theta^-)$ with a <strong>frozen copy</strong> $\theta^-$; $y=r$ at termination</td></tr>
+  <tr><td>Data used per update</td><td>the latest transition</td><td>mini-batch (32) sampled <strong>uniformly from replay memory</strong> (last $N$ tuples)</td></tr>
+  <tr><td>Update</td><td>one table entry moves</td><td>semi-gradient step on $(y-Q)^2$ with error clipped to $[-1,1]$; RMSProp</td></tr>
+  <tr><td>Convergence</td><td>guaranteed (decreasing α, all pairs visited)</td><td>none — deadly triad (FA + bootstrapping + off-policy); stabilised by replay and target net</td></tr>
+  <tr><td>Generalisation</td><td>none between states</td><td>learned features generalise across states</td></tr>
+  <tr><td>Extra hyperparameters</td><td>α, ε</td><td>N, C, batch size, ε schedule, reward/error clipping, frame skip, architecture</td></tr>
+  <tr><td>Reward scale</td><td>raw</td><td>clipped to $\{-1,0,+1\}$</td></tr>
+</table></div>
+
 <h2 id="which">Which algorithm when?</h2>
 <div class="table-wrap"><table>
   <tr><th>Situation</th><th>Reasonable choice</th><th>Why</th></tr>
@@ -149,6 +179,9 @@
   <tr><td>Learning from another agent's / logged data</td><td>Off-policy MC with weighted IS, tree backup</td><td>Separate behaviour and target</td></tr>
   <tr><td>Sparse delayed reward, slow credit propagation</td><td>n-step methods (intermediate n)</td><td>Propagates credit n steps per update</td></tr>
   <tr><td>Large/continuous state</td><td>Semi-gradient TD with tile coding or Fourier features; LSTD if d small</td><td>Generalisation with linear guarantees</td></tr>
+  <tr><td>Stochastic optimal policy, or continuous actions</td><td>Policy gradient (REINFORCE with baseline; Gaussian policy)</td><td>Can represent any action probabilities; no $\max_a$ needed</td></tr>
+  <tr><td>Policy gradient but need online / lower variance</td><td>One-step actor–critic (α ≪ β)</td><td>TD error replaces the full return</td></tr>
+  <tr><td>Raw pixels, discrete actions, off-policy replay possible</td><td>DQN (DRQN if partially observable)</td><td>Learns features; replay + target net stabilise</td></tr>
 </table></div>
 
 </main>
@@ -186,6 +219,13 @@ document.addEventListener("rl:ready", function () {
     ["n-step semi-gradient TD", "chapters/ch09.html#linear", "9", "v̂ ≈ vπ", "$\\alpha[G_{t:t+n}-\\hat v]\\nabla\\hat v$", "no", "yes", "on", "n, α", "pred mf boot fa"],
     ["LSTD", "chapters/ch09.html#lstd", "9", "w_TD", "$\\hat{\\mathbf A}^{-1}\\hat{\\mathbf b}$", "no", "yes", "on", "ε", "pred mf boot fa"],
     ["Emphatic n-step TD", "chapters/ch09.html#interest", "9", "v̂ (interest-weighted)", "$\\alpha M_t[G-\\hat v]\\nabla\\hat v$", "no", "yes", "on", "I_t, n, α", "pred mf boot fa"],
+    ["REINFORCE", "chapters/ch13.html#reinforce", "13", "π(a|s,θ) ≈ π*", "$\\boldsymbol\\theta\\mathrel{+}=\\alpha\\gamma^tG_t\\nabla\\ln\\pi(A_t|S_t)$", "no", "no", "on", "α, γ, parameterisation", "ctrl mf pg"],
+    ["REINFORCE with baseline", "chapters/ch13.html#baseline", "13", "π_θ and v̂(s,w) (baseline)", "$\\boldsymbol\\theta\\mathrel{+}=\\alpha^{\\theta}\\gamma^t(G_t-\\hat v)\\nabla\\ln\\pi$", "no", "no", "on", "α^θ, α^w", "ctrl mf pg"],
+    ["One-step actor–critic (episodic)", "chapters/ch13.html#actor-critic", "13", "π_θ and v̂(s,w) (critic)", "$\\delta=R+\\gamma\\hat v(S')-\\hat v(S)$; $\\boldsymbol\\theta\\mathrel{+}=\\alpha I\\delta\\nabla\\ln\\pi$", "no", "yes", "on", "α ≪ β, γ", "ctrl mf boot pg"],
+    ["Actor–critic (continuing, average reward)", "chapters/ch13.html#continuing", "13", "π_θ, v̂, average reward R̄", "$\\delta=R-\\bar R+\\hat v(S')-\\hat v(S)$", "no", "yes", "on", "α^θ, α^w, α^R̄", "ctrl mf boot pg"],
+    ["Gaussian-policy actor (continuous actions)", "chapters/ch13.html#continuous", "13", "θ_μ, θ_σ", "$\\nabla_{\\theta_\\mu}\\ln\\pi=\\frac{a-\\mu}{\\sigma^2}\\mathbf x_\\mu$", "no", "no/yes", "on", "σ parameterisation", "ctrl mf pg"],
+    ["DQN (deep Q-learning)", "chapters/ch16.html#algorithm", "16", "q* via Q(s,a;θ)", "$y=r+\\gamma\\max_{a'}Q(s',a';\\theta^-)$ ($y=r$ if terminal)", "no", "yes", "off", "N, C, ε, α, γ, batch 32", "ctrl mf boot off fa deep"],
+    ["DRQN (recurrent DQN)", "chapters/ch16.html#drqn", "16", "q* via recurrent Q-net", "same target as DQN; LSTM layer in the net", "no", "yes", "off", "as DQN + recurrent size", "ctrl mf boot off fa deep"],
   ];
   const tb = document.querySelector("#cat tbody");
   tb.innerHTML = A.map((r) => '<tr data-tags="' + r[9] + '"><td><a href="' + r[1] + '">' + r[0] + "</a></td><td>" + r[2] + "</td><td>" + r[3] + "</td><td>" + r[4] + '</td><td class="' + (r[5] === "yes" ? "y" : "n") + '">' + r[5] + '</td><td class="' + (r[6] === "yes" ? "y" : "n") + '">' + r[6] + "</td><td>" + r[7] + "</td><td>" + r[8] + "</td></tr>").join("");

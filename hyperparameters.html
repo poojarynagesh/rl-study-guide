@@ -17,7 +17,7 @@
 <div class="hero">
   <div class="kicker">Revision</div>
   <h1>Hyperparameters &amp; step sizes</h1>
-  <p class="lead">What each hyperparameter in Chapters 2–9 controls, what happens when it is too small or too large, and the book's guidance — with a special focus on <strong>constant vs varying step sizes</strong>.</p>
+  <p class="lead">What each hyperparameter in Chapters 2–9, 13 and 16 (§16.5, DQN) controls, what happens when it is too small or too large, and the book's guidance — with a special focus on <strong>constant vs varying step sizes</strong>.</p>
 </div>
 
 <h2 id="stepsize">1. The step size α — constant vs varying</h2>
@@ -34,6 +34,8 @@
   <tr><td><strong>Tile-coding step</strong></td><td>$\alpha=1/(\tau n)$ for $n$ tilings</td><td>constant</td><td>$\tau=1$ ⇒ one-trial learning; $\tau=10$ ⇒ ~10 presentations</td><td>Ch 9 §9.5.4</td></tr>
   <tr><td><strong>General linear rule</strong></td><td>$\alpha=(\tau\E[\mathbf x^\top\mathbf x])^{-1}$</td><td>constant</td><td>Learn in ≈ τ experiences with similar features</td><td>Ch 9 (9.19)</td></tr>
   <tr><td><strong>Fourier per-feature</strong></td><td>$\alpha_i=\alpha/\|\mathbf c^i\|$</td><td>constant</td><td>Smaller steps for high-frequency features</td><td>Ch 9 §9.5.2</td></tr>
+  <tr><td><strong>Actor vs critic (two time-scales)</strong></td><td>$\alpha_t=\frac1{t+1}$, $\beta_t=\frac1{(t+1)^\kappa}$, $\kappa\in(0.5,1)$</td><td>each yes; plus $\alpha_t/\beta_t\to0$</td><td>Critic (fast, β) tracks the value of the nearly frozen policy; actor (slow, α ≪ β) changes it. At $t+1=10^5$, $\kappa=0.7$: ratio ≈ 0.032</td><td>Ch 13 (lectures Nov 11, 20)</td></tr>
+  <tr><td><strong>RMSProp (per-weight)</strong></td><td>step scaled by a running mean of recent squared gradients of that weight</td><td>—</td><td>Adapts the step size per weight; used by DQN with learning rate 0.00025 (paper)</td><td>Ch 16 §16.5.3</td></tr>
   <tr><td><strong>No step size</strong></td><td>LSTD: $\mathbf w=\hat{\mathbf A}^{-1}\hat{\mathbf b}$</td><td>—</td><td>Needs ε; never forgets (bad when π changes)</td><td>Ch 9 §9.8</td></tr>
 </table></div>
 
@@ -71,6 +73,8 @@ $$\begin{aligned}\sum_{n=1}^\infty\alpha_n&=\infty&&\text{steps large enough to 
   <tr><td>6 TD</td><td>random walk TD α = 0.05–0.15 vs MC 0.01–0.04; windy α = 0.5; cliff α = 0.5 (Expected Sarsa fine at 1)</td><td>Batch TD answer independent of α</td></tr>
   <tr><td>7 n-step</td><td>best α shrinks as n grows (Fig 7.2)</td><td>n and α must be tuned together</td></tr>
   <tr><td>9 Approx.</td><td>2×10⁻⁵ (gradient MC, 100k episodes), 10⁻⁴ / 5×10⁻⁵ (poly / Fourier), $1/(10n)$ tile coding</td><td>(9.19) rule of thumb</td></tr>
+  <tr><td>13 Policy gradient</td><td>actor α ≈ 2⁻¹³ (REINFORCE, short corridor, Fig 13.1); critic $\alpha^{\mathbf w}=0.1/\E\|\nabla\hat v\|^2_\mu$; lecture example β = 0.5, α ≈ 0.0005</td><td>α ≪ β; actor step is hard to set</td></tr>
+  <tr><td>16 DQN</td><td>RMSProp, learning rate 0.00025 (paper)</td><td>Found by informal search on a few games, then fixed for all 49</td></tr>
 </table></div>
 
 <h2 id="exploration">2. Exploration parameters</h2>
@@ -121,7 +125,36 @@ $$\begin{aligned}\sum_{n=1}^\infty\alpha_n&=\infty&&\text{steps large enough to 
   <tr><td>Interest $I_t$</td><td>Which states the objective cares about (emphasis $M_t$)</td></tr>
 </table></div>
 
-<h2 id="tuning">7. How to read a parameter study</h2>
+<h2 id="pg">7. Policy-gradient parameters (Chapter 13)</h2>
+<div class="table-wrap"><table>
+  <tr><th>Parameter</th><th>Controls</th><th>Too small</th><th>Too large</th><th>Notes</th></tr>
+  <tr><td>Actor step α (or $\alpha^{\boldsymbol\theta}$)</td><td>Size of each policy-parameter move</td><td>Very slow learning</td><td>Unstable, collapses to near-deterministic policy too early</td><td>Depends on reward scale and parameterisation; Fig 13.1 best ≈ 2⁻¹³; in actor–critic much smaller than β</td></tr>
+  <tr><td>Critic / baseline step β (or $\alpha^{\mathbf w}$)</td><td>How fast $\hat v$ tracks $v_\pi$</td><td>Critic lags the policy ⇒ stale δ</td><td>Noisy critic</td><td>Linear $\hat v$: $0.1/\E\|\nabla\hat v\|^2_\mu$; lecture β = 0.5</td></tr>
+  <tr><td>Ratio α/β</td><td>Time-scale separation</td><td>—</td><td>Actor changes too fast for the critic to follow ⇒ unstable</td><td>Need $\alpha_t/\beta_t\to0$ (two-time-scale); mirrors the nested loops of policy iteration</td></tr>
+  <tr><td>Preference parameterisation $h(s,a,\boldsymbol\theta)$</td><td>Soft-max over preferences: $\pi\propto e^{h}$; features $\mathbf x(s,a)$ or a network</td><td colspan="2">Must give $\pi\gt0$ and be differentiable. Preferences are <em>not</em> action values; the best action's preference can grow without bound (⇒ deterministic)</td><td>At $\boldsymbol\theta=0$ all actions equally likely. A soft-max over <em>values</em> would need a temperature schedule — preferences avoid it</td></tr>
+  <tr><td>Gaussian std σ</td><td>Exploration of a continuous-action policy</td><td>Premature exploitation</td><td>Noisy actions</td><td>$\sigma=\exp(\boldsymbol\theta_\sigma^\top\mathbf x_\sigma)$ keeps it positive and learned: grows when good samples lie beyond 1σ, shrinks when within 1σ</td></tr>
+  <tr><td>Baseline $b(s)$</td><td>Variance of the gradient estimate</td><td colspan="2">No bias for any action-independent $b$; $\hat v(s,\mathbf w)$ is the standard choice (a bad $b$ may even raise variance)</td><td>Fig 13.2: much faster learning on the short corridor</td></tr>
+  <tr><td>Discount factor γ (and $I=\gamma^t$)</td><td>Weight of later steps in the update</td><td colspan="2">Exact discounted REINFORCE / actor–critic carry the $\gamma^t$ / $I$ factor; often dropped in practice</td><td>Continuing case: use the differential TD error and average reward R̄ (step $\alpha^{\bar R}$)</td></tr>
+  <tr><td>n or λ (critic return)</td><td>Bias–variance of the actor's signal</td><td colspan="2">One-step TD error is biased but low variance; n-step / λ-returns move toward REINFORCE</td><td>Ch 7, 12</td></tr>
+</table></div>
+
+<h2 id="dqn">8. DQN hyperparameters (Chapter 16, §16.5)</h2>
+<div class="table-wrap"><table>
+  <tr><th>Parameter</th><th>Value / guidance</th><th>Too small</th><th>Too large</th></tr>
+  <tr><td>Replay capacity $N$</td><td>keep the <strong>last $N$ tuples</strong>; lecture examples 100 or 1000 (illustrative). <span class="muted">(Paper: 1,000,000 transitions.)</span></td><td>Correlated, recent-only data</td><td>More decorrelation but older, staler data; memory</td></tr>
+  <tr><td>Mini-batch size</td><td><strong>32</strong> (book); sampled uniformly</td><td>Noisy gradient</td><td>Slower per step; each tuple is reused ≈ batch size times over its lifetime in the buffer</td></tr>
+  <tr><td>Target-update period $C$</td><td>copy $\theta\to\theta^-$ every $C$ updates; $\theta^-$ lags by $0..C-1$ updates. <span class="muted">(Paper: $C=10{,}000$ parameter updates.)</span></td><td>$C=1$ ⇒ no target network, moving-target instability</td><td>Stale targets, slow learning</td></tr>
+  <tr><td>ε annealing</td><td>decreases <strong>linearly over the first million frames</strong>, then stays low. <span class="muted">(Paper: 1.0 → 0.1.)</span></td><td>Too little early exploration</td><td>Wasted steps; slow improvement</td></tr>
+  <tr><td>Discount γ</td><td><strong>0.99</strong> (lecture); episodic, so γ = 1 admissible</td><td>Myopic</td><td>γ = 1 less stable (long games)</td></tr>
+  <tr><td>Learning rate / optimiser</td><td>informal search on a few games, then fixed; <strong>RMSProp</strong> per-weight scaling. <span class="muted">(Paper: learning rate 0.00025.)</span></td><td>Slow</td><td>Divergence (the deadly triad makes DQN sensitive)</td></tr>
+  <tr><td>Frame skip $k$ and frame stack</td><td>stack of 4 frames, $84\times84$ luminance; frame skip $k=4$ <span class="muted">(paper)</span></td><td colspan="2">Stack of 1 frame is not Markov (no velocity); “50M frames ≈ 38 days” counts agent steps ×4 skipped frames</td></tr>
+  <tr><td>Reward clipping</td><td>$\{+1,0,-1\}$ (score up / unchanged / down)</td><td colspan="2">Lets one step size serve games with very different score scales; loses information on reward magnitude</td></tr>
+  <tr><td>Error clipping</td><td>TD error clipped to $[-1,1]$ (squared loss inside, linear outside — Huber-like)</td><td colspan="2">Bounds any single update, improving stability</td></tr>
+  <tr><td>Training / evaluation</td><td>50M frames per game; 30 test sessions of ≤ 5 min</td><td colspan="2">Same network (3 conv: 32, 64, 64 maps → 512 FC → 18 outputs, ReLU) and parameters for all games</td></tr>
+</table></div>
+<p class="small muted">Values marked “paper” come from Mnih et al. (2015), Extended Data Table 1; they are not in the book or the lecture notes, so treat them as background.</p>
+
+<h2 id="tuning">9. How to read a parameter study</h2>
 <ul>
   <li>Plot a summary of performance (e.g. average reward over the first 1000 steps, or RMS error over the first 10 episodes) against the parameter on a <strong>log scale</strong> (Figs 2.6, 6.3, 7.2, 9.2).</li>
   <li>Expect an <strong>inverted U</strong> (reward) or <strong>U</strong> (error): too small learns or explores too little; too large is noisy or unstable.</li>

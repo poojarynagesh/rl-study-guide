@@ -24,6 +24,8 @@ PAGES = [
     ("ch06", "chapters/ch06.html"),
     ("ch07", "chapters/ch07.html"),
     ("ch09", "chapters/ch09.html"),
+    ("ch13", "chapters/ch13.html"),
+    ("ch16", "chapters/ch16.html"),
     ("algorithms", "algorithms.html"),
     ("hyper", "hyperparameters.html"),
     ("formulas", "formulas.html"),
@@ -33,7 +35,8 @@ PAGES = [
 TOKEN = re.compile(
     r'<h([23])([^>]*)>(.*?)</h\1>'
     r'|<span class="name">(.*?)</span>'
-    r'|<div class="eq-name"><span>(.*?)</span>',
+    r'|<div class="eq-name"><span>(.*?)</span>'
+    r'|<div class="box prof">\s*<span class="box-title">From the lectures: (.*?)<span class="lec-date">',
     re.S,
 )
 
@@ -69,8 +72,8 @@ def main():
                 anchor = idm.group(1) if idm else slug(label)
                 entries.append({"t": label, "p": where, "u": f"{rel}#{anchor}"})
             else:
-                label = text(m.group(4) or m.group(5))
-                kind = "Algorithm" if m.group(4) else "Formula"
+                label = text(m.group(4) or m.group(5) or m.group(6))
+                kind = "Algorithm" if m.group(4) else "Formula" if m.group(5) else "Lecture"
                 entries.append({"t": label, "p": f"{where} · {kind}", "u": f"{rel}#{anchor}" if anchor else rel, "k": kind})
     out = ROOT / "assets" / "search-index.js"
     out.write_text(

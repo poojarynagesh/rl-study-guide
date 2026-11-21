@@ -30,6 +30,17 @@
   <li>Use the <strong>search box</strong> (top right) to jump to any algorithm, formula or section.</li>
 </ol>
 
+<h3>Chapters in groups</h3>
+<div class="table-wrap"><table>
+  <tr><th>Group</th><th>Chapters</th><th>Read when / what to take away</th></tr>
+  <tr><td><strong>Foundations</strong></td><td><a href="chapters/ch01.html">1</a>, <a href="chapters/ch02.html">2</a>, <a href="chapters/ch03.html">3</a></td><td>Start here: the RL problem, bandits (exploration, step sizes), MDPs and Bellman equations.</td></tr>
+  <tr><td><strong>Tabular solution methods</strong></td><td><a href="chapters/ch04.html">4</a>, <a href="chapters/ch05.html">5</a>, <a href="chapters/ch06.html">6</a>, <a href="chapters/ch07.html">7</a></td><td>DP, Monte Carlo, TD and n-step: learn the target, bootstrapping and on/off-policy ideas thoroughly — everything later reuses them.</td></tr>
+  <tr><td><strong>Approximation</strong></td><td><a href="chapters/ch09.html">9</a></td><td>Semi-gradient TD, linear features, the TD fixed point, and neural networks (§9.7) — needed before Ch 13 and Ch 16.</td></tr>
+  <tr><td><strong>Policy gradients (Ch 13)</strong></td><td><a href="chapters/ch13.html">13</a></td><td>After Ch 9 and the gradient bandit of Ch 2: policy gradient theorem, REINFORCE, baseline, actor–critic (α ≪ β), Gaussian policy. Expect numerical one-step updates and short “trick” derivations.</td></tr>
+  <tr><td><strong>Deep RL (Ch 16)</strong></td><td><a href="chapters/ch16.html">16 §16.5</a></td><td>After Ch 6 (Q-learning) and Ch 9 (nonlinear FA): DQN = Q-learning + deep conv net + replay + target network; compute targets, clipped errors and target-update timelines; DRQN is optional.</td></tr>
+</table></div>
+<p class="small muted">Chapter 8 is out of scope, and so are the other chapters of the book not listed here. Suggested order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 9 → 13 → 16.</p>
+
 <h2 id="legend">What the boxes mean</h2>
 <div class="box key"><span class="box-title">Key idea</span><p>A concept you must understand — the "why" behind an algorithm.</p></div>
 <div class="box def"><span class="box-title">Definition</span><p>A precise definition from the book, worth memorising word-for-word.</p></div>
@@ -50,7 +61,7 @@
   <div class="bk" data-tree="s|a1|s1|a1|s1|~|T" data-label="Monte Carlo: to the end"></div>
 </div></figure>
 
-<h2 id="notation">Notation (book pp. xix–xxii, Ch 1–9 subset)</h2>
+<h2 id="notation">Notation (book pp. xix–xxii, Ch 1–9 subset, plus Ch 13 and §16.5)</h2>
 <p>Capital letters are random variables; lower case are their values and scalar functions. Bold lower case are vectors; bold capitals are matrices.</p>
 <h3>General</h3>
 <div class="table-wrap"><table>
@@ -113,6 +124,31 @@
   <tr><td>$\mathbf A$, $\mathbf b$</td><td>$\mathbf A\doteq\E[\mathbf x_t(\mathbf x_t-\gamma\mathbf x_{t+1})^\top]$, $\mathbf b\doteq\E[R_{t+1}\mathbf x_t]$</td></tr>
   <tr><td>$\mathbf w_{TD}$</td><td>TD fixed point $\mathbf A^{-1}\mathbf b$ (§9.4)</td></tr>
   <tr><td>$\overline{\mathrm{VE}}(\mathbf w)$</td><td>mean square value error $\sum_s\mu(s)[v_\pi(s)-\hat v(s,\mathbf w)]^2$</td></tr>
+</table></div>
+<h3>Policy gradients (Ch 13)</h3>
+<div class="table-wrap"><table>
+  <tr><th>Symbol</th><th>Meaning</th></tr>
+  <tr><td>$\boldsymbol\theta\in\mathbb R^{d'}$</td><td>policy parameter vector (kept distinct from the value weights $\mathbf w$)</td></tr>
+  <tr><td>$\pi(a\mid s,\boldsymbol\theta)$</td><td>probability of action $a$ in $s$ under the parameterised policy</td></tr>
+  <tr><td>$h(s,a,\boldsymbol\theta)$</td><td>action preference; soft-max of $h$ gives π</td></tr>
+  <tr><td>$J(\boldsymbol\theta)$, $\nabla J$</td><td>performance measure to maximise; its gradient</td></tr>
+  <tr><td>$\nabla\ln\pi(a\mid s,\boldsymbol\theta)$</td><td>eligibility vector (score function): $\nabla\pi/\pi$</td></tr>
+  <tr><td>$b(s)$</td><td>baseline (independent of the action)</td></tr>
+  <tr><td>$\delta_t$</td><td>TD error $R_{t+1}+\gamma\hat v(S_{t+1},\mathbf w)-\hat v(S_t,\mathbf w)$ — drives both actor and critic</td></tr>
+  <tr><td>$\alpha^{\boldsymbol\theta},\ \alpha^{\mathbf w}$ (lectures: α, β)</td><td>actor and critic step sizes, α ≪ β</td></tr>
+  <tr><td>$I$</td><td>$\gamma^t$ factor in episodic actor–critic ($I\leftarrow\gamma I$)</td></tr>
+  <tr><td>$r(\pi)$, $\bar R$</td><td>average reward rate and its estimate (continuing case)</td></tr>
+  <tr><td>$\mu,\sigma$; $\boldsymbol\theta_\mu,\boldsymbol\theta_\sigma$</td><td>Gaussian-policy mean and standard deviation and their parameters</td></tr>
+</table></div>
+<h3>Deep Q-network (Ch 16 §16.5)</h3>
+<div class="table-wrap"><table>
+  <tr><th>Symbol</th><th>Meaning</th></tr>
+  <tr><td>$Q(s,a;\theta)$</td><td>Q-network with weights θ (paper notation for $\hat q(s,a,\mathbf w)$)</td></tr>
+  <tr><td>$\theta^-$</td><td>frozen target-network weights, copied from θ every $C$ updates</td></tr>
+  <tr><td>$D$, $N$</td><td>replay memory and its capacity (last $N$ tuples)</td></tr>
+  <tr><td>$y$</td><td>target $r+\gamma\max_{a'}Q(s',a';\theta^-)$, or $r$ at termination</td></tr>
+  <tr><td>$\phi(s_t)$</td><td>preprocessed state: stack of 4 luminance frames, $84\times84\times4$</td></tr>
+  <tr><td>$C$, $\varepsilon$</td><td>target-update period; exploration probability (annealed)</td></tr>
 </table></div>
 
 </main>

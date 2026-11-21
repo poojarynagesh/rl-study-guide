@@ -11,6 +11,7 @@
 <script defer src="../assets/search-index.js"></script>
 <script defer src="../assets/quizzes/ch06.js"></script>
 <script defer src="../assets/quizzes/ch06-exam.js"></script>
+<script defer src="../assets/quizzes/ch06-lec.js"></script>
 <script defer src="../assets/quiz.js"></script>
 <script defer src="../assets/site.js"></script>
 <style>
@@ -115,6 +116,14 @@ $$G_t - V(S_t) = \delta_t + \gamma\delta_{t+1} + \gamma^2\delta_{t+2} + \dots + 
 <p><strong>MC</strong> (α = 1) moves every prediction toward the actual outcome 43 — but only <em>after</em> arriving home (e.g. at "exiting highway" the error $G_t-V(S_t)=23-15=8$; with α = ½ the estimate rises by 4). <strong>TD</strong> moves each prediction toward the <em>next</em> prediction, immediately: changes are proportional to the temporal differences between successive predictions. If stuck in a jam 25 minutes in, TD already shifts the 30-minute estimate toward 50.</p>
 <p class="small"><strong>Exercise 6.2</strong> — after moving to a new building (same highway entrance), the later states' predictions are already accurate. TD updates for the new early states bootstrap from those good estimates and learn quickly; MC must wait for full returns and absorbs all the noise of the trip. The same happens in the original scenario whenever part of the trajectory is already well-learned.</p>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: what TD updates, and when <span class="lec-date">Sep 30</span></span>
+  <ul>
+    <li>TD updates the <strong>state just left</strong>: after $S_0\xrightarrow{R_1}S_1$ it updates $V(S_0)$; after $S_1\xrightarrow{R_2}S_2$ it updates $V(S_1)$ — no waiting for the episode to end. Starting from a zero table, the first update moves only $V(S_0)$, by $\alpha R_1$.</li>
+    <li>"Temporal difference": the error compares the prediction now, $V(S_t)$, with the reward-adjusted prediction one step later, $R_{t+1}+\gamma V(S_{t+1})$.</li>
+    <li>With $V$ held fixed during the episode, the Monte Carlo error telescopes: $G_t-V(S_t)=\delta_t+\gamma\big(G_{t+1}-V(S_{t+1})\big)=\sum_{k=t}^{T-1}\gamma^{k-t}\delta_k$ (using $G_T=V(S_T)=0$). If V changes online after each step, the identity holds only approximately.</li>
+  </ul>
+</div>
 <h2 id="advantages">6.2 Advantages of TD prediction methods</h2>
 <div class="table-wrap"><table>
   <tr><th>vs.</th><th>TD's advantage</th></tr>
@@ -145,6 +154,13 @@ $$G_t - V(S_t) = \delta_t + \gamma\delta_{t+1} + \gamma^2\delta_{t+2} + \dots + 
   <details><summary>Ex 6.6 — Two ways to compute the true values $\frac16,\dots,\frac56$?</summary><div class="ans"><p>(1) Solve the Bellman equations $v(s)=\tfrac12v(s-1)+\tfrac12v(s+1)$ (+ boundary rewards) as a linear system, or by DP iterative policy evaluation. (2) Gambler's-ruin reasoning: probability of exiting right from position $k$ of 5 is $k/6$. (3) MC simulation. Most likely the analytical/linear-system solution — exact and cheap for 5 states.</p></div></details>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: random-walk values, the first episode, and choosing α <span class="lec-date">Sep 30 &amp; Oct 7</span></span>
+  <p><strong>Exact values by hand</strong> (states A–E, terminals F (reward 0) and G (reward 1 on entering from E), γ = 1). From A: $V(A)=\tfrac12V(B)$, so $V(B)=2V(A)$; from B: $V(C)=3V(A)$; then $V(D)=4V(A)$, $V(E)=5V(A)$; from E: $V(E)=\tfrac12V(D)+\tfrac12$ ⇒ $5V(A)=2V(A)+\tfrac12$ ⇒ $V(A)=\tfrac16$. So $V=\tfrac16,\tfrac26,\dots,\tfrac56$ — the probability of exiting right. Terminal states themselves are worth 0; the +1 belongs to the transition E → G.</p>
+  <p><strong>First episode</strong> C → B → A → F with $\alpha=0.1$, all $V=0.5$: the C and B updates change nothing ($0+0.5-0.5=0$); only $V(A)\leftarrow0.5+0.1(0+0-0.5)=0.45$. That single dip in the plot tells you the episode ended on the left.</p>
+  <p><strong>Step size depends on your budget.</strong> RMS error $\sqrt{\tfrac15\sum_s(V(s)-v_\pi(s))^2}$ vs episodes: with 25 episodes α = 0.15 was best among those tried; around 50 episodes α = 0.10; a small α = 0.03 looks poor at 100 episodes but might win after 1000. "Best" only means best among tested values at that horizon. A large α amplifies the random TD error ($\Delta V=\alpha\delta_t$) → fast start, then oscillation; α = 0.5 is not automatically better.</p>
+  <p>Per-state $1/N(s)$ step sizes shrink very quickly and can stall learning; a block schedule (α = 1 for five episodes, ½ for the next five, ⅓ …) decays more gently. Small constant α is common in practice and tracks non-stationarity.</p>
+</div>
 <h2 id="optimality">6.3 Optimality of TD(0) — batch updating</h2>
 <p><strong>Batch updating</strong>: with a finite amount of experience, present it repeatedly; compute the increments for every step but change V only once per pass, by their sum; repeat until convergence. Then:</p>
 <ul>
@@ -170,6 +186,13 @@ $$G_t - V(S_t) = \delta_t + \gamma\delta_{t+1} + \gamma^2\delta_{t+2} + \dots + 
 </div>
 <p class="small"><strong>Exercise 6.7</strong> — off-policy TD(0): $V(S_t)\leftarrow V(S_t)+\alpha\rho_{t:t}\big[R_{t+1}+\gamma V(S_{t+1})-V(S_t)\big]$, with $\rho_{t:t}=\pi(A_t|S_t)/b(A_t|S_t)$.</p>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: what a batch pass actually computes <span class="lec-date">Oct 7</span></span>
+  <p>With a fixed set of episodes (say only ten, and no more can be bought), compute every TD increment using the <em>current, frozen</em> $V$, sum them per state, update once, and repeat until nothing changes. If state $s$ was visited $K$ times with rewards $R_i$ and successors $S_i'$:
+  $$V(s)\leftarrow V(s)+\alpha\sum_{i=1}^{K}\big[R_i+\gamma V(S_i')-V(s)\big].$$
+  $K$ differs from state to state (its empirical visit count). On the next pass the data is the same but the errors change because $V$ changed.</p>
+  <p>Why may batch TD use the six B→1 episodes to value A in Example 6.4, although A's own episode ended with 0? Because of the <strong>Markov property</strong>: once in B, how you got there is irrelevant, so every visit to B informs $V(B)$ and therefore $V(A)=0+V(B)=\tfrac34$. Batch MC ($V(A)=0$) and batch TD ($\tfrac34$) are each correct for what they compute.</p>
+</div>
 <h2 id="sarsa">6.4 Sarsa: on-policy TD control</h2>
 <p>Follow GPI with TD for evaluation. Learn action values $q_\pi$ by considering transitions from state–action pair to state–action pair:</p>
 <div class="eq">
@@ -206,6 +229,14 @@ Initialize Q(s,a), for all s ∈ S⁺, a ∈ A(s), arbitrarily except that Q(ter
   <div class="mini-wrap"><div><div class="lbl">Greedy trajectory after learning</div><div id="wind-grid"></div></div><div class="small" id="wind-out" style="flex:1;min-width:220px"></div></div>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: Sarsa details and the windy-gridworld run <span class="lec-date">Oct 7 &amp; 12</span></span>
+  <ul>
+    <li>$A_t$ picks <em>which entry</em> is updated; $A_{t+1}$ supplies the bootstrap value. Both must come from the <strong>same</strong> ε-greedy policy (same ε) — that is what makes Sarsa on-policy. $Q(\text{terminal},\cdot)=0$.</li>
+    <li>Windy gridworld (7 × 10): wind by column $[0,0,0,1,1,1,2,2,1,0]$ pushes the agent up <em>after</em> its move, clipped at the edge. "Right" in a wind-1 column moves right 1 and up 1; "down" there leaves you in place. The shortest route is 15 steps and depends on turning left at the right row so the wind carries you into the goal.</li>
+    <li>Sarsa with ε = 0.1, α = 0.5: early episodes took ~60 steps (about 50 episodes in 3000 steps); after ~170 episodes and 8000 steps the learned path was 17 steps — much better, but not the optimal 15, because exploration continues.</li>
+  </ul>
+</div>
 <h2 id="qlearning">6.5 Q-learning: off-policy TD control</h2>
 <div class="eq">
 $$Q(S_t,A_t)\leftarrow Q(S_t,A_t)+\alpha\Big[R_{t+1}+\gamma\max_a Q(S_{t+1},a)-Q(S_t,A_t)\Big]$$
@@ -250,6 +281,12 @@ Initialize Q(s,a), for all s ∈ S⁺, a ∈ A(s), arbitrarily except that Q(ter
   <div class="mini-wrap" id="cliff-paths"></div>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: ε-greedy arithmetic, the cliff, and reward design <span class="lec-date">Oct 12</span></span>
+  <p><strong>ε-greedy probabilities</strong> with ε = 0.1: with 4 actions the greedy one gets $0.9+0.1/4=0.925$ and each other $0.025$; with 3 actions $0.9+0.1/3\approx0.933$ and $0.033$ each. Q-learning's target uses the greedy action at $S_{t+1}$, but the action actually executed there is drawn again ε-greedily — the update imagines greedy continuation while behaviour keeps exploring.</p>
+  <p><strong>Cliff walking</strong>: each step −1; falling costs −100 and sends you back to the start <em>without ending the episode</em>. Q-learning learns the 13-step edge route (optimal once exploration stops) but falls during ε-greedy training — average training return about −50. Sarsa learns a ~17-step safer route because its target prices in its own exploratory slips — about −25 during training. Training return and final greedy-policy quality are different criteria.</p>
+  <p><strong>Why −1 per step and not +1?</strong> A positive per-step reward pays the agent to wander in cycles forever; a living cost makes finishing quickly the goal. The shortest path is optimal here only because every ordinary step costs the same; shrink the cliff penalty to −10 and edge-hugging becomes more attractive. The professor's analogy: a driver may prefer a longer safe road over speeding along a cliff edge.</p>
+</div>
 <h2 id="expected-sarsa">6.6 Expected Sarsa</h2>
 <div class="eq">
 $$Q(S_t,A_t)\leftarrow Q(S_t,A_t)+\alpha\Big[R_{t+1}+\gamma\sum_a\pi(a\mid S_{t+1})Q(S_{t+1},a)-Q(S_t,A_t)\Big]$$
@@ -278,6 +315,15 @@ $$Q(S_t,A_t)\leftarrow Q(S_t,A_t)+\alpha\Big[R_{t+1}+\gamma\sum_a\pi(a\mid S_{t+
   <div id="alpha-chart"></div>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: an Expected Sarsa target in numbers, and which method to use <span class="lec-date">Oct 12</span></span>
+  <p>At $S_{t+1}$: $Q=(4,\,6,\,3)$, ε = 0.1, so π = (1/30, 14/15, 1/30). Expected Sarsa uses $4\cdot\tfrac1{30}+6\cdot\tfrac{14}{15}+3\cdot\tfrac1{30}=\tfrac{35}{6}\approx5.83$; Q-learning uses 6; Sarsa uses whichever action was sampled (maybe 3). (In class $0.1/3$ was first written as 0.33 — it is 0.033.)</p>
+  <ul>
+    <li><strong>Interim</strong> performance (first 100 episodes) measures learning speed and early safety; <strong>asymptotic</strong> (~100,000 episodes) measures where it ends up. Expected Sarsa was strong on both and robust to α; Sarsa degraded as α → 1 because its sampled target is noisy and α magnifies the noise.</li>
+    <li>Cost: the expectation reads every action at $S_{t+1}$ — negligible for small action sets, noticeable for large ones.</li>
+    <li>No universal winner: Sarsa for safety under persistent exploration, Q-learning for the final greedy policy, Expected Sarsa for low variance when affordable. Small α (0.1, 0.05, 0.01) usually tames variability.</li>
+  </ul>
+</div>
 <h2 id="max-bias">6.7 Maximization bias and double learning</h2>
 <p>Control algorithms build target policies with a <strong>max</strong> (Q-learning's greedy target; ε-greedy in Sarsa). Using the max of noisy estimates as an estimate of the max of true values gives a <strong>positive bias</strong>: if all $q(s,a)=0$ but $Q(s,a)$ are noisy, $\max_aQ(s,a)&gt;0$. This is <strong>maximization bias</strong>.</p>
 <h3>Example 6.7</h3>
@@ -315,6 +361,16 @@ Initialize Q₁(s,a) and Q₂(s,a), for all s ∈ S⁺, a ∈ A(s), such that Q(
   <div id="mb-chart"></div>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: reading the maximization-bias experiment <span class="lec-date">Oct 14</span></span>
+  <ul>
+    <li>B's reward is $\mathcal N(-0.1,1)$, so $P(R\gt0)=1-\Phi(0.1)\approx0.46$ — almost half the samples look good, which the max latches onto. The flaw is using the <em>same</em> noisy numbers to <strong>select</strong> and to <strong>evaluate</strong>: $\mathbb E[\max_a\hat q(a)]\ge\max_a\mathbb E[\hat q(a)]$.</li>
+    <li>With ε = 0.1 and two actions, the best achievable "% left" is <strong>5%</strong> ($\varepsilon/2$), not 0. Q-learning was still near 10% at 300 episodes; Double Q-learning approached 5% after roughly 100–200.</li>
+    <li>Behaviour is ε-greedy on $Q_1+Q_2$ (same argmax as their average). Example at A: $Q_1=(-3.5,\,0)$, $Q_2=(2.6,\,0)$ for (left, right) disagree; the sum $(-0.9,\,0)$ picks right, so P(right) = 0.95, P(left) = 0.05 — and 0.05 is ε/2, not ε.</li>
+    <li>Each step updates only one table (fair coin), so per-step computation is the same order as Q-learning while memory doubles. The two tables see different halves of the data, so one table's lucky upward error is not shared by the critic table.</li>
+    <li>A student asked: why only two? Five tables (update one with probability 1/5, evaluate with another) is conceivable — offered as an experiment, not an established method. (Double Q-learning: van Hasselt, 2010.)</li>
+  </ul>
+</div>
 <h2 id="afterstates">6.8 Games, afterstates, and other special cases</h2>
 <p>The tic-tac-toe learner of Chapter 1 learned neither $v$ nor $q$ but an <strong>afterstate value function</strong>: values of positions <em>after</em> the agent's move. Useful when we know the <strong>immediate effect</strong> of our actions but not the rest of the dynamics (we know the resulting board, not the opponent's reply).</p>
 <ul>

@@ -11,6 +11,7 @@
 <script defer src="../assets/search-index.js"></script>
 <script defer src="../assets/quizzes/ch09.js"></script>
 <script defer src="../assets/quizzes/ch09-exam.js"></script>
+<script defer src="../assets/quizzes/ch09-lec.js"></script>
 <script defer src="../assets/quiz.js"></script>
 <script defer src="../assets/site.js"></script>
 </head>
@@ -64,6 +65,27 @@
   <li>handle <strong>nonstationary targets</strong> — the policy changes in GPI, and bootstrapped targets (DP, TD) change even for a fixed policy.</li>
 </ul>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: why tables break, and what replaces them <span class="lec-date">Oct 21</span></span>
+  <p><strong>The course so far</strong>: bandits (one state) → MDPs with a known model (DP) → Monte Carlo (no model, but must wait for episodes to end) → one-step TD (immediate bootstrap) → n-step TD (in between). All of Chapters 5–7 are <em>tabular</em>: one stored number per state or state-action pair.</p>
+  <p><strong>Network routing example.</strong> Seven routers between a source and a destination; packets are routed dynamically like cars around congestion. Finite buffers overflow, packets are dropped and must be retransmitted, which worsens congestion. Take the state to be the queue lengths $(n_1,\dots,n_7)$. With 10,000 possible values per router, the number of states is $(10^4)^7=10^{28}$ — <em>not</em> 70,000 (states multiply, they don't add). Monte Carlo is impractical too: "termination" (all queues empty at once) almost never happens. Finite does not mean feasible: $10^{50}$, $10^{100}$ states cannot even be stored.</p>
+  <p><strong>Approximation</strong>: $v(s)\approx\hat v(s,\mathbf w)$ with $\mathbf w\in\mathbb R^d$, $d\ll|\mathcal S|$ (tens to thousands of components). Linear: $\hat v=\mathbf w^\top\boldsymbol\phi(s)$ — shared weights, so an update for one state generalises to similar states. Nonlinear: a neural network $f(s;\mathbf w)$ (weights and biases are <em>parameters</em>; architecture and learning rate are <em>hyperparameters</em>). Even the best $\mathbf w$ may not reproduce $v_\pi$ exactly (representation error), yet the induced policy can be excellent.</p>
+  <div class="table-wrap"><table>
+    <tr><th>Method</th><th>Update target $U_t$ for $S_t$</th></tr>
+    <tr><td>Monte Carlo</td><td>$G_t$</td></tr>
+    <tr><td>One-step TD</td><td>$R_{t+1}+\gamma\hat v(S_{t+1},\mathbf w_t)$</td></tr>
+    <tr><td>n-step TD</td><td>$G_{t:t+n}$</td></tr>
+    <tr><td>Dynamic programming</td><td>$\mathbb E_\pi[R_{t+1}+\gamma\hat v(S_{t+1},\mathbf w_t)\mid S_t]$</td></tr>
+  </table></div>
+</div>
+<div class="box prof">
+  <span class="box-title">From the lectures: how fast state spaces blow up, and what a good approximator needs <span class="lec-date">Oct 26</span></span>
+  <ul>
+    <li><strong>Exponential growth.</strong> Five routers, each queue taking about 1000 values: $|\mathcal S|\approx1000^5=10^{15}$. Add five more routers and it is $1000^{10}=10^{30}$. The state <em>vector</em> only doubled in length (5 to 10 numbers), but the number of <em>combinations</em> squared. The same happens for traffic networks with many junctions. Tabular TD, SARSA and Q-learning all need one number per state (or state-action pair), so they cannot even be stored.</li>
+    <li><strong>The key condition is $d\ll|\mathcal S|$.</strong> Even $d=1000$ weights is fine when $|\mathcal S|$ is $10^{50}$, $10^{70}$ or $10^{100}$. The weights do <em>not</em> depend on the state: a new state only supplies a new feature vector, and the same $\mathbf w$ gives its value instantly. Learning is <em>one</em> optimisation problem for $\mathbf w^*$, not one per state. For control the same idea parameterises $\hat q(s,a,\mathbf w)$ instead of one entry per state-action tuple.</li>
+    <li><strong>Trade-off.</strong> Reducing dimension only helps if the class is rich enough that some $\mathbf w$ approximates the relevant value function closely. Too few or poorly chosen features give <em>irreducible</em> approximation error; richer features cut that error but cost more computation and make estimation harder.</li>
+  </ul>
+</div>
 <h2 id="ve">9.2 The prediction objective $\overline{\mathrm{VE}}$</h2>
 <p>With approximation, making one state more accurate makes others less accurate — so we must say <strong>which states we care about</strong>, via a distribution $\mu(s)\ge0$, $\sum_s\mu(s)=1$:</p>
 <div class="eq">
@@ -88,6 +110,16 @@ $$\mathbf w_{t+1}\doteq\mathbf w_t-\tfrac12\alpha\nabla\big[v_\pi(S_t)-\hat v(S_
 <div class="eq-name"><span>SGD on the squared value error</span><span class="ref">(9.4), (9.5)</span></div>
 </div>
 <p>$\nabla f(\mathbf w)\doteq\big(\tfrac{\partial f}{\partial w_1},\dots,\tfrac{\partial f}{\partial w_d}\big)^\top$ (9.6). Why only a <strong>small</strong> step? We don't want zero error on one example — we want a balance of errors across states. Convergence results assume α decreases per (2.7) ⇒ SGD converges to a <strong>local optimum</strong>.</p>
+<div class="box prof">
+  <span class="box-title">From the lectures: deriving the update step by step, and why the exact gradient is not implementable <span class="lec-date">Oct 28</span></span>
+  <ul>
+    <li><strong>Derivation.</strong> Because the state space is finite, the gradient moves inside the sum (an infinite sum or integral would need a limit theorem). Chain rule: $\nabla\overline{\mathrm{VE}}=-2\sum_s\mu(s)[v_\pi(s)-\hat v(s,\mathbf w)]\nabla\hat v(s,\mathbf w)$. The minus sign comes from differentiating $-\hat v$, the 2 from the square. Descent with step $\alpha/2$ absorbs the 2: $\mathbf w_{t+1}=\mathbf w_t+\alpha\sum_s\mu(s)[v_\pi(s)-\hat v(s,\mathbf w_t)]\nabla\hat v(s,\mathbf w_t)$. The lecture assumed $\mu(s)\gt0$ for every $s$.</li>
+    <li><strong>Global vs local.</strong> For nonlinear $\hat v$ the objective need not be convex, so one settles for a stationary point $\nabla\overline{\mathrm{VE}}(\mathbf w^*)=0$ (a positive-definite Hessian there is sufficient for a strict local minimum). Convex means every local minimum is global, but convexity depends on the parameterisation.</li>
+    <li><strong>Three obstacles</strong> to running this exactly: (1) the sum over all states is enormous; (2) $\mu$ is unknown (it depends on the unknown transition probabilities under $\pi$); (3) $v_\pi(s)$ is unknown, since estimating it is the whole problem. <em>Not</em> an obstacle: a "too high learning rate" ($\alpha$ is ours to choose and shrink). Also, $\mu$ is a property of the Markov chain (environment plus policy); it is <strong>not</strong> produced by $\mathbf w$.</li>
+    <li><strong>Fixes.</strong> (1)+(2): sample the visited state $S_t$; in steady state it has distribution $\mu$, so $\mathbb E_\mu[f(S_t)]=\sum_s\mu(s)f(s)$ and the sampled step has the right expected direction without knowing $\mu$ or summing over $\mathcal S$ (stochastic approximation). (3): $v_\pi(S_t)=\mathbb E_\pi[G_t\mid S_t]$, so replace it by the observed return $G_t$, an unbiased sample target. The result is gradient Monte Carlo: "gradient" because derived from $\overline{\mathrm{VE}}$, "Monte Carlo" because it uses the full sampled return.</li>
+    <li><strong>No explicit averaging needed.</strong> You do not generate many trajectories, average returns, then optimise: the repeated small updates average implicitly, and under the usual step-size conditions converge almost surely to a stationary point. Limitation: $G_t$ is known only after the episode ends, which motivates bootstrapping.</li>
+  </ul>
+</div>
 <p>In practice $v_\pi(S_t)$ is unknown; substitute a target $U_t$:</p>
 <div class="eq">
 $$\mathbf w_{t+1}\doteq\mathbf w_t+\alpha\big[U_t-\hat v(S_t,\mathbf w_t)\big]\nabla\hat v(S_t,\mathbf w_t)$$
@@ -126,6 +158,16 @@ Initialize value-function weights w ∈ ℝᵈ arbitrarily (e.g., w = 0)
         S ← S'
     <span class="k">until</span> S is terminal</pre>
 </div>
+<div class="box prof">
+  <span class="box-title">From the lectures: why "semi"-gradient, and the $\mathbf w_t$ versus $\mathbf w_{t+1}$ correction <span class="lec-date">Oct 28</span></span>
+  <ul>
+    <li><strong>TD target and error.</strong> Since $v_\pi(S_{t+1})$ is unknown, bootstrap: $U_t=R_{t+1}+\gamma\hat v(S_{t+1},\mathbf w_t)$, $\delta_t=U_t-\hat v(S_t,\mathbf w_t)$, and $\mathbf w_{t+1}=\mathbf w_t+\alpha\delta_t\nabla\hat v(S_t,\mathbf w_t)$.</li>
+    <li><strong>Why "semi".</strong> Differentiate $\tfrac12\delta_t^2$ literally and you must also differentiate $\hat v(S_{t+1},\mathbf w)$ inside the target, since it depends on $\mathbf w$. Semi-gradient TD treats the target as a fixed number and differentiates only $\hat v(S_t,\mathbf w)$. So it is <strong>not</strong> the true gradient of the squared bootstrapped error.</li>
+    <li><strong>A slip the professor corrected live.</strong> Both value estimates use the <em>current</em> weights $\mathbf w_t$. Writing $\hat v(S_{t+1},\mathbf w_{t+1})$ in the target would make the update implicit: $\mathbf w_{t+1}$ would appear on both sides, and it is the very quantity being computed.</li>
+    <li><strong>Fully incremental.</strong> As soon as $(S_t,A_t,R_{t+1},S_{t+1})$ is seen the update can be done; no return and no end of episode are needed.</li>
+    <li><strong>Terminal-state constraint $\hat v(S_T,\mathbf w)=0$ for all $\mathbf w$</strong> mirrors the true episodic value (no reward after termination). With a linear $\hat v$ and $\mathbf w=\mathbf 0$ every state starts at value 0, and each later update changes all predictions through the shared weights.</li>
+  </ul>
+</div>
 <p><strong>State aggregation</strong>: group states, one weight per group; $\nabla\hat v$ is 1 for the state's group component and 0 elsewhere — a special case of SGD (9.7).</p>
 
 <h3>Example 9.1 — the 1000-state random walk</h3>
@@ -160,6 +202,13 @@ $$\hat v(s,\mathbf w)\doteq\mathbf w^\top\mathbf x(s)\doteq\sum_{i=1}^dw_ix_i(s)
   <li><strong>Exercise 9.1</strong> — tabular methods are linear FA with <strong>one-hot</strong> features: $x_i(s)=1$ if $i=s$, else 0.</li>
 </ul>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: linear semi-gradient TD, with a dimension check <span class="lec-date">Oct 28</span></span>
+  <ul>
+    <li>For $\hat v=\mathbf w^\top\mathbf x(s)=\sum_iw_ix_i(s)$, $\partial\hat v/\partial w_i=x_i(s)$, hence $\nabla\hat v=\mathbf x(s)$. With $\mathbf x_t=\mathbf x(S_t)$: $\mathbf w_{t+1}=\mathbf w_t+\alpha\,\mathbf x_t\,[R_{t+1}+\gamma\mathbf x_{t+1}^\top\mathbf w_t-\mathbf x_t^\top\mathbf w_t]$. The bracket is a <em>scalar</em>, $\mathbf x_t$ is $d$-dimensional, so the increment has the dimension of $\mathbf w$.</li>
+    <li>Expanding and factoring $\mathbf w_t$ out: $R_{t+1}\mathbf x_t\in\mathbb R^d$, and $\mathbf x_t(\mathbf x_t-\gamma\mathbf x_{t+1})^\top$ is a column times a row, a $d\times d$ matrix; times $\mathbf w_t$ it is again a vector in $\mathbb R^d$. This is exactly the form (9.9) below.</li>
+  </ul>
+</div>
 <h3>The TD fixed point</h3>
 <div class="eq">
 $$\mathbf w_{t+1}\doteq\mathbf w_t+\alpha\big(R_{t+1}+\gamma\mathbf w_t^\top\mathbf x_{t+1}-\mathbf w_t^\top\mathbf x_t\big)\mathbf x_t = \mathbf w_t+\alpha\Big(R_{t+1}\mathbf x_t-\mathbf x_t(\mathbf x_t-\gamma\mathbf x_{t+1})^\top\mathbf w_t\Big)$$
@@ -173,11 +222,28 @@ $$\E[\mathbf w_{t+1}\mid\mathbf w_t]=\mathbf w_t+\alpha(\mathbf b-\mathbf A\math
 $$\mathbf b-\mathbf A\mathbf w_{TD}=\mathbf 0\;\Rightarrow\;\mathbf w_{TD}\doteq\mathbf A^{-1}\mathbf b$$
 <div class="eq-name"><span>TD fixed point — where linear semi-gradient TD(0) converges</span><span class="ref">(9.12)</span></div>
 </div>
+<div class="box prof">
+  <span class="box-title">From the lectures: reading $\mathbf A\mathbf w=\mathbf b$ <span class="lec-date">Oct 28</span></span>
+  <ul>
+    <li>The expectations in $\mathbf A$ and $\mathbf b$ are over the steady-state trajectory under $\pi$ (including transition and reward randomness). The expected update direction is $\mathbf b-\mathbf A\mathbf w$; at equilibrium it vanishes, so $\mathbf A\mathbf w=\mathbf b$ and $\mathbf w_{TD}=\mathbf A^{-1}\mathbf b$ if $\mathbf A$ is invertible.</li>
+    <li><strong>The algorithm never forms $\mathbf A$, $\mathbf b$ or $\mathbf A^{-1}$.</strong> Each transition is a noisy sample of the mean update; stochastic approximation drifts to the same fixed point. Only if the model and $\mu$ were known could you compute them directly.</li>
+    <li><strong>Terminology.</strong> The lecture called $\mathbf A$ "positive definite", explained as eigenvalues with positive real part, none zero. For a possibly non-symmetric matrix the precise name is <em>positive stable</em>; "positive definite" ($\mathbf z^\top\mathbf A\mathbf z\gt0$) is usually reserved for symmetric matrices. The proof sketch below uses the quadratic-form version.</li>
+    <li><strong>One-feature sanity check</strong> (our own, not from the lecture): a single state that loops to itself with reward $r$ and one feature $x=1$ gives $\mathbf A=1-\gamma$, $\mathbf b=r$, so $w_{TD}=r/(1-\gamma)$, the true value of that state. With $r=2$, $\gamma=0.9$: $w_{TD}=20$.</li>
+  </ul>
+</div>
 <details class="card" style="margin:14px 0"><summary style="cursor:pointer;font-weight:650">Why it converges: A is positive definite (proof sketch)</summary>
 <p class="small">Write $\E[\mathbf w_{t+1}|\mathbf w_t]=(\mathbf I-\alpha\mathbf A)\mathbf w_t+\alpha\mathbf b$ (9.13): only $\mathbf A$ matters for stability. If $\mathbf A$ is <strong>positive definite</strong> ($\mathbf y^\top\mathbf A\mathbf y&gt;0$ for $\mathbf y\ne0$), $\mathbf w$ is shrunk toward the fixed point for small α, and $\mathbf A^{-1}$ exists. For continuing tasks, $\mathbf A=\mathbf X^\top\mathbf D(\mathbf I-\gamma\mathbf P)\mathbf X$ (D = diag(μ), P = transition matrix under π, X = feature matrix). The key matrix $\mathbf D(\mathbf I-\gamma\mathbf P)$ has positive diagonal, negative off-diagonal; row sums are positive (P stochastic, γ &lt; 1) and column sums are $\mathbf 1^\top\mathbf D(\mathbf I-\gamma\mathbf P)=\boldsymbol\mu^\top-\gamma\boldsymbol\mu^\top\mathbf P=(1-\gamma)\boldsymbol\mu^\top&gt;0$ because μ is <strong>stationary</strong> ($\boldsymbol\mu=\mathbf P^\top\boldsymbol\mu$). Hence positive definite ⇒ on-policy TD(0) is stable. This crucially uses the <strong>on-policy distribution</strong>; with other update distributions bootstrapping + FA can <strong>diverge</strong> (Ch 11).</p></details>
 <div class="eq">
 $$\overline{\mathrm{VE}}(\mathbf w_{TD})\le\frac{1}{1-\gamma}\min_{\mathbf w}\overline{\mathrm{VE}}(\mathbf w)$$
 <div class="eq-name"><span>Error bound at the TD fixed point (continuing case)</span><span class="ref">(9.14)</span></div>
+</div>
+<div class="box prof">
+  <span class="box-title">From the lectures: the assumptions behind these results, and the feature matrix $X$ <span class="lec-date">Oct 28</span></span>
+  <ul>
+    <li><strong>Markov-chain assumptions.</strong> A state is <em>transient</em> (return probability $\lt1$), <em>null recurrent</em> (returns w.p. 1 but with infinite expected return time) or <em>positive recurrent</em> (returns w.p. 1 with $\mathbb E_s[\tau_s^+]\lt\infty$, where $\tau_s^+=\inf\{t\ge1:S_t=s\}$). For an irreducible positive-recurrent chain the stationary distribution is $\mu(s)=1/\mathbb E_s[\tau_s^+]\gt0$ for every $s$, which is the lecture's assumption $\mu(s)\gt0$. (Positive recurrence of one class does not give positive mass everywhere on a reducible chain; irreducibility or restriction to the recurrent class supplies it.)</li>
+    <li><strong>Feature matrix.</strong> Enumerate the states and stack the feature vectors as rows: $X\in\mathbb R^{|\mathcal S|\times d}$, row $s$ = $\mathbf x(s)^\top$. Columns are the <em>basis functions</em> (feature $j$ evaluated at every state), and since $d\ll|\mathcal S|$ the matrix is <strong>tall</strong>.</li>
+    <li>Assume the columns are linearly independent: $\sum_ja_jX_{:j}=\mathbf 0\Rightarrow$ all $a_j=0$, i.e. $\operatorname{rank}X=d$ (full column rank). A dependent feature is a combination of others and adds no new direction. Being tall makes this plausible, but it is an assumption to check, not a consequence of the shape. It is the $X$ in $\mathbf A=X^\top D(I-\gamma P)X$ above.</li>
+  </ul>
 </div>
 <div class="box key"><span class="box-title">TD vs MC with function approximation</span>
 <p>TD's asymptotic error can be up to $\frac{1}{1-\gamma}$ times the best possible (which MC attains) — large when γ ≈ 1. But TD has much lower variance and learns faster. Which wins depends on the problem, the approximation, and how long learning continues. Analogous bounds hold for linear semi-gradient DP and (next chapter) semi-gradient Sarsa(0); for n-step methods the bound tightens as n grows, approaching 0 as n → ∞.</p></div>
@@ -222,6 +288,15 @@ All store and access operations (S_t and R_t) can take their index mod n + 1
 <h2 id="features">9.5 Feature construction for linear methods</h2>
 <p>Features are how we add <strong>prior domain knowledge</strong>: they should correspond to aspects of the state along which generalisation is appropriate. <strong>Limitation of linear forms</strong>: no interactions between features (e.g. pole balancing: high angular velocity is good or bad depending on the angle) unless we add features for <em>combinations</em>.</p>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: "linear" means linear in $\mathbf w$; features are designed; why a constant feature; why polynomials are rich <span class="lec-date">Oct 26</span></span>
+  <ul>
+    <li><strong>Linear in the parameters, not in the state.</strong> $\hat v(s,\mathbf w)=w_1+w_2s_1+w_3s_2+w_4s_1s_2$ is nonlinear in $(s_1,s_2)$ (because of $s_1s_2$) but linear in $(w_1,\dots,w_4)$. Each $x_i(s)$ may be as nonlinear as you like as long as it does not depend on $\mathbf w$. So adding squares or products does <strong>not</strong> make the approximator nonlinear in the sense of this chapter (a recurring student question).</li>
+    <li><strong>Features are chosen, the state is given.</strong> The state is the physical description; $\mathbf x(s)$ is a representation you design (emphasise some components, interactions, or regions). There is no theorem telling you the best finite feature set for every task; domain knowledge and experiments guide the choice, then optimisation tunes $\mathbf w$. With raw features $\mathbf x=(s_1,s_2)^\top$ you can only represent a plane through the origin.</li>
+    <li><strong>Why include a constant feature.</strong> Drop it and use $\mathbf x=(s_1,s_2,s_1s_2)^\top$: then $\hat v((0,0),\mathbf w)=0$ for <em>every</em> $\mathbf w$. The architecture is forced to give the zero state value 0, although its true value need not be 0 (it could even be the best state). The constant need not be 1, but 1 is conventional and makes $w_1$ the intercept. It must not vary with the state.</li>
+    <li><strong>Why polynomials are a rich class (aside, not examinable).</strong> Weierstrass: if $f$ is continuous on a <em>compact</em> interval $[a,b]$, then for every $\epsilon\gt0$ some polynomial $p$ has $\sup_{x\in[a,b]}|f(x)-p(x)|\lt\epsilon$, i.e. polynomials are dense in continuous functions under the uniform norm. Compactness matters: the statement says nothing about the whole real line. Rationals are dense in $\mathbb R$ in the same sense ($\sqrt2$ has a rational within $10^{-10}$), so even polynomials with <em>rational</em> coefficients are dense.</li>
+  </ul>
+</div>
 <h3>9.5.1 Polynomials</h3>
 <div class="eq">
 $$x_i(s)=\prod_{j=1}^{k}s_j^{\,c_{i,j}},\qquad c_{i,j}\in\{0,1,\dots,n\}\;\Rightarrow\;(n+1)^k\text{ features}$$
@@ -229,6 +304,28 @@ $$x_i(s)=\prod_{j=1}^{k}s_j^{\,c_{i,j}},\qquad c_{i,j}\in\{0,1,\dots,n\}\;\Right
 </div>
 <p>E.g. $\mathbf x(s)=(1,s_1,s_2,s_1s_2)^\top$: the constant allows affine functions, the product captures interaction. <strong>Ex 9.2</strong>: each of the $k$ exponents independently takes $n+1$ values ⇒ $(n+1)^k$. <strong>Ex 9.3</strong>: $(1,s_1,s_2,s_1s_2,s_1^2,s_2^2,s_1s_2^2,s_1^2s_2,s_1^2s_2^2)$ is $n=2$, $k=2$ with $\mathbf c_i$ ranging over all of $\{0,1,2\}^2$. Exponential growth in $k$ ⇒ select subsets. <strong>Not recommended for online learning.</strong></p>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: Exercise 9.3 worked out, and what "order $n$" means <span class="lec-date">Oct 26</span></span>
+  <p>Write each feature as $x_i(s)=s_1^{c_{i1}}s_2^{c_{i2}}$. Row $i$ is a feature, column $j$ is a state component. For the nine features of Exercise 9.3:</p>
+  <div class="table-wrap"><table>
+    <tr><th>$i$</th><th>$x_i(s)$</th><th>$c_{i1}$</th><th>$c_{i2}$</th></tr>
+    <tr><td>1</td><td>$1$</td><td>0</td><td>0</td></tr>
+    <tr><td>2</td><td>$s_1$</td><td>1</td><td>0</td></tr>
+    <tr><td>3</td><td>$s_2$</td><td>0</td><td>1</td></tr>
+    <tr><td>4</td><td>$s_1s_2$</td><td>1</td><td>1</td></tr>
+    <tr><td>5</td><td>$s_1^2$</td><td>2</td><td>0</td></tr>
+    <tr><td>6</td><td>$s_2^2$</td><td>0</td><td>2</td></tr>
+    <tr><td>7</td><td>$s_1s_2^2$</td><td>1</td><td>2</td></tr>
+    <tr><td>8</td><td>$s_1^2s_2$</td><td>2</td><td>1</td></tr>
+    <tr><td>9</td><td>$s_1^2s_2^2$</td><td>2</td><td>2</td></tr>
+  </table></div>
+  <ul>
+    <li>Solve one row at a time: $s_1^{c_{11}}s_2^{c_{12}}=1\Rightarrow c_{11}=c_{12}=0$; $s_1^{c_{21}}s_2^{c_{22}}=s_1\Rightarrow(c_{21},c_{22})=(1,0)$; $s_1^{c_{91}}s_2^{c_{92}}=s_1^2s_2^2\Rightarrow(2,2)$. Take care with the mixed terms: $s_1^2s_2$ is "square the first, times the second" (row 8), $s_1s_2^2$ the other way round (row 7).</li>
+    <li>The largest exponent is 2, so $n=2$ and $k=2$. <strong>Trap (a student made it)</strong>: $n=9$ because "there are nine features". No: nine is the <em>count</em> $(n+1)^k=3^2$; $n$ is the largest allowed exponent.</li>
+    <li><strong>Convention warning.</strong> Here "order $n$" bounds <em>each exponent</em> by $n$, so total degree can reach $kn$. Many other texts mean "total degree $\le n$": for $k=2,n=2$ that would be only 6 features ($1,s_1,s_2,s_1^2,s_1s_2,s_2^2$), not 9. Use the book's/lecture's definition in this course.</li>
+    <li>Nothing stops you going beyond 2 ($s_1^3$, $s_1^3s_2^2,\dots$); the lecture stopped at 2 only to keep the example small. The count grows as $(n+1)^k$: for $k=4$, $n=3$ it is already $4^4=256$.</li>
+  </ul>
+</div>
 <h3>9.5.2 Fourier basis</h3>
 <div class="eq">
 $$x_i(s)=\cos(i\pi s),\ s\in[0,1],\ i=0,\dots,n \qquad\qquad x_i(\mathbf s)=\cos\big(\pi\,\mathbf s^\top\mathbf c^i\big),\ c^i_j\in\{0,\dots,n\}$$
@@ -253,6 +350,14 @@ $$x_i(s)=\cos(i\pi s),\ s\in[0,1],\ i=0,\dots,n \qquad\qquad x_i(\mathbf s)=\cos
   <div class="demo-out" id="fb-out"></div>
 </div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: reading the Fourier feature formula <span class="lec-date">Oct 26</span></span>
+  <ul>
+    <li>Use Fourier features when the value function has periodic or repeating structure. States are scaled to $s_j\in[0,1]$, and the feature is $x_i(\mathbf s)=\cos(\pi\,\mathbf s^\top\mathbf c^i)$ with $c^i_j\in\{0,\dots,n\}$, so there are $(n+1)^k$ coefficient vectors.</li>
+    <li>$c^i_j$ is the <strong>frequency along dimension $j$</strong>: 0 means no variation in that direction, larger values oscillate faster. Example $k=2$, $n=1$: the four vectors $(0,0),(0,1),(1,0),(1,1)$ give $1,\ \cos(\pi s_2),\ \cos(\pi s_1),\ \cos(\pi(s_1+s_2))$. The all-zero vector is the constant (bias) feature, just as the all-zero exponent vector gave $1$ in the polynomial basis.</li>
+    <li>The professor only introduced the formula in this class and deferred a worked Fourier example.</li>
+  </ul>
+</div>
 <h3>9.5.3 Coarse coding</h3>
 <p>Features = overlapping <strong>receptive fields</strong> (e.g. circles); a binary feature is 1 ("present") if the state is inside. Training at one state changes the weights of all circles containing it, so the value changes over the <em>union</em> of those circles, more where more circles are shared (Fig 9.6).</p>
 <ul>
@@ -327,9 +432,34 @@ $$\alpha\doteq\big(\tau\,\E[\mathbf x^\top\mathbf x]\big)^{-1}$$
   <li>Deep nets are hard to train: <strong>overfitting</strong> (many weights) and <strong>vanishing/exploding gradients</strong>. Remedies: cross-validation/early stopping, <strong>regularisation</strong>, <strong>weight sharing</strong>, <strong>dropout</strong>, unsupervised layer-wise pre-training (deep belief networks), <strong>batch normalisation</strong>, <strong>deep residual learning</strong> (skip connections).</li>
   <li><strong>Deep convolutional networks</strong>: alternating convolutional (feature maps with shared weights over local receptive fields) and subsampling layers (spatial invariance) — trainable by backprop without special tricks; behind many impressive RL applications (Ch 16).</li>
 </ul>
+<div class="box prof">
+  <span class="box-title">From the lectures: a single-hidden-layer value network and what the activation must satisfy <span class="lec-date">Nov 2</span></span>
+  <ul>
+    <li><strong>Building the network.</strong> Feature vector $x(i)=(x_1(i),\dots,x_d(i))$. First linear layer: $\sum_{l=1}^dw_{kl}x_l(i)$ for $k=1,\dots,K$ ($d$ inputs, $K$ outputs). Hidden layer: apply $\sigma$ to each. Second linear layer aggregates:
+      $$\hat v\big(x(i),\mathbf w\big)=\sum_{k=1}^{K}w_k\,\sigma\Big(\sum_{l=1}^{d}w_{kl}\,x_l(i)\Big).$$
+      $\mathbf w$ stacks all $w_k$ and all $w_{kl}$: $Kd+K=K(d+1)$ numbers in this bias-free form (e.g. $d=4$, $K=10$ gives 50). A network with hundreds to a few thousand parameters is typical.</li>
+    <li><strong>One network, not one per state.</strong> A new state only gives a new $x$; the weights are the same. Training (say on a long episode) is done once; then any state's value is a forward pass. The target is $v_\pi$ for a fixed $\pi$.</li>
+    <li><strong>Requirements on $\sigma$</strong>: differentiable, monotonically increasing, and bounded: $-\infty\lt\lim_{\xi\to-\infty}\sigma(\xi)\lt\lim_{\xi\to+\infty}\sigma(\xi)\lt\infty$.
+      <div class="table-wrap"><table>
+        <tr><th>Function</th><th>Formula</th><th>Range / behaviour</th></tr>
+        <tr><td>tanh</td><td>$\frac{e^{\xi}-e^{-\xi}}{e^{\xi}+e^{-\xi}}$</td><td>$(-1,1)$, symmetric, $\tanh0=0$</td></tr>
+        <tr><td>Sigmoid (logistic)</td><td>$\frac1{1+e^{-\xi}}$</td><td>$(0,1)$, never negative, $\sigma(0)=\tfrac12$</td></tr>
+        <tr><td>ReLU</td><td>$\max(0,\xi)$</td><td>0 for $\xi\lt0$, 45&deg; line for $\xi\gt0$; used in deep nets</td></tr>
+      </table></div></li>
+    <li><strong>Problems with raw ReLU</strong> (as discussed): (1) not differentiable at 0: left derivative 0, right derivative 1, so the derivative jumps; (2) unbounded as $\xi\to\infty$. Remedies are to smooth the kink (e.g. the GELU, a Gaussian-smoothed ReLU, mentioned as an aside). Differentiability matters because the TD update needs $\nabla_{\mathbf w}\hat v$ via the chain rule, so the professor would not use the raw ReLU directly. (In practice libraries simply assign a derivative at 0; that is an aside of ours.)</li>
+  </ul>
+</div>
 <div class="box exam"><span class="box-title">Exercises 9.7 and 9.8 — a single logistic unit</span>
 <p>$\hat v(s,\mathbf w)=\sigma(\mathbf w^\top\mathbf x)$ with $\sigma(z)=1/(1+e^{-z})$, so $\nabla\hat v=\hat v(1-\hat v)\mathbf x$. <strong>Squared error (9.7)</strong>: $\mathbf w\leftarrow\mathbf w+\alpha[U_t-\hat v]\,\hat v(1-\hat v)\,\mathbf x$. <strong>Cross-entropy</strong> loss $-[U\ln\hat v+(1-U)\ln(1-\hat v)]$ has gradient $-(U-\hat v)\mathbf x$, giving $\mathbf w\leftarrow\mathbf w+\alpha[U_t-\hat v]\,\mathbf x$ — <strong>simpler</strong> (the $\hat v(1-\hat v)$ factor, which vanishes when the unit saturates, cancels).</p></div>
 
+<div class="box prof">
+  <span class="box-title">From the lectures: TD with a network, and deeper architectures as design choices <span class="lec-date">Nov 2</span></span>
+  <ul>
+    <li><strong>TD update on network weights</strong> (same semi-gradient rule as before): $\mathbf w_{t+1}=\mathbf w_t+\alpha[R_{t+1}+\gamma\hat v(X_{t+1},\mathbf w_t)-\hat v(X_t,\mathbf w_t)]\nabla_{\mathbf w}\hat v(X_t,\mathbf w_t)$. For fixed $\mathbf w_t$ the network values both $X_t$ and $X_{t+1}$ (so you must know the next state); only the gradient $\nabla_{\mathbf w}\hat v(X_t,\mathbf w_t)$ requires the chain rule through the layers, which is why $\sigma$ must be (continuously) differentiable. The only change from the linear case is that $\nabla\hat v$ is no longer simply $\mathbf x$.</li>
+    <li><strong>Going deeper.</strong> Stack more nonlinear layers ($\sigma$ of $\sigma$ of $\dots$), possibly with different activations $\sigma_1,\sigma_2,\dots$ per layer; add more linear layers (a matrix mapping $K$ inputs to $P$ outputs), then another nonlinearity, and finally a linear aggregation layer.</li>
+    <li><strong>All of this is design</strong>: how many layers, how many units per layer, which activations. These are hyperparameters, not learned. (Using networks to represent <em>policies</em> was explicitly postponed.)</li>
+  </ul>
+</div>
 <h2 id="lstd">9.8 Least-squares TD</h2>
 <p>Why iterate toward $\mathbf w_{TD}=\mathbf A^{-1}\mathbf b$? Estimate $\mathbf A$ and $\mathbf b$ and solve directly:</p>
 <div class="eq">

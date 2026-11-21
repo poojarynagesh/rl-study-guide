@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 16 · Deep Q-Network: Human-level Video Game Play (§16.5) — RL Study Guide</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/search-index.js"></script>
+<script defer src="../assets/quizzes/ch16.js"></script>
+<script defer src="../assets/quizzes/ch16-exam.js"></script>
+<script defer src="../assets/quizzes/ch16-lec.js"></script>
+<script defer src="../assets/quiz.js"></script>
+<script defer src="../assets/site.js"></script>
+</head>
+<body data-page="ch16" data-root="..">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Chapter 16 · §16.5 · Book pp. 436–442 · only §16.5 of Chapter 16 is in scope</div>
+  <h1>Deep Q-Network: Human-level Video Game Play</h1>
+  <p class="lead">DQN (Mnih et al., 2013, 2015) is Q-learning with a <strong>deep convolutional network</strong> as the action-value function, fed with raw game pixels. Plain Q-learning with a nonlinear approximator is unstable; DQN tames it with <strong>experience replay</strong>, a <strong>periodically frozen target network</strong> and <strong>error/reward clipping</strong>. One architecture and one set of hyperparameters learned 49 different Atari games.</p>
+  <div class="meta">
+    <span class="chip">Semi-gradient Q-learning + CNN</span>
+    <span class="chip">Experience replay</span>
+    <span class="chip">Target network $\theta^-$, period $C$</span>
+    <span class="chip">Error clipping $[-1,1]$</span>
+    <span class="chip">84×84×4 input</span>
+    <span class="chip">Deadly triad</span>
+    <span class="chip">DRQN (POMDP)</span>
+  </div>
+</div>
+
+<div class="box exam">
+  <span class="box-title">Exam focus for this chapter</span>
+  <ul>
+    <li>Why Q-learning + a nonlinear approximator can diverge, and which DQN ingredient addresses which cause.</li>
+    <li>The DQN target $y=r+\gamma\max_{a'}Q(s',a';\theta^-)$ (and $y=r$ at termination), the loss, and the gradient with $\theta^-$ held fixed.</li>
+    <li>Experience replay: what is stored, how it is sampled, why it needs an off-policy method, bounded buffer of the last $N$ tuples.</li>
+    <li>Target network: frozen for $C$ updates then copied; the $\theta^-$ timeline ($0..C-1\to\theta_0$, $C..2C-1\to\theta_C$, …).</li>
+    <li>The full DQN algorithm (be able to write it), error clipping to $[-1,1]$, mini-batch updates.</li>
+    <li>Atari setup: frame preprocessing, 4-frame stack, reward clipping, one output per action, $\varepsilon$ annealing.</li>
+    <li>Partial observability and DRQN (recurrent layer); numbers to compute: targets, clipped errors, timelines, buffer sampling probabilities.</li>
+  </ul>
+</div>
+
+<h2 id="why">16.5.1 Why Q-learning with a deep network?</h2>
+<p>Unless the state set is small enough for a lookup table, a value function needs a <strong>parameterised approximator</strong>, whether linear or nonlinear. Function approximation depends on <strong>features</strong> that convey the information needed for skilled play, and most successful RL applications relied on <strong>handcrafted features</strong> built from human knowledge of the specific problem. DeepMind showed that a <strong>deep multi-layer ANN can automate feature design</strong>.</p>
+<ul>
+  <li>Multi-layer ANNs have been used in RL since backpropagation was popularised (1986; see <a href="ch09.html#ann">§9.7</a>). <strong>TD-Gammon</strong> is the classic success: TD-Gammon 0.0 with an almost "raw" board input matched the best earlier programs; adding handcrafted backgammon features (TD-Gammon 1.0) made it much better. So even the best earlier demonstrations needed specialised input features.</li>
+  <li><strong>DQN</strong> = <strong>Q-learning + a deep convolutional ANN</strong> (convolutional layers for spatial arrays such as images — see §9.7). Goal: high performance on <em>any of a collection of different problems</em> without problem-specific feature sets.</li>
+  <li>DQN learned <strong>49 Atari 2600 games</strong> through an emulator. A <strong>separate policy per game</strong> (network weights reset to random before each game), but the <strong>same raw input, network architecture and parameter values</strong> (step size, discount, exploration schedule, …) for every game. The CNN turns the common raw input into features specialised for the action values of whichever game it is learning.</li>
+</ul>
+<div class="table-wrap"><table>
+  <tr><th></th><th>TD-Gammon</th><th>DQN</th></tr>
+  <tr><td>Algorithm</td><td>semi-gradient TD($\lambda$)</td><td>semi-gradient <strong>Q-learning</strong></td></tr>
+  <tr><td>Approximator</td><td>multi-layer ANN</td><td>deep convolutional ANN</td></tr>
+  <tr><td>What is valued</td><td><strong>afterstates</strong> (easy from backgammon rules)</td><td>state–action pairs (afterstates not available for Atari)</td></tr>
+  <tr><td>Gradient</td><td colspan="2">backpropagation</td></tr>
+</table></div>
+<div class="box key"><span class="box-title">Why Q-learning specifically?</span>
+<ul>
+  <li>Using TD-Gammon's afterstates for Atari would need the next state for <em>every</em> action: one-step emulator simulations for each action (possible with ALE) or a learned model — more complicated and slower.</li>
+  <li><strong>Model-free</strong> and <strong>off-policy</strong>: and <strong>experience replay requires an off-policy algorithm</strong> (updates need not follow connected trajectories). Q-learning fits both.</li>
+</ul></div>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: neural-network approximators and the activation function <span class="lec-date">Nov 2</span></span>
+  <p><strong>Single-hidden-layer network</strong> built step by step: encode state $i$ as $x(i)=(x_1(i),\dots,x_d(i))$; first linear layer $\sum_{l=1}^dw_{kl}x_l(i)$ for $k=1..K$; pass each through a nonlinearity $\sigma$; aggregate with a second linear layer:</p>
+  $$\hat v\big(x(i),w\big)=\sum_{k=1}^{K}w_k\,\sigma\Big(\sum_{l=1}^{d}w_{kl}\,x_l(i)\Big)$$
+  <p>$w$ collects all $w_k$ and all $w_{kl}$ ($K+Kd$ numbers; e.g. $d=3$, $K=4$ gives $4+12=16$). The weights <strong>do not depend on the state</strong> — a new state only gives a new input vector; there is <strong>one network, not one per state</strong>, and training is done once, not repeated per state. "Hundreds to a few thousand" parameters is perfectly manageable.</p>
+  <p><strong>Requirements on $\sigma$</strong>: differentiable, monotonically increasing, bounded. Examples: <em>tanh</em> (range $(-1,1)$, $\tanh 0=0$), <em>sigmoid</em> $1/(1+e^{-\xi})$ (range $(0,1)$, $\sigma(0)=\tfrac12$). <strong>ReLU</strong> $\max(0,\xi)$ is used in deep nets but is <em>not differentiable at 0</em> (left derivative 0, right derivative 1) and <em>unbounded</em>; smoothed variants (e.g. GELU, mentioned as an aside) fix the kink. Differentiability matters because the TD update needs $\nabla_w\hat v$ via the chain rule.</p>
+  <p><strong>TD with a network</strong> is the same semi-gradient update as before: $w_{t+1}=w_t+\alpha[R_{t+1}+\gamma\hat v(X_{t+1},w_t)-\hat v(X_t,w_t)]\nabla_w\hat v(X_t,w_t)$. Number of layers, neurons per layer and activations are <em>design decisions</em>.</p>
+</div>
+
+<h2 id="setup">16.5.2 The DQN setup on Atari 2600</h2>
+<p>The <strong>Atari 2600</strong> (sold 1977–1992; Pong, Breakout, Space Invaders, Asteroids) is a popular RL testbed thanks to the publicly available <strong>Arcade Learning Environment (ALE)</strong>. DQN's choice of testbed was also inspired by TD-Gammon's human-level play.</p>
+<div class="table-wrap"><table>
+  <tr><th>Ingredient</th><th>What DQN does</th></tr>
+  <tr><td>Raw observation</td><td>$210\times160$ pixel frames, 128 colours, 60 Hz</td></tr>
+  <tr><td>Preprocessing</td><td>each frame → $84\times84$ array of <strong>luminance</strong> values (less memory and computation)</td></tr>
+  <tr><td>State fed to the net</td><td>the <strong>four most recent frames stacked</strong>: $84\times84\times4$ — many games' full state is not visible in one frame; stacking makes many of them <em>more Markovian</em> (not all)</td></tr>
+  <tr><td>Same for all games</td><td>identical preprocessing for every game — no game-specific prior knowledge, so the stack counts as "raw" input</td></tr>
+  <tr><td>Actions</td><td>4 to 18 valid actions depending on the game; the network always has <strong>18 outputs</strong>, unused ones have no role</td></tr>
+  <tr><td>Reward</td><td>change in game score, <strong>clipped</strong>: $+1$ if the score rose, $-1$ if it fell, $0$ otherwise — one step size works across games with very different score ranges</td></tr>
+  <tr><td>Exploration</td><td>$\varepsilon$-greedy; $\varepsilon$ <strong>decreases linearly over the first million frames</strong>, then stays low</td></tr>
+  <tr><td>Other parameters</td><td>step size, discount, … found by <em>informal search on a few games</em>, then held fixed for all games</td></tr>
+</table></div>
+
+<h3>The network architecture</h3>
+<p>Like the deep CNN of Fig 9.15, but subsampling is built into each convolutional layer. <strong>3 hidden convolutional layers → 1 fully connected hidden layer → output layer</strong>, all hidden units using the rectifier $\max(0,x)$.</p>
+<div class="table-wrap"><table>
+  <tr><th>Layer</th><th>Output</th><th>Notes</th></tr>
+  <tr><td>Input</td><td>$84\times84\times4$</td><td>stack of 4 preprocessed frames</td></tr>
+  <tr><td>Conv 1</td><td>32 feature maps, $20\times20$</td><td>ReLU</td></tr>
+  <tr><td>Conv 2</td><td>64 feature maps, $9\times9$</td><td>ReLU</td></tr>
+  <tr><td>Conv 3</td><td>64 feature maps, $7\times7$ ⇒ $64\cdot7\cdot7=3136$ units</td><td>ReLU</td></tr>
+  <tr><td>Fully connected</td><td>512 units</td><td>each connected to all 3136 units</td></tr>
+  <tr><td>Output</td><td>18 units</td><td>one per action: the estimated <strong>optimal action values</strong> $\hat q(s,a,\mathbf w)$ for the input state</td></tr>
+</table></div>
+<ul>
+  <li>Think of it as <strong>18 separate networks</strong>, one per action, that <strong>share their early layers</strong>; the output units use the shared features differently. One forward pass gives all $\hat q(s,\cdot)$ — handy for the $\max_a$.</li>
+  <li>For the update at step $t$, backpropagation is applied only to the output of the network of the action actually taken, $A_t$.</li>
+  <li>For reference (Mnih et al. 2015, not in the book): the convolution kernels are $8\times8$ stride 4, $4\times4$ stride 2, $3\times3$ stride 1 — check: $(84-8)/4+1=20$, $(20-4)/2+1=9$, $(9-3)/1+1=7$.</li>
+</ul>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: the setting — partial observability, history as state, $\gamma$, returns <span class="lec-date">Nov 2</span></span>
+  <p>The agent sees <strong>only the current screen</strong> $x_t$ of the emulator, so Atari is <strong>partially observed</strong>: the emulator's internal state is hidden. The lecture therefore takes the <strong>history</strong> as the state, $s_t=(x_1,a_1,x_2,a_2,\dots,a_{t-1},x_t)$, $s_{t+1}=(s_t,a_t,x_{t+1})$ (in practice this is the preprocessed stack $\phi(s_t)$). Tasks are <strong>episodic</strong> (games end in a finite random time).</p>
+  <p><strong>Discount $\gamma=0.99$.</strong> Since the tasks are episodic $\gamma=1$ would also be admissible; a value slightly below 1 was used for better stability, since an expert may keep a game going for a long time. Return $G_t=\sum_{t'=t}^{T-1}\gamma^{t'-t}R_{t'+1}$ (upper limit $T-1$ in Sutton–Barto indexing, where the last reward is $R_T$). Target of learning: $Q^*(s,a)=\max_\pi\E[G_t\mid S_t=s,A_t=a,\pi]$, which satisfies the Bellman optimality equation $Q^*(s,a)=\E_{s'}[R+\gamma\max_{a'}Q^*(s',a')\mid s,a]$. A network with weights $\theta$ approximating $Q^*$ is a <strong>Q-network</strong>.</p>
+  <p><strong>Notation</strong>: the book writes $\hat q(s,a,\mathbf w)$ and $R_{t+1}$; the DQN paper and the lectures write $Q(s,a;\theta)$ and $r_t$. Same objects.</p>
+</div>
+
+<h2 id="update">16.5.3 The Q-learning update, loss and gradient</h2>
+<p>Ignoring Mnih et al.'s modifications for a moment, DQN used the <strong>semi-gradient form of Q-learning</strong>:</p>
+<div class="eq">
+$$\mathbf w_{t+1}=\mathbf w_t+\alpha\Big[R_{t+1}+\gamma\max_{a}\hat q(S_{t+1},a,\mathbf w_t)-\hat q(S_t,A_t,\mathbf w_t)\Big]\nabla\hat q(S_t,A_t,\mathbf w_t)$$
+<div class="eq-name"><span>Semi-gradient Q-learning with a network</span><span class="ref">(16.3)</span></div>
+</div>
+<p>$S_t$, $S_{t+1}$ are the preprocessed image stacks; the gradient is computed by <strong>backpropagation</strong>. It is <em>semi</em>-gradient because the target $\max_a\hat q(S_{t+1},a,\mathbf w_t)$ depends on $\mathbf w_t$ but that dependence is ignored — exactly as in §9.3.</p>
+<p>Two practical techniques from large-network training: a <strong>mini-batch</strong> method (weights updated after accumulating gradients over a small batch — <strong>32</strong> images — for smoother sample gradients) and <strong>RMSProp</strong> (Tieleman &amp; Hinton 2012), which adapts the step size <em>per weight</em> from a running average of the magnitudes of recent gradients for that weight.</p>
+
+<div class="box key"><span class="box-title">DQN target, loss and gradient (with the frozen target network)</span>
+  <p>Target (paper notation, parameters $\theta^-$ of the target network):</p>
+  $$y=\begin{cases}r&\text{if the next state is terminal}\\ r+\gamma\max_{a'}Q(s',a';\theta^-)&\text{otherwise}\end{cases}$$
+  <p>Loss at iteration $i$, expectation over tuples sampled uniformly from the replay memory $D$:</p>
+  $$L_i(\theta_i)=\E_{(s,a,r,s')\sim U(D)}\Big[\big(r+\gamma\max_{a'}Q(s',a';\theta_i^-)-Q(s,a;\theta_i)\big)^2\Big]$$
+  <p>Only $Q(s,a;\theta_i)$ depends on $\theta_i$; the target term uses $\theta_i^-$, so its gradient w.r.t. $\theta_i$ is <strong>zero</strong>:</p>
+  $$\nabla_{\theta_i}L_i=-\,2\,\E\Big[\big(r+\gamma\max_{a'}Q(s',a';\theta_i^-)-Q(s,a;\theta_i)\big)\nabla_{\theta_i}Q(s,a;\theta_i)\Big]$$
+  <p>Stochastic gradient descent on one sampled tuple (factor 2 absorbed into $\alpha$):</p>
+  $$\theta_{i+1}=\theta_i+\alpha\Big[r+\gamma\max_{a'}Q(s',a';\theta_i^-)-Q(s,a;\theta_i)\Big]\nabla_{\theta_i}Q(s,a;\theta_i)$$
+  <p>Plain Q-learning (16.3) is recovered by setting $\theta^-=\theta$ and sampling the latest transition.</p>
+</div>
+<div class="box pitfall"><span class="box-title">Pitfalls in the update</span>
+<ul>
+  <li>The <strong>max</strong> is taken with the <strong>target</strong> network at the <strong>next</strong> state $s'$, not the online network and not at $s$.</li>
+  <li>Do <strong>not</strong> backpropagate through the target: $\theta^-$ is a constant when differentiating.</li>
+  <li>At a terminal transition the target is just $r$ — the bootstrap term is dropped.</li>
+  <li>The "+" in the update comes from $-\nabla(-Q)$: gradient <em>descent</em> on the squared error looks like <em>ascent</em> in the TD-error direction.</li>
+</ul></div>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: deriving the loss and the SGD update <span class="lec-date">Nov 2</span></span>
+  <p>The expectation in $\nabla L_i$ cannot be computed in the <strong>model-free</strong> setting (transition probabilities unknown), so drop it and use realised samples drawn from the replay buffer — stochastic gradient descent. The exact gradient step is $\theta_{i+1}=\theta_i-\alpha\nabla L_i=\theta_i+\alpha\E[2(\text{target}-Q)\nabla Q]$; the minus from differentiating $-Q(s,a;\theta_i)$ combines with the descent sign to give a plus. The lecturer's remark: index by the <em>iteration</em> $i$, not by the time step $t$, since each iteration uses a sampled tuple, not the latest one.</p>
+</div>
+
+<h2 id="innovations">16.5.4 The three modifications to Q-learning</h2>
+<p>Mnih et al. changed basic Q-learning in <strong>three ways</strong> (plus engineering: mini-batches, RMSProp, reward clipping, 4-frame stack).</p>
+
+<h3>1. Experience replay</h3>
+<p>(Lin, 1992.) After the emulator executes $A_t$ in the stack $S_t$ and returns $R_{t+1}$ and $S_{t+1}$, DQN adds the tuple $(S_t,A_t,R_{t+1},S_{t+1})$ to the <strong>replay memory</strong>, which accumulates experience over many plays of the same game. At each time step, <strong>multiple Q-learning updates — a mini-batch — are performed on experiences sampled uniformly at random</strong> from the memory. The next update does <em>not</em> use $S_{t+1}$ as its $S_t$; a new, unconnected experience is drawn. This is legitimate because <strong>Q-learning is off-policy</strong> and need not follow connected trajectories.</p>
+<div class="table-wrap"><table>
+  <tr><th>Advantage of replay</th><th>Why</th></tr>
+  <tr><td>Data efficiency</td><td>each stored experience can be used for <strong>many</strong> updates</td></tr>
+  <tr><td>Lower variance</td><td>successive updates are <strong>not correlated</strong> with one another, unlike standard Q-learning along a trajectory</td></tr>
+  <tr><td>Less instability</td><td>removes the dependence of successive experiences on the <em>current weights</em> (which action is taken now shapes the next data) — eliminates one source of instability</td></tr>
+</table></div>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: replay in detail — the buffer, one tuple at a time, questions from class <span class="lec-date">Nov 2 &amp; Nov 4</span></span>
+  <p><strong>Experience</strong> $e_t=(S_t,A_t,R_{t+1},S_{t+1})$; the data set grows $D_t=\{e_1,\dots,e_t\}$ but in practice the buffer has a <strong>limited capacity $N$</strong> (capital $N$): keep only the <strong>most recent $N$</strong> tuples, discard older ones (you cannot store everything, as the number of iterations is not known in advance). A tuple is drawn <strong>uniformly</strong>: with $T$ stored tuples each has probability $1/T$ — so the latest tuple is picked with probability only $1/T$ (e.g. $1/20$ if 20 are stored).</p>
+  <p><strong>Loop</strong> as drawn in class: realise a tuple → <strong>store it first</strong> → sample from the buffer → update $Q$ → act ($\varepsilon$-greedy w.r.t. the new $Q$) → store the next tuple → sample again. Student questions answered: (i) nothing is discarded except old tuples when the buffer is full; (ii) only <strong>realised</strong> experiences are ever in the buffer — an unrealised tuple cannot show up; a tuple may be re-sampled many times; (iii) stored tuples generally have different states, actions, rewards and next states (they are not one trajectory); (iv) in the simplified version the update uses <strong>one tuple at a time</strong>; the implementation uses a mini-batch.</p>
+  <p>Contrast with original Q-learning: only the latest tuple $e_t$ was used, immediately. With replay: store, then sample.</p>
+</div>
+
+<h3>2. The target network</h3>
+<p>The target $\max_a\hat q(S_{t+1},a,\mathbf w_t)$ is a function of the <strong>same parameters being updated</strong>, unlike supervised learning where targets do not depend on the parameters — this can cause <strong>oscillations and/or divergence</strong> (Chapter 11). Fix: whenever $C$ updates of $\mathbf w$ have been done, <strong>copy the current weights into a duplicate network and hold them fixed for the next $C$ updates</strong>. The duplicate network's output $\tilde q$ supplies the targets for those $C$ updates:</p>
+<div class="eq">
+$$\mathbf w_{t+1}=\mathbf w_t+\alpha\Big[R_{t+1}+\gamma\max_{a}\tilde q(S_{t+1},a,\mathbf w_t)-\hat q(S_t,A_t,\mathbf w_t)\Big]\nabla\hat q(S_t,A_t,\mathbf w_t)$$
+<div class="eq-name"><span>Update with a duplicate (target) network $\tilde q$ — fixed for $C$ updates</span><span class="ref">§16.5</span></div>
+</div>
+<p>This brings Q-learning <strong>closer to the supervised case</strong> (a stationary target for a while) while still bootstrapping.</p>
+<div class="table-wrap"><table>
+  <tr><th>Update numbers $i$</th><th>$\theta_i^-$ used in the target</th></tr>
+  <tr><td>$0,\dots,C-1$</td><td>$\theta_0$</td></tr>
+  <tr><td>$C,\dots,2C-1$</td><td>$\theta_C$</td></tr>
+  <tr><td>$2C,\dots,3C-1$</td><td>$\theta_{2C}$</td></tr>
+  <tr><td>…</td><td>…</td></tr>
+</table></div>
+<p class="small muted">Right after a copy the lag is 0; just before the next copy it is $C-1$ updates. So $\theta^-$ lags the online weights by between $0$ and $C-1$ updates (not always $C$).</p>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: why a frozen target helps — time-scale argument <span class="lec-date">Nov 2 &amp; Nov 4</span></span>
+  <p>If the target parameter changed at every step, you would be trying to track the expected target under a parameter that moves <strong>on the same time scale</strong> as the thing you are learning — very hard. Freezing it for $C$ steps makes the target <em>piecewise stationary</em>. At the next reset both networks again solve the same problem. Implementation wording (Nov 4): "every $C$ updates the DQN network is <strong>cloned</strong> to obtain the target network $\hat Q$, which then generates the targets $y_j$ for the next $C$ updates".</p>
+</div>
+
+<h3>3. Error clipping</h3>
+<p>The error term $R_{t+1}+\gamma\max_a\tilde q(S_{t+1},a,\mathbf w_t)-\hat q(S_t,A_t,\mathbf w_t)$ is <strong>clipped to $[-1,1]$</strong> before it multiplies the gradient: values above $+1$ become $+1$, below $-1$ become $-1$, others unchanged. This also improved stability. (It is separate from <em>reward clipping</em> in §16.5.2, which clips the reward to $\{-1,0,+1\}$.)</p>
+<div class="box prof">
+  <span class="box-title">From the lectures: why clip <span class="lec-date">Nov 4</span></span>
+  <p>The error can become very large, positive or negative, which is undesirable for the gradient step; clipping bounds the size of any single update. (Equivalent view, not stated in class: clipping the error corresponds to a squared loss inside $[-1,1]$ and an absolute-value loss outside — the Huber loss.)</p>
+</div>
+
+<h3>Other details of Mnih et al. (2015) not in the book</h3>
+<ul>
+  <li><strong>Frame skip</strong>: the agent selects an action only every $k=4$-th frame and repeats it on the skipped frames; the emulator's frames between are not seen by the network. This is why "50 million frames" in the paper's learning-time statement means agent steps, see below.</li>
+  <li>The paper takes the pixel-wise <strong>maximum over two consecutive frames</strong> before extracting luminance, to remove sprite flicker.</li>
+</ul>
+
+<h2 id="algorithm">16.5.5 The full DQN algorithm</h2>
+<div class="algo">
+  <div class="algo-head"><span class="name">Deep Q-learning with experience replay and a target network</span><span class="tags"><span class="tag off">off-policy</span><span class="tag boot">bootstraps</span><span class="tag">semi-gradient</span><span class="tag model">model-free</span></span></div>
+<pre><span class="k">Initialize</span> replay memory D to capacity N
+<span class="k">Initialize</span> action-value function Q with random weights θ
+<span class="k">Initialize</span> target action-value function Q̂ with weights θ⁻ = θ
+<span class="k">For</span> episode = 1, …, M:
+    Initialize sequence s₁ = {x₁} and preprocessed sequence φ₁ = φ(s₁)
+    <span class="k">For</span> t = 1, …, T:
+        With probability ε select a random action a_t,
+            otherwise select a_t = argmax_a Q(φ(s_t), a; θ)
+        Execute a_t in the emulator; observe reward r_t and image x_{t+1}
+        Set s_{t+1} = (s_t, a_t, x_{t+1}) and preprocess φ_{t+1} = φ(s_{t+1})
+        Store transition (φ_t, a_t, r_t, φ_{t+1}) in D
+        Sample a random minibatch of transitions (φ_j, a_j, r_j, φ_{j+1}) from D
+        Set  y_j = r_j                                  <span class="c">if the episode terminates at step j+1</span>
+             y_j = r_j + γ max_{a'} Q̂(φ_{j+1}, a'; θ⁻)  <span class="c">otherwise</span>
+        Perform a gradient descent step on (y_j − Q(φ_j, a_j; θ))²  w.r.t. θ
+            <span class="c">(error y_j − Q clipped to [−1, 1])</span>
+        Every C steps reset Q̂ = Q   <span class="c">(copy θ into θ⁻)</span>
+    <span class="k">End For</span>
+<span class="k">End For</span></pre>
+</div>
+<div class="table-wrap"><table>
+  <tr><th>Where</th><th>Role</th></tr>
+  <tr><td>$\varepsilon$-greedy with $Q(\cdot;\theta)$</td><td>behaviour policy (online network, annealed $\varepsilon$)</td></tr>
+  <tr><td>$D$ with capacity $N$</td><td>decorrelates data, reuses experience; last $N$ tuples kept</td></tr>
+  <tr><td>$\hat Q$ with $\theta^-$</td><td>stationary targets for $C$ steps</td></tr>
+  <tr><td>$y_j=r_j$ at termination</td><td>no future value after the game ends (as $\hat v(\text{terminal})=0$)</td></tr>
+  <tr><td>Clipped error, mini-batch, RMSProp</td><td>bounded, smoother, per-weight-scaled updates</td></tr>
+</table></div>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: DQN "as implemented" <span class="lec-date">Nov 4</span></span>
+  <p>Three practical points beyond the simplified algorithm: (1) only the <strong>last $N$ tuples</strong> are kept; (2) a <strong>separate network generates targets</strong> — $y_j$ uses $\theta^-$, not $\theta_i$ — cloned every $C$ updates; (3) <strong>error clipping to $[-1,1]$</strong>. Notation in the listing follows the paper: $r_t$ (received after $a_t$) equals $R_{t+1}$ in Sutton–Barto indexing; $\phi$ is the frame preprocessing. Walk through of the timeline: updates happen at every step ($\theta_i\to\theta_{i+1}$) but the target always uses the snapshot taken at the last reset.</p>
+</div>
+
+<h2 id="instability">16.5.6 Why plain Q-learning with a network is unstable</h2>
+<p>Q-learning with a <strong>nonlinear approximator</strong> (a neural net) can <strong>oscillate or diverge</strong> — the $Q$ values may blow up. In Sutton &amp; Barto's terms it combines the three ingredients of the <strong>deadly triad</strong> (Chapter 11): <strong>(1) function approximation</strong>, <strong>(2) bootstrapping</strong>, <strong>(3) off-policy training</strong>. Linear on-policy TD is stable (§9.4); the triad together is not guaranteed to be.</p>
+<div class="table-wrap"><table>
+  <tr><th>Source of trouble</th><th>DQN's remedy</th></tr>
+  <tr><td>Successive samples are strongly correlated (same trajectory), and depend on the current weights</td><td>Experience replay: uniform random sampling from a large buffer</td></tr>
+  <tr><td>The target $\max_a\hat q(S',a,\mathbf w)$ moves every time $\mathbf w$ changes (target depends on the parameters being learned)</td><td>Target network frozen for $C$ updates</td></tr>
+  <tr><td>Large errors give large gradient steps; reward scales differ across games</td><td>Reward clipping $\{-1,0,+1\}$, error clipping $[-1,1]$</td></tr>
+  <tr><td>Tiny changes in $Q$ can flip the greedy action (large policy change)</td><td>Smoother, decorrelated, mini-batch updates (see box)</td></tr>
+</table></div>
+<div class="box pitfall"><span class="box-title">Exam trap</span>
+<p>The target network does <strong>not</strong> remove the deadly triad — it reduces instability from the <em>moving target</em>. Replay does not make learning on-policy; it deliberately uses old, off-policy data, which is why an off-policy algorithm is required. And neither fixes partial observability.</p></div>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: the three causes of instability <span class="lec-date">Nov 2</span></span>
+  <p>The DQN authors first diagnosed <em>why</em> Q-learning with a network diverges, then proposed remedies. Three causes:</p>
+  <ol>
+    <li><strong>Correlation between successive observations.</strong> One sample is $(S_t,A_t,R_{t+1},S_{t+1})$, the next $(S_{t+1},A_{t+1},R_{t+2},S_{t+2})$: the end state of one is the start state of the next, and the next state depends on the current state and action. Consecutive samples are dependent. <em>Fix: experience replay.</em></li>
+    <li><strong>Small changes in $Q$ can cause large changes in the policy.</strong> Board example with actions $a_1,a_2$: at time $t$, $Q(a_1)$ is slightly higher so the max picks $a_1$; at $t+1$ the values change slightly, $a_2$ is now slightly higher, and the chosen action jumps to $a_2$ — <strong>oscillations</strong>.</li>
+    <li><strong>Correlation between the action values and the target values.</strong> Minimising $\big(Q(s,a)-[r+\gamma\max_{a'}Q(s',a')]\big)^2$, the <em>same</em> $Q$ (same parameters) sits in the estimate and in the target, so one gradient step changes both — you are chasing a <strong>dynamically moving target</strong>. <em>Fix: target network.</em></li>
+  </ol>
+</div>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: tutorial recap — problems and fixes <span class="lec-date">Nov 20</span></span>
+  <p>The TA's list of what goes wrong with neural networks in RL: <strong>(1) correlated samples</strong> — given $(S_t,A_t)$ the next state is largely determined, and $A_{t+1}$ follows from $S_{t+1}$ (analogies: a batter weak against a bowler who plays offensively tends to get out; a student with one day left who does not study tends to fail); <strong>(2) the agent stays in one region</strong> of the state space during training; <strong>(3) unstable targets</strong> — a small weight change can cause a large change in Q-values, and the target is built from the same network, so it moves with every update.</p>
+  <p><strong>Fix 1 — replay buffer</strong>: store transitions, sample randomly from <em>all</em> stored data; the sampled next state need not relate to the state–action pair just seen, breaking the correlation. <strong>Fix 2 — target network</strong>: two networks $\theta$ (online) and $\theta^-$ (target), $\theta^-_0=\theta_0$; for a period of $N$ updates change $\theta$ only; then <strong>copy</strong> $\theta$ into $\theta^-$. The update is $Q_{t+1}(S,A)=Q_t(S,A)+\alpha[R+\gamma\max_{A'}Q^-_t(S',A')-Q_t(S,A)]$ — the max uses the <strong>target network</strong> at the next state. The target stays fixed for a while; after the copy both networks solve the same problem again.</p>
+  <p><strong>Class example</strong> (flow only, no numbers computed): $Q(S,A)=2$, $Q(S,B)=4$, $Q^-(S,A)=3$, $Q^-(S,B)=5$, target period 2 updates: $Q_1$ and $Q_2$ are computed from $Q_0$ while $Q^-_1=Q^-_2=Q^-_0$, then $Q^-_2$ is overwritten by $Q_2$. <strong>Exam guidance</strong>: expect mostly <strong>numerical</strong> questions plus short derivation-style parts reusing tricks; the TA's advice was to learn the tricks, not memorise proofs.</p>
+  <p class="small muted">Note: this tutorial uses $N$ for the target-update period; in the lectures and paper that is $C$, and $N$ is the replay capacity.</p>
+</div>
+
+<h2 id="results">16.5.7 Results and what mattered</h2>
+<div class="table-wrap"><table>
+  <tr><th>Evaluation protocol</th><th>Details (book)</th></tr>
+  <tr><td>Training</td><td>50 million frames per game (≈ 38 days of game experience); weights reset to random for each game</td></tr>
+  <tr><td>Test score</td><td>average over <strong>30 sessions</strong> per game, each up to 5 minutes from a random initial game state</td></tr>
+  <tr><td>Baselines</td><td>best earlier learning system (<strong>linear</strong> FA with features designed using some Atari knowledge), a professional human games tester (same emulator, sound off, ~2 h practice, ≈20 episodes ≤ 5 min each), and a random agent</td></tr>
+  <tr><td>Versus earlier RL</td><td>DQN better on <strong>all but 6</strong> games</td></tr>
+  <tr><td>Versus human</td><td>better on <strong>22</strong> games; at or above <strong>75% of the human score</strong> (counted as "human-level or comparable") on <strong>29 of 46</strong> games</td></tr>
+</table></div>
+<p>What is remarkable is that the <strong>same learning system</strong> reached these levels on widely varying games with no game-specific modification.</p>
+<div class="box key"><span class="box-title">Ablation: which design features mattered?</span>
+<ul>
+  <li>Runs on 5 games with the four combinations of {replay, duplicate target network} included or not: <strong>each alone significantly improved performance, and together dramatically</strong>.</li>
+  <li>Deep convolutional DQN vs a network with <strong>just one linear layer</strong> on the same stacked frames: the improvement of the deep CNN was <strong>particularly striking on all 5 games</strong>.</li>
+</ul></div>
+<h3>Limitations (the book's closing remarks)</h3>
+<ul>
+  <li>Not one agent that excels at all tasks at once — learning was separate for each game.</li>
+  <li>Not a complete solution to task-independent learning: all games were played from video, which made a deep conv-net a natural choice.</li>
+  <li>Some games fell well short of human skill. The hardest — e.g. <strong>Montezuma's Revenge</strong>, where DQN did about as well as the random player — need <strong>deep planning</strong> beyond what DQN was designed for.</li>
+  <li>Learning control by extensive practice is only one kind of human learning.</li>
+</ul>
+
+<div class="box prof">
+  <span class="box-title">From the lectures: how the lecture quoted the results <span class="lec-date">Nov 2</span></span>
+  <p>Tested on <strong>49 Atari 2600 games</strong> with one network architecture and one set of hyperparameters; DQN beat the best RL methods known <em>until 2015</em> on <strong>43 of the 49</strong> games (newer methods can beat DQN), and was "comparable to a professional human", meaning $&gt;75\%$ of the human score. The best game was <strong>Video Pinball at 2539% of the human score</strong>, over 25 times the human's. The lecture also noted the DQN paper (Nature 518, 529–533, 2015, DeepMind) is a general-purpose algorithm, with a CNN chosen because the agent sees only the <strong>screen</strong>; CNNs are described as MLPs for vision with invariance to translation, scaling, skewing and other distortions.</p>
+  <p class="small muted"><strong>Mismatches to be aware of.</strong> (a) The lecture notes record "comparable to human on all 49 games"; the book (and the paper) say 75%-of-human on <strong>29 of 46</strong> games — trust the book for exam answers. (b) $49-6=43$ matches "better than earlier RL on 43 of 49" while the book's wording is "all but 6" games. (c) "50 million frames ≈ 38 days": $50\times10^6/60$ Hz is only about 9.6 days; 38 days corresponds to $50\times10^6$ <em>agent steps</em> $\times4$ skipped frames $=200\times10^6$ frames, i.e. the "frames" in the book are agent steps (see frame skip above).</p>
+</div>
+
+<h2 id="drqn">16.5.8 Partial observability and DRQN</h2>
+<p>The book notes that the full states of many Atari games are <strong>not completely observable</strong> from a single frame; stacking four frames "did not eliminate partial observability for all the games, but it was helpful in making many of them more Markovian". Atari is therefore effectively a <strong>POMDP</strong>. The natural next step is to give the Q-network <strong>memory</strong>. (The DRQN paper is beyond §16.5 of the book; the content here is from the lectures.)</p>
+<div class="box prof">
+  <span class="box-title">From the lectures: DRQN — Deep Recurrent Q-learning for POMDPs <span class="lec-date">Nov 4</span></span>
+  <p><strong>POMDP</strong>: the agent gets only partial information about the state; the screen is a surrogate for it. DRQN (Hausknecht &amp; Stone, AAAI 2015 — spelling of authors as heard in class) builds on DQN: <strong>the algorithm is the same; only the network architecture changes</strong> — a <strong>recurrent</strong> network (with feedback, which allows more processing of a layer; in the paper an LSTM layer after the convolutional layers) replaces the feed-forward CNN. Recurrency helps when the <strong>quality of observations changes over time</strong>.</p>
+  <ul>
+    <li>On <strong>standard Atari</strong> games DRQN performs <strong>similarly to DQN</strong>.</li>
+    <li><strong>Flickering games</strong>: at each step the screen is fully obscured with some probability (observed with probability $p$, obscured with $1-p$). When <strong>trained on normal games and evaluated on flickering ones</strong>, DRQN does <strong>better than DQN</strong>.</li>
+  </ul>
+  <p>Exam status per the professor: the DQN paper should be read carefully; DRQN is optional, "out of personal interest".</p>
+</div>
+
+<h2 id="summary">16.5.9 Summary</h2>
+<ul>
+  <li>DQN = semi-gradient <strong>Q-learning</strong> + deep <strong>convolutional</strong> network on $84\times84\times4$ preprocessed frames, 18 outputs (one $\hat q$ per action).</li>
+  <li><strong>Experience replay</strong> (uniform samples from the last $N$ tuples; needs off-policy) decorrelates and reuses data; a <strong>target network</strong> frozen for $C$ updates stabilises the bootstrapped target; <strong>clipping</strong> (reward to $\pm1$, error to $[-1,1]$) standardises scales and bounds updates.</li>
+  <li>Target $y=r+\gamma\max_{a'}Q(s',a';\theta^-)$ ($y=r$ if terminal); gradient only through $Q(s,a;\theta)$.</li>
+  <li>The same architecture and hyperparameters learned 49 games; ≥75% of human on 29 of 46. Weak on games needing deep planning (Montezuma's Revenge).</li>
+  <li>DRQN replaces the feed-forward net by a recurrent one for partial observability.</li>
+</ul>
+
+<h2 id="hyperparams">Hyperparameters in this chapter</h2>
+<div class="table-wrap"><table>
+  <tr><th>Parameter</th><th>Value / guidance</th></tr>
+  <tr><td>Replay capacity $N$</td><td>keep the <strong>last $N$ tuples</strong>; lecture examples 100 or 1000 (illustrative). Larger buffer = more decorrelation but older, staler data. <span class="muted">(Paper: 1,000,000 transitions.)</span></td></tr>
+  <tr><td>Mini-batch size</td><td><strong>32</strong> (book); uniformly sampled</td></tr>
+  <tr><td>Target-update period $C$</td><td>copy $\theta\to\theta^-$ every $C$ updates; $C=1$ means no target network, very large $C$ means stale targets and slow learning. $\theta^-$ lags by $0..C-1$ updates. <span class="muted">(Paper: $C=10{,}000$ parameter updates.)</span></td></tr>
+  <tr><td>$\varepsilon$ schedule</td><td>decreases <strong>linearly over the first million frames</strong>, then stays low. <span class="muted">(Paper: 1.0 → 0.1.)</span></td></tr>
+  <tr><td>Discount $\gamma$</td><td><strong>0.99</strong> (lecture); episodic, so $\gamma=1$ would be admissible</td></tr>
+  <tr><td>Step size / optimiser</td><td>found by informal search on a few games, then fixed for all; <strong>RMSProp</strong> adapts the step size per weight. <span class="muted">(Paper: learning rate 0.00025.)</span></td></tr>
+  <tr><td>Reward clipping</td><td>$\{+1,0,-1\}$ (score up / down / unchanged)</td></tr>
+  <tr><td>Error clipping</td><td>TD error clipped to $[-1,1]$</td></tr>
+  <tr><td>Frame stack / size</td><td>4 frames, $84\times84$ luminance; frame skip $k=4$ <span class="muted">(paper)</span></td></tr>
+  <tr><td>Training length / evaluation</td><td>50M frames per game; 30 test sessions of ≤ 5 min</td></tr>
+  <tr><td>Network</td><td>3 conv layers (32, 64, 64 maps) → 512 FC → 18 outputs; ReLU</td></tr>
+</table></div>
+<p class="small muted">Values marked "paper" come from Mnih et al. (2015), Extended Data Table 1; they are not in the book or the lecture notes, so treat them as background.</p>
+
+<h2 id="selftest">Self-test</h2>
+<div class="quiz">
+  <details><summary>Why did Mnih et al. choose Q-learning rather than TD($\lambda$) with afterstates as in TD-Gammon?</summary><div class="ans"><p>Afterstates are not available for Atari (they'd need next-state simulation for every action or a learned model); Q-learning is model-free and off-policy, which experience replay requires.</p></div></details>
+  <details><summary>Describe the network input and output of DQN.</summary><div class="ans"><p>Input: four stacked preprocessed frames, $84\times84\times4$ (luminance). Output: 18 units, one estimated optimal action value $\hat q(s,a,\mathbf w)$ per action (4–18 valid per game). Hidden: 3 conv layers (32 $20\times20$, 64 $9\times9$, 64 $7\times7$ maps) then 512 fully connected ReLU units.</p></div></details>
+  <details><summary>Write the DQN target and the gradient step. What is held fixed?</summary><div class="ans"><p>$y=r+\gamma\max_{a'}Q(s',a';\theta^-)$ ($=r$ at termination); $\theta\leftarrow\theta+\alpha[y-Q(s,a;\theta)]\nabla_\theta Q(s,a;\theta)$. $\theta^-$ is held fixed (no gradient through the target) for $C$ updates.</p></div></details>
+  <details><summary>Give three benefits of experience replay.</summary><div class="ans"><p>Each experience reused for many updates (efficiency); successive updates uncorrelated (lower variance); breaks the dependence of the data on the current weights (removes a source of instability). It needs an off-policy method.</p></div></details>
+  <details><summary>In which ranges does $\theta^-$ equal which $\theta$, for period $C$?</summary><div class="ans"><p>$i\in[0,C-1]\Rightarrow\theta_0$; $[C,2C-1]\Rightarrow\theta_C$; $[2C,3C-1]\Rightarrow\theta_{2C}$; … It lags by 0 to $C-1$ updates.</p></div></details>
+  <details><summary>What exactly is clipped to $[-1,1]$, and what to $\{-1,0,1\}$?</summary><div class="ans"><p>The TD error is clipped to $[-1,1]$ (stability); the reward (change in score) is clipped to $+1,0,-1$ (same scale for all games).</p></div></details>
+  <details><summary>Name the three causes of instability the lecture identified and the matching fix.</summary><div class="ans"><p>(1) Correlated successive observations — replay. (2) Small $Q$ changes flipping the greedy policy — the lecture gave no separate fix; mini-batch averaging and the frozen target damp it. (3) Correlation between $Q$ and its own target (moving target) — target network.</p></div></details>
+  <details><summary>Which three ingredients make up the deadly triad and which of them does DQN have?</summary><div class="ans"><p>Function approximation, bootstrapping, off-policy training. DQN has all three, so it needs the stabilising tricks.</p></div></details>
+  <details><summary>What did the ablation show?</summary><div class="ans"><p>Replay and the target network each help alone, and together dramatically; the deep conv net was strikingly better than a single linear layer on the same inputs.</p></div></details>
+  <details><summary>Why does stacking four frames help, and does it solve partial observability?</summary><div class="ans"><p>One frame lacks velocity/history information; four frames make many games more Markovian. It does not eliminate partial observability for all games — hence DRQN with a recurrent layer.</p></div></details>
+  <details><summary>How does DRQN differ from DQN, and where does it win?</summary><div class="ans"><p>Same algorithm, recurrent architecture. Similar on standard Atari; better when trained on normal games and tested on flickering (randomly obscured) ones.</p></div></details>
+  <details><summary>What kind of games does DQN fail at, and why?</summary><div class="ans"><p>Those needing deep planning, e.g. Montezuma's Revenge (about random-player level); rewards are sparse, so learning from reward-driven bootstrapped targets with epsilon-greedy exploration never finds the goal.</p></div></details>
+</div>
+
+<h2 id="chapter-quiz-section" data-short="Chapter quiz">Chapter quiz — check your understanding</h2>
+<p class="small muted">Scored quiz: pick an answer (or type a number) to get instant feedback and an explanation. Questions marked <strong>Exam-style</strong> give you values to interpret (targets, clipped errors, timelines, buffer statistics), the way exam problems do. Your best score is saved in this browser and shown on the home page. "Shuffle &amp; restart" re-orders the questions.</p>
+<div class="cq" id="chapter-quiz"></div>
+
+</main>
+</body>
+</html>
