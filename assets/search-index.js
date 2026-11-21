@@ -2331,7 +2331,7 @@ window.RL_SEARCH = [
 "u": "formulas.html#ch7"
 },
 {
-"t": "Chapter 9 — On-policy prediction with approximation",
+"t": "Chapter 9 — Function approximation (on-policy prediction)",
 "p": "Formula sheet",
 "u": "formulas.html#ch9"
 },
@@ -2349,6 +2349,11 @@ window.RL_SEARCH = [
 "t": "Chapter 16 §16.5 — Deep Q-network (DQN)",
 "p": "Formula sheet",
 "u": "formulas.html#ch16"
+},
+{
+"t": "Not discussed in class — optional",
+"p": "Formula sheet",
+"u": "formulas.html#not-taught"
 },
 {
 "t": "A. Numerical problems",
