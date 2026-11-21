@@ -7,6 +7,11 @@ window.RL_SEARCH = [
 "u": "index.html#chapters"
 },
 {
+"t": "Lecture → chapter map",
+"p": "RL Study Guide",
+"u": "index.html#lecture-map"
+},
+{
 "t": "Revision tools",
 "p": "RL Study Guide",
 "u": "index.html#revision"
