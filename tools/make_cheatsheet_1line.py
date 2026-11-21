@@ -26,6 +26,11 @@ CSS = cs.CSS + """
 .side li { margin: 0.2mm 0; }
 .side .box { margin: 1mm 0; }
 .side table { width: 100%; }
+.sheet { padding: 4mm 5mm; }
+.bar { display: none; }
+.pg { height: 289mm; }
+.main, .side { display: flex; flex-direction: column; justify-content: space-between; }
+.main > *, .side > * { flex: none; }
 body, .r, .side, .box, .r i { color: #000 !important; }
 .r { border-bottom-color: #555; }
 .katex, .katex * { color: #000; -webkit-text-stroke: 0.28px #000; }   /* thicken thin math strokes */
@@ -62,29 +67,44 @@ FIT_JS = cs.FIT_JS.split("function fit()")[0] + """
     });
     return worst;
   }
+  function fitMain(pg, main) {
+    var fs = 11, z = 1;
+    while (fs > 5) {
+      main.style.fontSize = fs + "pt"; z = rowfit(main);
+      if (main.scrollHeight <= main.clientHeight + 1 && z >= 0.85) break;
+      fs -= 0.2;
+    }
+    return fs;
+  }
+  function fitSide(side) {
+    var sf = 11;
+    while (sf > 5) {
+      side.style.fontSize = sf + "pt";
+      if (side.scrollHeight <= side.clientHeight + 1) break;
+      sf -= 0.2;
+    }
+    return sf;
+  }
   function fit() {
     var out = [];
     document.querySelectorAll(".pg").forEach(function (pg) {
       var main = pg.querySelector(".main"), side = pg.querySelector(".side");
-      var fs = 10, z = 1;
-      while (fs > 5) {
-        main.style.fontSize = fs + "pt"; z = rowfit(main);
-        if (main.scrollHeight <= main.clientHeight + 1 && z >= 0.8) break;
-        fs -= 0.1;
-      }
-      main.style.fontSize = (fs - 0.1) + "pt"; z = rowfit(main);
-      var sf = 9.5;
-      while (sf > 5) {
-        side.style.fontSize = sf + "pt";
-        if (side.scrollHeight <= side.clientHeight + 1) break;
-        sf -= 0.1;
-      }
-      side.style.fontSize = (sf - 0.1) + "pt";
-      out.push("m" + fs.toFixed(1) + "/z" + z.toFixed(2) + "/s" + sf.toFixed(1));
+      var total = pg.clientWidth / 3.7795 - 2.2, best = null;
+      [118, 126, 134, 142, 150].forEach(function (mw) {
+        main.style.flexBasis = mw + "mm";
+        var m = fitMain(pg, main), sf = fitSide(side);
+        var score = m + 0.4 * sf - (sf < 7.5 ? 100 : 0);
+        if (!best || score > best.score) best = { mw: mw, m: m, sf: sf, score: score };
+      });
+      main.style.flexBasis = best.mw + "mm";
+      var m = fitMain(pg, main), sf = fitSide(side);
+      main.style.fontSize = (m - 0.2) + "pt"; var z = rowfit(main);
+      side.style.fontSize = (sf - 0.2) + "pt";
+      out.push("w" + best.mw + "/m" + m.toFixed(1) + "/z" + z.toFixed(2) + "/s" + sf.toFixed(1));
     });
     document.title = "FIT " + out.join(" ");
   }
-  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () { fit(); setTimeout(fit, 1500); });
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () { fit(); });
 });
 """
 
