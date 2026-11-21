@@ -55,7 +55,7 @@
     const top = el("header", { class: "topbar" });
     top.innerHTML =
       '<button class="icon-btn menu-btn" aria-label="Open navigation">&#9776;</button>' +
-      '<a class="brand" href="' + url("index.html") + '">RL Study Guide <span>· Sutton &amp; Barto, Ch 1–9</span></a>' +
+      '<a class="brand" href="' + url("index.html") + '">RL Study Guide <span>· Sutton &amp; Barto, Ch 1–16</span></a>' +
       '<div class="spacer"></div>' +
       '<div class="search-wrap"><input class="search-input" type="search" placeholder="Search topics…" aria-label="Search">' +
       '<div class="search-results" role="listbox"></div></div>' +
