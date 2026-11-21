@@ -109,6 +109,18 @@ FIT_JS = cs.FIT_JS.split("function fit()")[0] + """
 """
 
 
+_compact0 = cs.compact
+
+
+def _compact(f):
+    # the IS-ratio fraction under a product sign is unreadable at one-line size: use a full-size slash
+    f = f.replace(r"\dfrac{\pi(A_k|S_k)}{b(A_k|S_k)}", r"\pi(A_k|S_k)\,/\,b(A_k|S_k)")
+    return _compact0(f)
+
+
+cs.compact = _compact
+
+
 def build():
     sections, _ = fp.parse()
     byid = {cid: rows for cid, rows in sections}
