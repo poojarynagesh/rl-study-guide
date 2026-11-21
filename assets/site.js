@@ -14,7 +14,7 @@
     { id: "ch05", href: "chapters/ch05.html", num: "5", title: "Monte Carlo Methods", group: "Chapters" },
     { id: "ch06", href: "chapters/ch06.html", num: "6", title: "Temporal-Difference Learning", group: "Chapters" },
     { id: "ch07", href: "chapters/ch07.html", num: "7", title: "n-step Bootstrapping", group: "Chapters" },
-    { id: "ch09", href: "chapters/ch09.html", num: "9", title: "On-policy Prediction with Approximation", group: "Chapters" },
+    { id: "ch09", href: "chapters/ch09.html", num: "9", title: "Function Approximation (On-policy Prediction)", group: "Chapters" },
     { id: "ch13", href: "chapters/ch13.html", num: "13", title: "Policy Gradient Methods", group: "Chapters" },
     { id: "ch16", href: "chapters/ch16.html", num: "16", title: "Deep Q-Network (§16.5)", group: "Chapters" },
     { id: "algorithms", href: "algorithms.html", num: "A", title: "Algorithm catalogue & comparisons", group: "Revision" },

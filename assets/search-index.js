@@ -1480,316 +1480,316 @@ window.RL_SEARCH = [
 },
 {
 "t": "9.1 Value-function approximation",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#vfa"
 },
 {
 "t": "why tables break, and what replaces them",
-"p": "Ch 9 · On-policy Prediction with Approximation · Lecture",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Lecture",
 "u": "chapters/ch09.html#vfa",
 "k": "Lecture"
 },
 {
 "t": "how fast state spaces blow up, and what a good approximator needs",
-"p": "Ch 9 · On-policy Prediction with Approximation · Lecture",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Lecture",
 "u": "chapters/ch09.html#vfa",
 "k": "Lecture"
 },
 {
 "t": "9.2 The prediction objective $\\overline{\\mathrm{VE}}$",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#ve"
 },
 {
 "t": "Mean square value error",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#ve",
 "k": "Formula"
 },
 {
 "t": "On-policy distribution (episodic)",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#ve",
 "k": "Formula"
 },
 {
 "t": "9.3 Stochastic-gradient and semi-gradient methods",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#sgd"
 },
 {
 "t": "SGD on the squared value error",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#sgd",
 "k": "Formula"
 },
 {
 "t": "deriving the update step by step, and why the exact gradient is not implementable",
-"p": "Ch 9 · On-policy Prediction with Approximation · Lecture",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Lecture",
 "u": "chapters/ch09.html#sgd",
 "k": "Lecture"
 },
 {
 "t": "General SGD for state-value prediction",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#sgd",
 "k": "Formula"
 },
 {
 "t": "Gradient Monte Carlo Algorithm for Estimating v̂ ≈ vπ",
-"p": "Ch 9 · On-policy Prediction with Approximation · Algorithm",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Algorithm",
 "u": "chapters/ch09.html#sgd",
 "k": "Algorithm"
 },
 {
 "t": "Semi-gradient TD(0) for estimating v̂ ≈ vπ",
-"p": "Ch 9 · On-policy Prediction with Approximation · Algorithm",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Algorithm",
 "u": "chapters/ch09.html#sgd",
 "k": "Algorithm"
 },
 {
 "t": "why \"semi\"-gradient, and the $\\mathbf w_t$ versus $\\mathbf w_{t+1}$ correction",
-"p": "Ch 9 · On-policy Prediction with Approximation · Lecture",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Lecture",
 "u": "chapters/ch09.html#sgd",
 "k": "Lecture"
 },
 {
 "t": "Example 9.1 — the 1000-state random walk",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#example-9-1-the-1000-state-random-walk"
 },
 {
 "t": "9.4 Linear methods",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#linear"
 },
 {
 "t": "Linear value function; its gradient is the feature vector",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#linear",
 "k": "Formula"
 },
 {
 "t": "linear semi-gradient TD, with a dimension check",
-"p": "Ch 9 · On-policy Prediction with Approximation · Lecture",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Lecture",
 "u": "chapters/ch09.html#linear",
 "k": "Lecture"
 },
 {
 "t": "The TD fixed point",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#the-td-fixed-point"
 },
 {
 "t": "Linear semi-gradient TD(0)",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#the-td-fixed-point",
 "k": "Formula"
 },
 {
 "t": "Expected update",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#the-td-fixed-point",
 "k": "Formula"
 },
 {
 "t": "TD fixed point — where linear semi-gradient TD(0) converges",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#the-td-fixed-point",
 "k": "Formula"
 },
 {
 "t": "reading $\\mathbf A\\mathbf w=\\mathbf b$",
-"p": "Ch 9 · On-policy Prediction with Approximation · Lecture",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Lecture",
 "u": "chapters/ch09.html#the-td-fixed-point",
 "k": "Lecture"
 },
 {
 "t": "Error bound at the TD fixed point (continuing case)",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#the-td-fixed-point",
 "k": "Formula"
 },
 {
 "t": "the assumptions behind these results, and the feature matrix $X$",
-"p": "Ch 9 · On-policy Prediction with Approximation · Lecture",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Lecture",
 "u": "chapters/ch09.html#the-td-fixed-point",
 "k": "Lecture"
 },
 {
 "t": "n-step semi-gradient TD",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#n-step-semi-gradient-td"
 },
 {
 "t": "n-step semi-gradient TD update and return",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#n-step-semi-gradient-td",
 "k": "Formula"
 },
 {
 "t": "n-step semi-gradient TD for estimating v̂ ≈ vπ",
-"p": "Ch 9 · On-policy Prediction with Approximation · Algorithm",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Algorithm",
 "u": "chapters/ch09.html#n-step-semi-gradient-td",
 "k": "Algorithm"
 },
 {
 "t": "9.5 Feature construction for linear methods",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#features"
 },
 {
 "t": "\"linear\" means linear in $\\mathbf w$; features are designed; why a constant feature; why polynomials are rich",
-"p": "Ch 9 · On-policy Prediction with Approximation · Lecture",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Lecture",
 "u": "chapters/ch09.html#features",
 "k": "Lecture"
 },
 {
 "t": "9.5.1 Polynomials",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#9-5-1-polynomials"
 },
 {
 "t": "Order-n polynomial basis for k state dimensions",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#9-5-1-polynomials",
 "k": "Formula"
 },
 {
 "t": "Exercise 9.3 worked out, and what \"order $n$\" means",
-"p": "Ch 9 · On-policy Prediction with Approximation · Lecture",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Lecture",
 "u": "chapters/ch09.html#9-5-1-polynomials",
 "k": "Lecture"
 },
 {
 "t": "9.5.2 Fourier basis",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#9-5-2-fourier-basis"
 },
 {
 "t": "Fourier cosine basis (1-D and k-D, order n)",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#9-5-2-fourier-basis",
 "k": "Formula"
 },
 {
 "t": "reading the Fourier feature formula",
-"p": "Ch 9 · On-policy Prediction with Approximation · Lecture",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Lecture",
 "u": "chapters/ch09.html#9-5-2-fourier-basis",
 "k": "Lecture"
 },
 {
 "t": "9.5.3 Coarse coding",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#9-5-3-coarse-coding"
 },
 {
 "t": "9.5.4 Tile coding",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#9-5-4-tile-coding"
 },
 {
 "t": "9.5.5 Radial basis functions",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#9-5-5-radial-basis-functions"
 },
 {
 "t": "Gaussian RBF feature (centre ci, width σi)",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#9-5-5-radial-basis-functions",
 "k": "Formula"
 },
 {
 "t": "9.6 Selecting step-size parameters manually",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#stepsize"
 },
 {
 "t": "Rule of thumb: learn in about τ experiences with substantially the same feature vector",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#stepsize",
 "k": "Formula"
 },
 {
 "t": "9.7 Nonlinear function approximation: artificial neural networks",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#ann"
 },
 {
 "t": "a single-hidden-layer value network and what the activation must satisfy",
-"p": "Ch 9 · On-policy Prediction with Approximation · Lecture",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Lecture",
 "u": "chapters/ch09.html#ann",
 "k": "Lecture"
 },
 {
 "t": "TD with a network, and deeper architectures as design choices",
-"p": "Ch 9 · On-policy Prediction with Approximation · Lecture",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Lecture",
 "u": "chapters/ch09.html#ann",
 "k": "Lecture"
 },
 {
 "t": "9.8 Least-squares TD",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#lstd"
 },
 {
 "t": "LSTD estimates and solution (the factors of t cancel)",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#lstd",
 "k": "Formula"
 },
 {
 "t": "Sherman–Morrison incremental inverse — O(d²) per step",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#lstd",
 "k": "Formula"
 },
 {
 "t": "LSTD for estimating v̂ = wᵀx(·) ≈ vπ (O(d²) version)",
-"p": "Ch 9 · On-policy Prediction with Approximation · Algorithm",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Algorithm",
 "u": "chapters/ch09.html#lstd",
 "k": "Algorithm"
 },
 {
 "t": "9.9–9.10 Memory-based and kernel-based function approximation",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#memory"
 },
 {
 "t": "Kernel regression; any linear method is kernel regression with the inner-product kernel",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#memory",
 "k": "Formula"
 },
 {
 "t": "9.11 Interest and emphasis",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#interest"
 },
 {
 "t": "Emphatic n-step update and emphasis recursion",
-"p": "Ch 9 · On-policy Prediction with Approximation · Formula",
+"p": "Ch 9 · Function Approximation: On-policy Prediction · Formula",
 "u": "chapters/ch09.html#interest",
 "k": "Formula"
 },
 {
 "t": "9.12 Summary",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#summary"
 },
 {
 "t": "Hyperparameters in this chapter",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#hyperparams"
 },
 {
 "t": "Self-test",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#selftest"
 },
 {
 "t": "Chapter quiz — check your understanding",
-"p": "Ch 9 · On-policy Prediction with Approximation",
+"p": "Ch 9 · Function Approximation: On-policy Prediction",
 "u": "chapters/ch09.html#chapter-quiz-section"
 },
 {
