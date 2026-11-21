@@ -61,3 +61,6 @@ Hosted with GitHub Pages: https://poojarynagesh.github.io/rl-study-guide/
 This is an independent study aid; it is not affiliated with or endorsed by the
 book's authors. The book itself is freely available from the authors at
 http://incompleteideas.net/book/the-book-2nd.html.
+
+
+**Printable formula sheet:** `RL_Formula_Sheet.pdf` (A4, with a "when to use" note per formula; lecture-taught formulas first, optional appendix). Regenerate after editing `formulas.html` with `python tools/make_formula_pdf.py` (needs Chrome or Edge).
