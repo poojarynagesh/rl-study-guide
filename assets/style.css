@@ -634,3 +634,9 @@ body.focus .content { max-width: 780px; }
 .box.prof .lec-date { font: 600 11.5px var(--font); color: var(--text-3); margin-left: 6px; letter-spacing: .02em; }
 .cq-tag.cq-tag-lec { color: var(--s7); background: color-mix(in srgb, var(--s7) 9%, transparent); border-color: color-mix(in srgb, var(--s7) 35%, transparent); }
 .cq-q.cq-lecture { border-left: 3px solid var(--s7); }
+
+/* Learn pages: numbered step lists */
+ol.steps { counter-reset: st; list-style: none; padding-left: 0; margin: 14px 0; }
+ol.steps > li { counter-increment: st; position: relative; padding: 10px 14px 10px 52px; margin: 8px 0; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; }
+ol.steps > li::before { content: counter(st); position: absolute; left: 14px; top: 10px; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+figure.diagram figcaption { text-align: center; margin-top: 6px; }

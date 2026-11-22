@@ -7,6 +7,9 @@
   const PAGES = [
     { id: "home", href: "index.html", title: "Home", group: "Start" },
     { id: "roadmap", href: "roadmap.html", title: "How to use this guide", group: "Start" },
+    { id: "learn_fa", href: "learn_fa.html", num: "L1", title: "Learn Function Approximation", group: "Learn (visual guides)" },
+    { id: "learn_pg", href: "learn_pg.html", num: "L2", title: "Learn Policy Gradient", group: "Learn (visual guides)" },
+    { id: "learn_dqn", href: "learn_dqn.html", num: "L3", title: "Learn DQN", group: "Learn (visual guides)" },
     { id: "ch01", href: "chapters/ch01.html", num: "1", title: "Introduction", group: "Chapters" },
     { id: "ch02", href: "chapters/ch02.html", num: "2", title: "Multi-armed Bandits", group: "Chapters" },
     { id: "ch03", href: "chapters/ch03.html", num: "3", title: "Finite MDPs", group: "Chapters" },

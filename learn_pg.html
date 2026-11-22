@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learn Policy Gradient — RL Study Guide</title>
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="assets/search-index.js"></script>
+<script defer src="assets/site.js"></script>
+</head>
+<body data-page="learn_pg" data-root=".">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Learn · visual guide</div>
+  <h1>Learn Policy Gradient</h1>
+  <p class="lead">Learn the policy itself instead of values: parameterisations (softmax, Gaussian), the policy gradient theorem derived step by step, REINFORCE, baselines, actor–critic, with pictures and fully worked numerical updates. Book: Sutton &amp; Barto Ch 13.</p>
+  <div class="meta">
+    <a class="chip" href="chapters/ch13.html">Full chapter 13 →</a>
+    <a class="chip" href="learn_fa.html">← Learn Function Approximation</a>
+    <a class="chip" href="learn_dqn.html">Learn DQN →</a>
+  </div>
+</div>
+
+<div class="box key"><span class="box-title">One-paragraph summary</span>
+<p>Value-based methods learn $q(s,a)$ and <em>derive</em> a policy by $\arg\max$. Policy-gradient methods learn a parameterised policy $\pi(a|s,\boldsymbol\theta)$ <strong>directly</strong> and improve $\boldsymbol\theta$ by <strong>gradient ascent on the expected return</strong> $J(\boldsymbol\theta)$. The policy gradient theorem says $\nabla J\propto\mathbb E_\pi\big[q_\pi(S,A)\,\nabla\ln\pi(A|S,\boldsymbol\theta)\big]$ — so we need <em>no</em> derivative of the unknown state distribution. Replace $q_\pi$ by the sampled return (REINFORCE), subtract a baseline to cut variance, or bootstrap with a learned critic (actor–critic).</p></div>
+
+<div class="box"><span class="box-title">Roadmap of this page</span>
+<ol class="small">
+<li><a href="#idea">Value-based vs policy-based</a></li>
+<li><a href="#param">Parameterising the policy: softmax and Gaussian</a></li>
+<li><a href="#objective">The objective $J(\boldsymbol\theta)$</a></li>
+<li><a href="#theorem">The policy gradient theorem (derivation)</a></li>
+<li><a href="#reinforce">REINFORCE</a></li>
+<li><a href="#baseline">Baselines</a></li>
+<li><a href="#ac">Actor–critic</a></li>
+<li><a href="#worked">Worked numerical examples</a></li>
+<li><a href="#compare">Comparison and exam checklist</a></li>
+</ol></div>
+
+<!-- ============================================================ -->
+<h2 id="idea">1. Value-based vs policy-based</h2>
+
+<figure class="diagram">
+<svg viewBox="0 0 760 240" style="max-width:100%;height:auto" role="img" aria-label="Value-based pipeline versus policy-gradient pipeline">
+  <defs><marker id="p1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-3)"/></marker></defs>
+  <text x="380" y="20" text-anchor="middle" font-size="14" font-weight="700">Value-based (Q-learning, DQN)</text>
+  <g font-size="13" text-anchor="middle">
+    <rect x="30" y="34" width="120" height="48" rx="8" fill="var(--accent-soft)" stroke="var(--s1)"/><text x="90" y="64">state s</text>
+    <rect x="200" y="34" width="170" height="48" rx="8" fill="var(--surface-2)" stroke="var(--s3)"/><text x="285" y="56">learn q̂(s,a,w)</text><text x="285" y="72" class="muted-t" font-size="11.5">for every action</text>
+    <rect x="420" y="34" width="150" height="48" rx="8" fill="var(--surface-2)" stroke="var(--s2)"/><text x="495" y="64">argmaxₐ q̂ (ε-greedy)</text>
+    <rect x="620" y="34" width="110" height="48" rx="8" fill="var(--accent-soft)" stroke="var(--s1)"/><text x="675" y="64">action a</text>
+  </g>
+  <line x1="150" y1="58" x2="198" y2="58" stroke="var(--text-3)" stroke-width="1.6" marker-end="url(#p1)"/>
+  <line x1="370" y1="58" x2="418" y2="58" stroke="var(--text-3)" stroke-width="1.6" marker-end="url(#p1)"/>
+  <line x1="570" y1="58" x2="618" y2="58" stroke="var(--text-3)" stroke-width="1.6" marker-end="url(#p1)"/>
+  <text x="380" y="104" text-anchor="middle" font-size="12" class="muted-t">policy is implicit; a tiny change in q̂ can flip the argmax (discontinuous)</text>
+
+  <text x="380" y="140" text-anchor="middle" font-size="14" font-weight="700">Policy-based (REINFORCE, actor–critic)</text>
+  <g font-size="13" text-anchor="middle">
+    <rect x="30" y="154" width="120" height="48" rx="8" fill="var(--accent-soft)" stroke="var(--s1)"/><text x="90" y="184">state s</text>
+    <rect x="200" y="154" width="230" height="48" rx="8" fill="var(--surface-2)" stroke="var(--s3)"/><text x="315" y="176">learn π(a|s,θ)</text><text x="315" y="192" class="muted-t" font-size="11.5">probabilities (softmax) or N(μ,σ²)</text>
+    <rect x="480" y="154" width="120" height="48" rx="8" fill="var(--surface-2)" stroke="var(--s2)"/><text x="540" y="184">sample a ~ π</text>
+    <rect x="640" y="154" width="90" height="48" rx="8" fill="var(--accent-soft)" stroke="var(--s1)"/><text x="685" y="184">action a</text>
+  </g>
+  <line x1="150" y1="178" x2="198" y2="178" stroke="var(--text-3)" stroke-width="1.6" marker-end="url(#p1)"/>
+  <line x1="430" y1="178" x2="478" y2="178" stroke="var(--text-3)" stroke-width="1.6" marker-end="url(#p1)"/>
+  <line x1="600" y1="178" x2="638" y2="178" stroke="var(--text-3)" stroke-width="1.6" marker-end="url(#p1)"/>
+  <text x="380" y="224" text-anchor="middle" font-size="12" class="muted-t">policy is explicit and smooth in θ; the method just does gradient ascent on expected return</text>
+</svg>
+<figcaption class="small muted">Figure 1 — Value-based methods act through $\arg\max$; policy-gradient methods learn the action distribution itself.</figcaption>
+</figure>
+
+<div class="table-wrap"><table>
+<tr><th>Advantage of parameterising the policy</th><th>Why</th></tr>
+<tr><td><strong>Smooth change</strong></td><td>Action probabilities change continuously with $\boldsymbol\theta$ — stronger convergence guarantees than ε-greedy on $\hat q$, where a tiny change can swap the greedy action.</td></tr>
+<tr><td><strong>Can learn stochastic optimal policies</strong></td><td>E.g. a game of rock–paper–scissors or aliased states (short-corridor example): the best policy is a specific <em>mix</em>, which ε-greedy cannot represent.</td></tr>
+<tr><td><strong>Continuous / huge action spaces</strong></td><td>No $\arg\max_a$ over infinitely many actions; the policy outputs a Gaussian over actions.</td></tr>
+<tr><td><strong>Prior knowledge</strong></td><td>The policy form can encode what a good controller looks like.</td></tr>
+<tr><td><strong>Simpler function may suffice</strong></td><td>The policy can be simpler than the value function.</td></tr>
+</table></div>
+
+<div class="box pitfall"><span class="box-title">Disadvantages</span>
+<p>Typically converges to a <em>local</em> optimum; evaluating a policy is high-variance and sample-hungry; learning is slower than value-based methods on small problems.</p></div>
+
+<!-- ============================================================ -->
+<h2 id="param">2. Parameterising the policy</h2>
+
+<h3>2.1 Discrete actions: softmax in action preferences</h3>
+<div class="eq">$$\pi(a\mid s,\boldsymbol\theta)=\frac{e^{h(s,a,\boldsymbol\theta)}}{\sum_{b}e^{h(s,b,\boldsymbol\theta)}},\qquad h(s,a,\boldsymbol\theta)=\boldsymbol\theta^{\!\top}\mathbf x(s,a)$$<div class="eq-name"><span>Softmax policy</span><span class="ref">(book eq. 13.2–13.3)</span></div></div>
+<div class="eq">$$\nabla_{\boldsymbol\theta}\ln\pi(a\mid s,\boldsymbol\theta)=\mathbf x(s,a)-\sum_{b}\pi(b\mid s,\boldsymbol\theta)\,\mathbf x(s,b)$$<div class="eq-name"><span>Score function (eligibility vector), softmax-linear</span><span class="ref">(book Ex. 13.3)</span></div></div>
+<p>Interpretation: “the features of the action taken” minus “the average features under the current policy”. Taking a more probable-than-average action moves the gradient little; taking a rare action moves it a lot.</p>
+
+<h3>2.2 Continuous actions: Gaussian policy</h3>
+<div class="eq">$$\pi(a\mid s,\boldsymbol\theta)=\frac{1}{\sigma(s,\boldsymbol\theta)\sqrt{2\pi}}\exp\!\Big(-\frac{(a-\mu(s,\boldsymbol\theta))^2}{2\,\sigma(s,\boldsymbol\theta)^2}\Big),\quad \mu=\boldsymbol\theta_\mu^{\!\top}\mathbf x_\mu(s),\ \ \sigma=\exp\!\big(\boldsymbol\theta_\sigma^{\!\top}\mathbf x_\sigma(s)\big)$$<div class="eq-name"><span>Gaussian policy</span><span class="ref">(book eq. 13.19–13.20)</span></div></div>
+<div class="eq">$$\nabla_{\boldsymbol\theta_\mu}\ln\pi=\frac{a-\mu}{\sigma^2}\,\mathbf x_\mu(s),\qquad \nabla_{\boldsymbol\theta_\sigma}\ln\pi=\Big(\frac{(a-\mu)^2}{\sigma^2}-1\Big)\mathbf x_\sigma(s)$$<div class="eq-name"><span>Gaussian score function</span><span class="ref">(book Ex. 13.4)</span></div></div>
+<p>The exponential keeps $\sigma>0$. If a sampled action far from the mean ($|a-\mu|>\sigma$) earns above-baseline return, the mean moves toward it <em>and</em> $\sigma$ grows; if it lies within one $\sigma$, $\sigma$ shrinks (exploit).</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 760 270" style="max-width:100%;height:auto" role="img" aria-label="Softmax probabilities over three actions before and after an update, and a Gaussian policy density">
+  <text x="190" y="20" text-anchor="middle" font-size="14" font-weight="700">Softmax policy (3 actions)</text>
+  <line x1="40" y1="200" x2="340" y2="200" stroke="var(--text-3)"/>
+  <!-- before -->
+  <rect x="70" y="100" width="30" height="100" fill="var(--s1)" opacity=".55"/><rect x="140" y="100" width="30" height="100" fill="var(--s1)" opacity=".55"/><rect x="210" y="100" width="30" height="100" fill="var(--s1)" opacity=".55"/>
+  <!-- after -->
+  <rect x="102" y="126" width="30" height="74" fill="var(--s2)"/><rect x="172" y="60" width="30" height="140" fill="var(--s2)"/><rect x="242" y="136" width="30" height="64" fill="var(--s2)"/>
+  <text x="101" y="218" text-anchor="middle" font-size="12">a₁</text><text x="171" y="218" text-anchor="middle" font-size="12">a₂</text><text x="241" y="218" text-anchor="middle" font-size="12">a₃</text>
+  <text x="190" y="242" text-anchor="middle" font-size="12" class="muted-t">light: before update (1/3 each); dark: after rewarding a₂</text>
+  <text x="190" y="260" text-anchor="middle" font-size="12" class="muted-t">probabilities always sum to 1 (Σπ=1)</text>
+
+  <text x="570" y="20" text-anchor="middle" font-size="14" font-weight="700">Gaussian policy (continuous action)</text>
+  <line x1="410" y1="200" x2="730" y2="200" stroke="var(--text-3)"/>
+  <path d="M420,198 C470,196 500,160 520,112 C530,90 540,80 550,80 C560,80 570,90 580,112 C600,160 630,196 680,198" fill="var(--accent-soft)" stroke="var(--s1)" stroke-width="2.4"/>
+  <line x1="550" y1="80" x2="550" y2="200" stroke="var(--s2)" stroke-dasharray="4 3"/>
+  <text x="550" y="218" text-anchor="middle" font-size="12" font-weight="700">μ(s)</text>
+  <line x1="550" y1="150" x2="598" y2="150" stroke="var(--s7)" stroke-width="2"/><text x="574" y="144" text-anchor="middle" font-size="12" style="fill:var(--s7)">σ</text>
+  <circle cx="646" cy="198" r="5" fill="var(--s8)"/><text x="646" y="186" text-anchor="middle" font-size="12" style="fill:var(--s8)">sampled a</text>
+  <text x="570" y="242" text-anchor="middle" font-size="12" class="muted-t">μ and σ are functions of the state through θ</text>
+  <text x="570" y="260" text-anchor="middle" font-size="12" class="muted-t">action = μ(s) + σ(s)·ε,  ε ~ N(0,1)</text>
+</svg>
+<figcaption class="small muted">Figure 2 — Left: discrete softmax policy before and after a policy-gradient step. Right: Gaussian policy for continuous actions.</figcaption>
+</figure>
+
+<!-- ============================================================ -->
+<h2 id="objective">3. The objective: expected return as a function of the policy parameters</h2>
+<p>For an episodic task starting in $s_0$:</p>
+<div class="eq">$$J(\boldsymbol\theta)\;\doteq\;v_{\pi_{\boldsymbol\theta}}(s_0)$$<div class="eq-name"><span>Performance measure (episodic)</span><span class="ref">(book eq. 13.4)</span></div></div>
+<p>We want $\boldsymbol\theta_{t+1}=\boldsymbol\theta_t+\alpha\,\widehat{\nabla J(\boldsymbol\theta_t)}$ — gradient <em>ascent</em>. The difficulty: $J$ depends on $\boldsymbol\theta$ both through the actions chosen <em>and</em> through the state distribution $\mu_\pi(s)$ the policy induces, and the latter depends on the (unknown) environment dynamics. The theorem removes the awkward term.</p>
+
+<!-- ============================================================ -->
+<h2 id="theorem">4. The policy gradient theorem (step-by-step derivation)</h2>
+
+<div class="eq">$$\nabla J(\boldsymbol\theta)\;\propto\;\sum_{s}\mu(s)\sum_{a}q_\pi(s,a)\,\nabla_{\boldsymbol\theta}\pi(a\mid s,\boldsymbol\theta)$$<div class="eq-name"><span>Policy gradient theorem</span><span class="ref">(book eq. 13.5)</span></div></div>
+
+<p><strong>Sketch of the proof</strong> (episodic case, $\nabla$ means $\nabla_{\boldsymbol\theta}$, undiscounted for clarity):</p>
+<ol class="steps">
+<li>Start from the Bellman identity $v_\pi(s)=\sum_a\pi(a|s)\,q_\pi(s,a)$ and differentiate by the product rule:
+$$\nabla v_\pi(s)=\sum_a\Big[\nabla\pi(a|s)\,q_\pi(s,a)+\pi(a|s)\,\nabla q_\pi(s,a)\Big]$$</li>
+<li>Expand $q_\pi(s,a)=\sum_{s',r}p(s',r|s,a)\,(r+v_\pi(s'))$; only $v_\pi(s')$ depends on $\boldsymbol\theta$, so $\nabla q_\pi(s,a)=\sum_{s'}p(s'|s,a)\nabla v_\pi(s')$.</li>
+<li>Substitute: $\nabla v_\pi(s)=\sum_a\nabla\pi(a|s)q_\pi(s,a)+\sum_a\pi(a|s)\sum_{s'}p(s'|s,a)\nabla v_\pi(s')$. The right-hand side contains $\nabla v_\pi$ of the <em>next</em> state: unroll it repeatedly.</li>
+<li>After unrolling, $\nabla v_\pi(s_0)=\sum_{x}\Pr(s_0\to x)\sum_a\nabla\pi(a|x)\,q_\pi(x,a)$ where $\Pr(s_0\to x)$ is the probability of reaching $x$ under $\pi$.</li>
+<li>Summing the reach probabilities over time gives the on-policy visitation weight $\mu(x)$ (up to a constant, the mean episode length). Hence $\nabla J\propto\sum_x\mu(x)\sum_a q_\pi(x,a)\nabla\pi(a|x)$. $\blacksquare$</li>
+</ol>
+
+<div class="box key"><span class="box-title">The punchline</span>
+<p>$\nabla\mu$ <strong>never appears</strong>. We can estimate the gradient from samples generated by $\pi$ itself — without knowing the environment's dynamics.</p></div>
+
+<h3>The log-derivative trick: from a sum to an expectation</h3>
+<ol class="steps">
+<li>Multiply and divide by $\pi$: $\sum_a q_\pi(s,a)\nabla\pi(a|s)=\sum_a\pi(a|s)\,q_\pi(s,a)\,\dfrac{\nabla\pi(a|s)}{\pi(a|s)}$.</li>
+<li>Recognise $\dfrac{\nabla\pi}{\pi}=\nabla\ln\pi$ and that $\sum_a\pi(a|s)(\cdot)=\mathbb E_{A\sim\pi}[\cdot]$.</li>
+<li>With $S$ drawn from $\mu$ too, we obtain an expectation over what the agent actually experiences:</li>
+</ol>
+<div class="eq">$$\nabla J(\boldsymbol\theta)\;\propto\;\mathbb E_\pi\Big[q_\pi(S_t,A_t)\,\nabla_{\boldsymbol\theta}\ln\pi(A_t\mid S_t,\boldsymbol\theta)\Big]$$<div class="eq-name"><span>Gradient as an expectation</span><span class="ref">(book eq. 13.6)</span></div></div>
+
+<div class="box exam"><span class="box-title">Exam tip</span>
+<p>Two derivations are examined repeatedly: (i) the log-derivative trick above, and (ii) the baseline-has-zero-mean proof in §6. Be able to write them in three lines.</p></div>
+
+<!-- ============================================================ -->
+<h2 id="reinforce">5. REINFORCE: Monte Carlo policy gradient</h2>
+
+<ol class="steps">
+<li>Replace $q_\pi(S_t,A_t)$ by its unbiased sample $G_t$ (since $\mathbb E_\pi[G_t|S_t,A_t]=q_\pi(S_t,A_t)$).</li>
+<li>Replace the expectation by the single sample actually seen at time $t$.</li>
+<li>Gradient ascent step, with the discount factor kept so that early steps count more:</li>
+</ol>
+<div class="eq">$$\boldsymbol\theta_{t+1}=\boldsymbol\theta_t+\alpha\,\gamma^{t}\,G_t\,\nabla_{\boldsymbol\theta}\ln\pi(A_t\mid S_t,\boldsymbol\theta_t)$$<div class="eq-name"><span>REINFORCE update</span><span class="ref">(book eq. 13.8)</span></div></div>
+
+<p><strong>Intuition.</strong> $\nabla\ln\pi(A_t|S_t)/1$ is the direction in parameter space that makes the <em>taken</em> action more likely. Multiplying by $G_t$ makes that move proportional to how good the outcome was: good returns ⇒ push the action up; bad (negative) returns ⇒ push it down.</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 760 250" style="max-width:100%;height:auto" role="img" aria-label="An episode is rolled out; each step's log-probability gradient is weighted by the return that followed">
+  <defs><marker id="p3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-3)"/></marker>
+  <marker id="p3g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--s3)"/></marker></defs>
+  <text x="380" y="20" text-anchor="middle" font-size="14" font-weight="700">1 · Roll out a full episode with the current policy π(·|·,θ)</text>
+  <g font-size="13" text-anchor="middle">
+    <circle cx="70" cy="62" r="20" fill="var(--accent-soft)" stroke="var(--s1)"/><text x="70" y="67">S₀</text>
+    <circle cx="250" cy="62" r="20" fill="var(--accent-soft)" stroke="var(--s1)"/><text x="250" y="67">S₁</text>
+    <circle cx="430" cy="62" r="20" fill="var(--accent-soft)" stroke="var(--s1)"/><text x="430" y="67">S₂</text>
+    <circle cx="610" cy="62" r="20" fill="var(--surface-2)" stroke="var(--s8)"/><text x="610" y="67">end</text>
+  </g>
+  <line x1="92" y1="62" x2="226" y2="62" stroke="var(--text-3)" stroke-width="1.6" marker-end="url(#p3)"/>
+  <line x1="272" y1="62" x2="406" y2="62" stroke="var(--text-3)" stroke-width="1.6" marker-end="url(#p3)"/>
+  <line x1="452" y1="62" x2="586" y2="62" stroke="var(--text-3)" stroke-width="1.6" marker-end="url(#p3)"/>
+  <text x="160" y="50" text-anchor="middle" font-size="12">A₀ , R₁</text><text x="340" y="50" text-anchor="middle" font-size="12">A₁ , R₂</text><text x="520" y="50" text-anchor="middle" font-size="12">A₂ , R₃</text>
+
+  <text x="380" y="112" text-anchor="middle" font-size="14" font-weight="700">2 · Compute the return from each step onward</text>
+  <g font-size="13" text-anchor="middle">
+    <rect x="30" y="124" width="190" height="34" rx="6" fill="var(--surface-2)" stroke="var(--s7)"/><text x="125" y="146">G₀ = R₁ + γR₂ + γ²R₃</text>
+    <rect x="210" y="124" width="160" height="34" rx="6" fill="var(--surface-2)" stroke="var(--s7)"/><text x="290" y="146">G₁ = R₂ + γR₃</text>
+    <rect x="410" y="124" width="120" height="34" rx="6" fill="var(--surface-2)" stroke="var(--s7)"/><text x="470" y="146">G₂ = R₃</text>
+  </g>
+  <text x="380" y="190" text-anchor="middle" font-size="14" font-weight="700">3 · For every t:  θ ← θ + α γᵗ Gₜ ∇ ln π(Aₜ|Sₜ,θ)</text>
+  <g font-size="12.5" text-anchor="middle">
+    <line x1="125" y1="158" x2="125" y2="206" stroke="var(--s3)" stroke-width="2" marker-end="url(#p3g)"/><text x="125" y="226" style="fill:var(--s3)">large G ⇒ big push toward A₀</text>
+    <line x1="300" y1="158" x2="300" y2="206" stroke="var(--s3)" stroke-width="2" marker-end="url(#p3g)"/><text x="300" y="226" style="fill:var(--s3)">push toward A₁</text>
+    <line x1="470" y1="158" x2="470" y2="206" stroke="var(--s3)" stroke-width="2" marker-end="url(#p3g)"/><text x="470" y="226" style="fill:var(--s3)">small G ⇒ small push</text>
+  </g>
+  <text x="640" y="150" font-size="12" class="muted-t">Monte Carlo: must wait for</text>
+  <text x="640" y="166" font-size="12" class="muted-t">the episode to end ⇒ high</text>
+  <text x="640" y="182" font-size="12" class="muted-t">variance, only episodic.</text>
+</svg>
+<figcaption class="small muted">Figure 3 — REINFORCE: roll out, compute returns backwards, then update with every step's gradient.</figcaption>
+</figure>
+
+<div class="algo"><div class="algo-head"><span class="name">REINFORCE: Monte-Carlo policy-gradient control (episodic) for π*</span><span class="tags"><span class="tag on">on-policy</span><span class="tag">no bootstrapping</span><span class="tag">no model</span></span></div>
+<pre><span class="k">Input:</span> differentiable policy π(a|s,θ)
+<span class="k">Parameter:</span> step size α &gt; 0
+Initialise θ ∈ ℝᵈ arbitrarily
+<span class="k">Loop forever (for each episode):</span>
+    Generate S₀,A₀,R₁,…,S_{T−1},A_{T−1},R_T following π(·|·,θ)
+    <span class="k">Loop for t = 0,1,…,T−1:</span>
+        G ← Σ_{k=t+1..T} γ^{k−t−1} R_k            <span class="c">// return from step t</span>
+        θ ← θ + α · γᵗ · G · ∇ ln π(A_t|S_t,θ)</pre>
+<div class="algo-foot">Unbiased but high variance; learns slowly; can update only after the episode ends.</div></div>
+
+<!-- ============================================================ -->
+<h2 id="baseline">6. REINFORCE with a baseline</h2>
+
+<p>Raw returns can be all positive (e.g. $G\in[90,110]$): every sampled action is pushed up, and learning works only through the small differences — noisy. Subtract a state-dependent baseline $b(s)$:</p>
+<div class="eq">$$\nabla J\;\propto\;\sum_s\mu(s)\sum_a\big(q_\pi(s,a)-b(s)\big)\nabla\pi(a\mid s,\boldsymbol\theta)$$<div class="eq-name"><span>Policy gradient with baseline</span><span class="ref">(book eq. 13.10)</span></div></div>
+
+<p><strong>Why the answer is unchanged</strong> — the baseline term vanishes because $b(s)$ does not depend on $a$:</p>
+<div class="eq">$$\sum_a b(s)\,\nabla\pi(a|s,\boldsymbol\theta)=b(s)\,\nabla\!\sum_a\pi(a|s,\boldsymbol\theta)=b(s)\,\nabla 1=0$$<div class="eq-name"><span>Zero-mean baseline proof</span><span class="ref">(book §13.4)</span></div></div>
+
+<div class="eq">$$\boldsymbol\theta\leftarrow\boldsymbol\theta+\alpha\,\gamma^t\big(G_t-\hat v(S_t,\mathbf w)\big)\nabla\ln\pi(A_t|S_t,\boldsymbol\theta),\qquad \mathbf w\leftarrow\mathbf w+\alpha^{\mathbf w}\gamma^t\big(G_t-\hat v(S_t,\mathbf w)\big)\nabla\hat v(S_t,\mathbf w)$$<div class="eq-name"><span>REINFORCE with learned baseline $\hat v$</span><span class="ref">(book p. 330)</span></div></div>
+
+<figure class="diagram">
+<svg viewBox="0 0 760 200" style="max-width:100%;height:auto" role="img" aria-label="Returns centred around a baseline have lower variance in the update weights">
+  <text x="190" y="20" text-anchor="middle" font-size="14" font-weight="700">Without baseline: weight = G</text>
+  <line x1="40" y1="100" x2="340" y2="100" stroke="var(--text-3)"/>
+  <line x1="190" y1="90" x2="190" y2="110" stroke="var(--text-3)"/><text x="190" y="126" text-anchor="middle" font-size="12" class="muted-t">0</text>
+  <g fill="var(--s2)"><circle cx="262" cy="94" r="5"/><circle cx="280" cy="106" r="5"/><circle cx="296" cy="92" r="5"/><circle cx="310" cy="104" r="5"/><circle cx="270" cy="98" r="5"/><circle cx="324" cy="98" r="5"/></g>
+  <text x="190" y="156" text-anchor="middle" font-size="12">all G ≫ 0 ⇒ every sampled action is pushed up;</text>
+  <text x="190" y="174" text-anchor="middle" font-size="12" class="muted-t">signal hides in the spread ⇒ high variance</text>
+
+  <line x1="380" y1="30" x2="380" y2="190" stroke="var(--border)" stroke-dasharray="3 4"/>
+
+  <text x="570" y="20" text-anchor="middle" font-size="14" font-weight="700">With baseline: weight = G − b(s)</text>
+  <line x1="420" y1="100" x2="720" y2="100" stroke="var(--text-3)"/>
+  <line x1="570" y1="90" x2="570" y2="110" stroke="var(--text-3)"/><text x="570" y="126" text-anchor="middle" font-size="12" class="muted-t">0</text>
+  <g fill="var(--s3)"><circle cx="540" cy="94" r="5"/><circle cx="560" cy="106" r="5"/><circle cx="582" cy="92" r="5"/><circle cx="596" cy="104" r="5"/><circle cx="520" cy="98" r="5"/><circle cx="614" cy="98" r="5"/></g>
+  <text x="570" y="156" text-anchor="middle" font-size="12">better-than-expected ⇒ up; worse ⇒ down</text>
+  <text x="570" y="174" text-anchor="middle" font-size="12" class="muted-t">same expected gradient, smaller variance</text>
+</svg>
+<figcaption class="small muted">Figure 4 — A baseline recentres the weights without changing the expected gradient.</figcaption>
+</figure>
+
+<div class="box key"><span class="box-title">Best baseline</span>
+<p>A natural choice is $b(s)=\hat v(S_t,\mathbf w)$ — then $G_t-\hat v$ estimates the <em>advantage</em> $q_\pi(s,a)-v_\pi(s)$. A baseline may depend on the state, but <em>never on the action</em> (otherwise the zero-mean proof fails).</p></div>
+
+<!-- ============================================================ -->
+<h2 id="ac">7. Actor–critic methods</h2>
+
+<p>REINFORCE with a baseline still waits for the end of the episode ($G_t$) and is not truly online. <strong>Actor–critic</strong> replaces $G_t$ by a one-step bootstrapped target from the <em>critic</em> $\hat v(\cdot,\mathbf w)$, trading a little bias for much lower variance and fully incremental updates.</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 760 300" style="max-width:100%;height:auto" role="img" aria-label="Actor critic loop: actor chooses actions, environment returns reward and next state, critic computes TD error used to update both">
+  <defs>
+    <marker id="p5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-3)"/></marker>
+    <marker id="p5r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--s8)"/></marker>
+  </defs>
+  <rect x="40" y="40" width="190" height="80" rx="10" fill="var(--accent-soft)" stroke="var(--s1)" stroke-width="2"/>
+  <text x="135" y="68" text-anchor="middle" font-size="15" font-weight="700">Actor</text><text x="135" y="88" text-anchor="middle" font-size="13">π(a|s, θ)</text><text x="135" y="106" text-anchor="middle" font-size="11.5" class="muted-t">chooses actions</text>
+  <rect x="40" y="190" width="190" height="80" rx="10" fill="var(--surface-2)" stroke="var(--s3)" stroke-width="2"/>
+  <text x="135" y="218" text-anchor="middle" font-size="15" font-weight="700">Critic</text><text x="135" y="238" text-anchor="middle" font-size="13">v̂(s, w)</text><text x="135" y="256" text-anchor="middle" font-size="11.5" class="muted-t">evaluates states</text>
+  <rect x="520" y="100" width="200" height="100" rx="10" fill="var(--surface-2)" stroke="var(--s2)" stroke-width="2"/>
+  <text x="620" y="140" text-anchor="middle" font-size="15" font-weight="700">Environment</text><text x="620" y="162" text-anchor="middle" font-size="12.5" class="muted-t">returns R, S′</text>
+  <path d="M230,70 C380,60 440,100 518,120" fill="none" stroke="var(--text-3)" stroke-width="1.8" marker-end="url(#p5)"/><text x="380" y="68" text-anchor="middle" font-size="12.5">action A</text>
+  <path d="M520,180 C440,220 330,230 232,226" fill="none" stroke="var(--text-3)" stroke-width="1.8" marker-end="url(#p5)"/><text x="400" y="236" text-anchor="middle" font-size="12.5">R , S′  (and S)</text>
+  <line x1="135" y1="190" x2="135" y2="124" stroke="var(--s8)" stroke-width="2.4" stroke-dasharray="6 4" marker-end="url(#p5r)"/>
+  <text x="150" y="160" font-size="13" font-weight="700" style="fill:var(--s8)">TD error δ</text>
+  <text x="372" y="282" text-anchor="middle" font-size="12.5">δ = R + γ v̂(S′,w) − v̂(S,w)  — one number tells the actor “better or worse than expected”, and trains the critic</text>
+  <text x="372" y="120" text-anchor="middle" font-size="12" class="muted-t">actor: θ ← θ + α I δ ∇ln π</text>
+  <text x="372" y="138" text-anchor="middle" font-size="12" class="muted-t">critic: w ← w + β δ ∇v̂</text>
+</svg>
+<figcaption class="small muted">Figure 5 — Actor–critic: the critic's TD error is the learning signal for both parts.</figcaption>
+</figure>
+
+<div class="eq">$$\delta_t=R_{t+1}+\gamma\,\hat v(S_{t+1},\mathbf w)-\hat v(S_t,\mathbf w)$$<div class="eq-name"><span>TD error (critic)</span><span class="ref">(book eq. 13.12)</span></div></div>
+<div class="eq">$$\mathbf w\leftarrow\mathbf w+\beta\,\delta\,\nabla\hat v(S,\mathbf w),\qquad \boldsymbol\theta\leftarrow\boldsymbol\theta+\alpha\,I\,\delta\,\nabla\ln\pi(A|S,\boldsymbol\theta),\qquad I\leftarrow\gamma I$$<div class="eq-name"><span>One-step actor–critic updates</span><span class="ref">(book p. 332)</span></div></div>
+
+<div class="algo"><div class="algo-head"><span class="name">One-step actor–critic (episodic), estimating π_θ ≈ π*</span><span class="tags"><span class="tag on">on-policy</span><span class="tag boot">bootstraps</span><span class="tag">online</span></span></div>
+<pre><span class="k">Input:</span> policy π(a|s,θ), state-value function v̂(s,w)
+<span class="k">Parameters:</span> step sizes α (actor), β (critic) &gt; 0
+Initialise θ, w
+<span class="k">Loop forever (for each episode):</span>
+    Initialise S;  I ← 1
+    <span class="k">Loop while S is not terminal:</span>
+        A ~ π(·|S,θ)
+        Take A, observe S′, R
+        δ ← R + γ·v̂(S′,w) − v̂(S,w)           <span class="c">// v̂(terminal)=0</span>
+        w ← w + β·δ·∇v̂(S,w)                    <span class="c">// critic: TD(0)</span>
+        θ ← θ + α·I·δ·∇ ln π(A|S,θ)            <span class="c">// actor: policy gradient with δ as advantage</span>
+        I ← γ·I;  S ← S′</pre>
+<div class="algo-foot">Online and incremental; lower variance than REINFORCE; biased because the critic is approximate.</div></div>
+
+<div class="table-wrap"><table>
+<tr><th>Fact</th><th>Detail</th></tr>
+<tr><td>Two time scales</td><td>The critic should learn faster than the actor: $\alpha\ll\beta$ (the actor changes the policy slowly so the critic can track $v_\pi$).</td></tr>
+<tr><td>Why $\delta$ works</td><td>$\mathbb E[\delta_t|S_t,A_t]=q_\pi(S_t,A_t)-v_\pi(S_t)$ when $\hat v=v_\pi$, i.e. the <em>advantage</em>.</td></tr>
+<tr><td>Why the factor $I=\gamma^t$</td><td>Matches the REINFORCE discounting; for $\gamma=1$ it equals 1 and disappears.</td></tr>
+<tr><td>Continuing tasks</td><td>Use average reward $r(\pi)$ and differential returns: $\delta=R-\bar R+\hat v(S')-\hat v(S)$, and update $\bar R\leftarrow\bar R+\alpha^{\bar R}\delta$.</td></tr>
+<tr><td>Bias</td><td>A wrong critic gives a biased actor update; that is the price for lower variance.</td></tr>
+</table></div>
+
+<!-- ============================================================ -->
+<h2 id="worked">8. Worked numerical examples</h2>
+
+<h3>Example A — softmax REINFORCE, one step</h3>
+<div class="box"><span class="box-title">Problem</span>
+<p>Two actions, tabular preferences $\boldsymbol\theta=(h_1,h_2)=(0,0)$, features one-hot: $\mathbf x(a_i)=\mathbf e_i$. The episode took $a_1$ at $t=0$ and the return was $G_0=2$. $\gamma=1$, $\alpha=0.1$. Compute the update and the new probability of $a_1$.</p></div>
+<ol class="steps">
+<li><strong>Current policy:</strong> $\pi=\big(\tfrac{e^0}{e^0+e^0},\tfrac{e^0}{e^0+e^0}\big)=(0.5,\,0.5)$.</li>
+<li><strong>Score function:</strong> $\nabla\ln\pi(a_1)=\mathbf x(a_1)-\sum_b\pi(b)\mathbf x(b)=(1,0)-(0.5,0.5)=(0.5,\,-0.5)$.</li>
+<li><strong>Update:</strong> $\boldsymbol\theta\leftarrow(0,0)+0.1\cdot1\cdot2\cdot(0.5,-0.5)=(0.1,\,-0.1)$.</li>
+<li><strong>New probability:</strong> $\pi(a_1)=\dfrac{e^{0.1}}{e^{0.1}+e^{-0.1}}=\dfrac{1.1052}{1.1052+0.9048}\approx\mathbf{0.550}$ (from 0.5). Rewarding $a_1$ made it more likely.</li>
+<li><strong>Same state, return $G_0=-2$?</strong> Then $\boldsymbol\theta=(-0.1,0.1)$ and $\pi(a_1)\approx0.450$: bad outcome ⇒ less likely.</li>
+</ol>
+
+<h3>Example B — Gaussian policy score function</h3>
+<div class="box"><span class="box-title">Problem</span>
+<p>$\mu(s)=\theta_\mu x$ with $x=1$ and $\theta_\mu=1$, so $\mu=1$. $\sigma=\exp(\theta_\sigma x)$ with $\theta_\sigma=\ln2$, so $\sigma=2$. An action $a=5$ is sampled with advantage $\delta=+1$ and $\alpha=0.05$. Update both parameters.</p></div>
+<ol class="steps">
+<li><strong>Mean score:</strong> $\dfrac{a-\mu}{\sigma^2}x=\dfrac{5-1}{4}\cdot1=1$.</li>
+<li><strong>Std score:</strong> $\Big(\dfrac{(a-\mu)^2}{\sigma^2}-1\Big)x=\dfrac{16}{4}-1=3$.</li>
+<li><strong>Updates ($\delta=1$):</strong> $\theta_\mu\leftarrow1+0.05\cdot1\cdot1=1.05$; $\theta_\sigma\leftarrow\ln2+0.05\cdot1\cdot3=0.693+0.15=0.843$.</li>
+<li><strong>Result:</strong> $\mu=1.05$ (shifted toward 5) and $\sigma=e^{0.843}\approx2.32$ (wider: the good action was 2σ away, so explore more).</li>
+<li><strong>If instead $a=1.5$</strong> (close to the mean): std score $=\tfrac{0.25}{4}-1=-0.94<0$ ⇒ with $\delta>0$, $\sigma$ <em>shrinks</em> — a good action near the mean means exploitation.</li>
+</ol>
+
+<h3>Example C — one-step actor–critic</h3>
+<div class="box"><span class="box-title">Problem</span>
+<p>Tabular critic: $\hat v(S)=1.0$, $\hat v(S')=2.0$. $R=0.5$, $\gamma=0.9$, $\beta=0.2$, $\alpha=0.05$, $I=1$. Policy over two actions is $\pi=(0.5,0.5)$ with softmax preferences and the action taken was $a_2$.</p></div>
+<ol class="steps">
+<li><strong>TD error:</strong> $\delta=0.5+0.9\cdot2.0-1.0=1.3$ (better than expected).</li>
+<li><strong>Critic:</strong> $\hat v(S)\leftarrow1.0+0.2\cdot1.3\cdot1=1.26$.</li>
+<li><strong>Actor score:</strong> $\nabla\ln\pi(a_2)=(0,1)-(0.5,0.5)=(-0.5,\,0.5)$.</li>
+<li><strong>Actor:</strong> $\boldsymbol\theta\leftarrow\boldsymbol\theta+0.05\cdot1\cdot1.3\cdot(-0.5,0.5)=\boldsymbol\theta+(-0.0325,\,+0.0325)$ ⇒ $a_2$ becomes more likely.</li>
+<li><strong>Next step:</strong> $I\leftarrow\gamma I=0.9$.</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="compare">9. Comparison and exam checklist</h2>
+
+<div class="table-wrap"><table>
+<tr><th></th><th>REINFORCE</th><th>REINFORCE + baseline</th><th>One-step actor–critic</th></tr>
+<tr><td>Weight on $\nabla\ln\pi$</td><td>$G_t$</td><td>$G_t-\hat v(S_t)$</td><td>$\delta_t=R+\gamma\hat v(S')-\hat v(S)$</td></tr>
+<tr><td>Bootstraps?</td><td>No</td><td>No (baseline only reduces variance)</td><td>Yes</td></tr>
+<tr><td>Bias</td><td>Unbiased</td><td>Unbiased</td><td>Biased (critic error)</td></tr>
+<tr><td>Variance</td><td>Highest</td><td>Lower</td><td>Lowest</td></tr>
+<tr><td>When it updates</td><td>End of episode</td><td>End of episode</td><td>Every step</td></tr>
+<tr><td>Learns</td><td>$\pi$ only</td><td>$\pi$ and $\hat v$ (baseline)</td><td>$\pi$ and $\hat v$ (critic, two time scales)</td></tr>
+<tr><td>Continuing tasks</td><td>No</td><td>No</td><td>Yes (average-reward form)</td></tr>
+</table></div>
+
+<div class="box exam"><span class="box-title">Checklist</span>
+<ul>
+<li>Write the theorem, the log trick, the REINFORCE update and the AC updates from memory.</li>
+<li>State why a baseline can depend on $s$ but not $a$, and prove it in one line.</li>
+<li>Compute $\nabla\ln\pi$ for softmax (features − expected features) and Gaussian ($\frac{a-\mu}{\sigma^2}$).</li>
+<li>Actor–critic: say what $\delta$ means, why $\alpha\ll\beta$, and what is a “bootstrapping critic”.</li>
+<li>The “baseline” in REINFORCE does <em>not</em> make it bootstrap; the critic in actor–critic <em>does</em>.</li>
+</ul></div>
+
+<div class="pager-links">
+  <p><a href="chapters/ch13.html">Open Chapter 13 (full text, quiz) →</a> &nbsp;|&nbsp; <a href="learn_fa.html">← Function Approximation</a> &nbsp;|&nbsp; <a href="learn_dqn.html">Next: Learn DQN →</a></p>
+</div>
+
+</main>
+</body>
+</html>

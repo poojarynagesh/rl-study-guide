@@ -16,6 +16,9 @@ ROOT = Path(__file__).resolve().parent.parent
 PAGES = [
     ("home", "index.html"),
     ("roadmap", "roadmap.html"),
+    ("learn_fa", "learn_fa.html"),
+    ("learn_pg", "learn_pg.html"),
+    ("learn_dqn", "learn_dqn.html"),
     ("ch01", "chapters/ch01.html"),
     ("ch02", "chapters/ch02.html"),
     ("ch03", "chapters/ch03.html"),

@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learn Function Approximation — RL Study Guide</title>
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="assets/search-index.js"></script>
+<script defer src="assets/site.js"></script>
+</head>
+<body data-page="learn_fa" data-root=".">
+<main class="content">
+
+<div class="hero">
+  <div class="kicker">Learn · visual guide</div>
+  <h1>Learn Function Approximation</h1>
+  <p class="lead">From a table of values to a parameterised function: why we need it, the objective, the semi-gradient update derived step by step, linear features and the TD fixed point, neural networks, and a fully worked numerical update. Book: Sutton &amp; Barto Ch 9 (and §10.1 for control).</p>
+  <div class="meta">
+    <a class="chip" href="chapters/ch09.html">Full chapter 9 →</a>
+    <a class="chip" href="learn_pg.html">Next: Learn Policy Gradient →</a>
+    <a class="chip" href="learn_dqn.html">Learn DQN →</a>
+  </div>
+</div>
+
+<div class="box key"><span class="box-title">One-paragraph summary</span>
+<p>Tabular methods store one number per state. That is impossible when states are huge (Backgammon $\approx10^{20}$) or continuous (a robot's joint angles) or never seen twice (Atari pixels). So we replace the table by a <strong>function</strong> $\hat v(s,\mathbf w)\approx v_\pi(s)$ with a small weight vector $\mathbf w\in\mathbb R^d$, $d\ll|\mathcal S|$. We tune $\mathbf w$ by <strong>gradient descent</strong> on a prediction error. For TD targets the gradient ignores how the target depends on $\mathbf w$ — hence <strong>semi-gradient</strong>. Changing one weight changes the value of many states: that is <em>generalisation</em>, and also the source of new instabilities.</p></div>
+
+<div class="box"><span class="box-title">Roadmap of this page</span>
+<ol class="small">
+<li><a href="#why">Why a table is not enough</a></li>
+<li><a href="#objective">What we minimise: the $\overline{\mathrm{VE}}$ objective</a></li>
+<li><a href="#sgd">Gradient descent → semi-gradient (derivation)</a></li>
+<li><a href="#linear">Linear function approximation and the TD fixed point</a></li>
+<li><a href="#features">Choosing the features</a></li>
+<li><a href="#nn">Neural networks as approximators</a></li>
+<li><a href="#control">From prediction to control</a></li>
+<li><a href="#worked">Worked numerical example</a></li>
+<li><a href="#traps">Traps and exam checklist</a></li>
+</ol></div>
+
+<!-- ============================================================ -->
+<h2 id="why">1. Why a table is not enough</h2>
+
+<figure class="diagram">
+<svg viewBox="0 0 760 270" style="max-width:100%;height:auto" role="img" aria-label="A lookup table versus a parameterised function">
+  <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-3)"/></marker></defs>
+  <text x="170" y="24" text-anchor="middle" font-size="15" font-weight="700">Tabular: one entry per state</text>
+  <g font-size="12" text-anchor="middle">
+    <rect x="60" y="40" width="220" height="26" fill="var(--surface-2)" stroke="var(--s1)"/><text x="110" y="58">s₁</text><text x="220" y="58">V(s₁) = 0.31</text>
+    <rect x="60" y="66" width="220" height="26" fill="var(--surface-2)" stroke="var(--s1)"/><text x="110" y="84">s₂</text><text x="220" y="84">V(s₂) = 0.07</text>
+    <rect x="60" y="92" width="220" height="26" fill="var(--surface-2)" stroke="var(--s1)"/><text x="110" y="110">s₃</text><text x="220" y="110">V(s₃) = 0.88</text>
+    <rect x="60" y="118" width="220" height="26" fill="var(--surface-2)" stroke="var(--s1)"/><text x="110" y="136">⋮</text><text x="220" y="136">⋮</text>
+    <rect x="60" y="144" width="220" height="26" fill="var(--surface-2)" stroke="var(--s1)"/><text x="110" y="162">s_N</text><text x="220" y="162">V(s_N) = ?</text>
+  </g>
+  <text x="170" y="196" text-anchor="middle" font-size="12.5">N numbers to store and learn.</text>
+  <text x="170" y="214" text-anchor="middle" font-size="12.5" class="muted-t">An update changes <tspan font-weight="700">only</tspan> the visited state.</text>
+  <text x="170" y="232" text-anchor="middle" font-size="12.5" class="muted-t">Unseen state ⇒ no information at all.</text>
+
+  <line x1="320" y1="120" x2="350" y2="120" stroke="var(--text-3)" stroke-width="2" marker-end="url(#a1)"/>
+
+  <text x="560" y="24" text-anchor="middle" font-size="15" font-weight="700">Approximate: one function, d weights</text>
+  <rect x="380" y="70" width="70" height="60" rx="8" fill="var(--accent-soft)" stroke="var(--s1)"/><text x="415" y="96" text-anchor="middle" font-size="13">state</text><text x="415" y="114" text-anchor="middle" font-size="13" font-weight="700">s</text>
+  <line x1="450" y1="100" x2="480" y2="100" stroke="var(--text-3)" stroke-width="1.6" marker-end="url(#a1)"/>
+  <rect x="482" y="62" width="90" height="76" rx="8" fill="var(--surface-2)" stroke="var(--s3)"/><text x="527" y="88" text-anchor="middle" font-size="13">features</text><text x="527" y="108" text-anchor="middle" font-size="14" font-weight="700">x(s) ∈ ℝᵈ</text><text x="527" y="126" text-anchor="middle" font-size="11" class="muted-t">hand-made or learned</text>
+  <line x1="572" y1="100" x2="602" y2="100" stroke="var(--text-3)" stroke-width="1.6" marker-end="url(#a1)"/>
+  <rect x="604" y="62" width="100" height="76" rx="8" fill="var(--surface-2)" stroke="var(--s2)"/><text x="654" y="88" text-anchor="middle" font-size="13">weights</text><text x="654" y="108" text-anchor="middle" font-size="14" font-weight="700">w ∈ ℝᵈ</text><text x="654" y="126" text-anchor="middle" font-size="11" class="muted-t">d ≪ N, learned</text>
+  <line x1="654" y1="138" x2="654" y2="168" stroke="var(--text-3)" stroke-width="1.6" marker-end="url(#a1)"/>
+  <rect x="580" y="170" width="148" height="40" rx="8" fill="var(--accent-soft)" stroke="var(--s1)"/><text x="654" y="195" text-anchor="middle" font-size="15" font-weight="700">v̂(s, w) ≈ v_π(s)</text>
+  <text x="560" y="236" text-anchor="middle" font-size="12.5">An update changes <tspan font-weight="700">w</tspan>, hence the value of <tspan font-weight="700">many</tspan> states.</text>
+  <text x="560" y="254" text-anchor="middle" font-size="12.5" class="muted-t">Similar states get similar values ⇒ generalisation.</text>
+</svg>
+<figcaption class="small muted">Figure 1 — Replace the lookup table by a parametric function of the state.</figcaption>
+</figure>
+
+<div class="table-wrap"><table>
+<tr><th>Problem with tables</th><th>Example</th><th>What approximation gives</th></tr>
+<tr><td>Too many states for memory</td><td>Backgammon $\sim10^{20}$ states</td><td>$d$ weights instead of $N$ entries</td></tr>
+<tr><td>Continuous / infinite state space</td><td>Mountain car (position, velocity)</td><td>A smooth function of real-valued inputs</td></tr>
+<tr><td>States are (almost) never visited twice</td><td>Atari: each frame stack is new</td><td>Generalise from similar visited states</td></tr>
+<tr><td>Learning each entry separately is slow</td><td>1000-state random walk</td><td>Neighbouring states share information</td></tr>
+</table></div>
+
+<div class="box key"><span class="box-title">The price of generalisation</span>
+<p>With a table, every estimate is independent. With $\hat v(s,\mathbf w)$ you can make the value of one state exactly right only by making others slightly worse. So we must decide <em>which states matter most</em> — that is the role of the state distribution $\mu(s)$ in the objective below.</p></div>
+
+<!-- ============================================================ -->
+<h2 id="objective">2. What we minimise: the value-error objective</h2>
+
+<p>Let $\mu(s)\ge0$, $\sum_s\mu(s)=1$, be the fraction of time spent in state $s$ when following $\pi$ (the <em>on-policy distribution</em>). The <strong>mean-squared value error</strong> is</p>
+
+<div class="eq">$$\overline{\mathrm{VE}}(\mathbf w)\;=\;\sum_{s\in\mathcal S}\mu(s)\,\Big[v_\pi(s)-\hat v(s,\mathbf w)\Big]^2$$<div class="eq-name"><span>Mean-squared value error</span><span class="ref">(book eq. 9.1)</span></div></div>
+
+<ul>
+<li>It is a <strong>weighted</strong> squared error: frequently visited states count more because we have only $d$ weights to spend.</li>
+<li>$\mu(s)$ is <em>not</em> the same as the stationary behaviour of the optimal policy; for on-policy methods it is the distribution generated by $\pi$.</li>
+<li>Goal: find $\mathbf w^*=\arg\min_{\mathbf w}\overline{\mathrm{VE}}(\mathbf w)$. For non-linear $\hat v$ we may only reach a <em>local</em> optimum.</li>
+</ul>
+
+<div class="box exam"><span class="box-title">Exam tip</span><p>If a question gives a state distribution (e.g. “state $A$ is visited 3× as often as $B$”), the weighted error is $\mu(A)(\cdot)^2+\mu(B)(\cdot)^2$ with $\mu(A)=0.75$, $\mu(B)=0.25$. Always normalise.</p></div>
+
+<!-- ============================================================ -->
+<h2 id="sgd">3. Gradient descent → semi-gradient (step-by-step derivation)</h2>
+
+<ol class="steps">
+<li><strong>Per-sample loss.</strong> We see one example $S_t\mapsto v_\pi(S_t)$. The squared error on it is $\tfrac12\big[v_\pi(S_t)-\hat v(S_t,\mathbf w_t)\big]^2$.</li>
+<li><strong>Move against the gradient</strong> with step size $\alpha$:
+$$\mathbf w_{t+1}=\mathbf w_t-\tfrac12\alpha\nabla_{\mathbf w}\big[v_\pi(S_t)-\hat v(S_t,\mathbf w_t)\big]^2$$</li>
+<li><strong>Differentiate</strong> (chain rule; $v_\pi$ does not depend on $\mathbf w$):
+$$\mathbf w_{t+1}=\mathbf w_t+\alpha\big[v_\pi(S_t)-\hat v(S_t,\mathbf w_t)\big]\nabla_{\mathbf w}\hat v(S_t,\mathbf w_t)$$</li>
+<li><strong>We do not know $v_\pi$</strong>, so we substitute a <em>target</em> $U_t$ (a sample-based estimate of it):
+$$\mathbf w_{t+1}=\mathbf w_t+\alpha\big[U_t-\hat v(S_t,\mathbf w_t)\big]\nabla_{\mathbf w}\hat v(S_t,\mathbf w_t)$$</li>
+<li><strong>Pick the target.</strong> The choice decides whether this is a true gradient method.</li>
+</ol>
+
+<div class="eq">$$\mathbf w\leftarrow\mathbf w+\alpha\,\big[U_t-\hat v(S_t,\mathbf w)\big]\;\nabla_{\mathbf w}\hat v(S_t,\mathbf w)$$<div class="eq-name"><span>General SGD update for prediction</span><span class="ref">(book eq. 9.7)</span></div></div>
+
+<div class="table-wrap"><table>
+<tr><th>Method</th><th>Target $U_t$</th><th>Unbiased for $v_\pi(S_t)$?</th><th>Is it a true gradient method?</th><th>Convergence</th></tr>
+<tr><td><strong>Gradient Monte Carlo</strong></td><td>$G_t$ (full return)</td><td>Yes</td><td>Yes — $G_t$ does not depend on $\mathbf w$</td><td>Local optimum of $\overline{\mathrm{VE}}$ (global for linear), for decaying $\alpha$</td></tr>
+<tr><td><strong>Semi-gradient TD(0)</strong></td><td>$R_{t+1}+\gamma\hat v(S_{t+1},\mathbf w)$</td><td>No (biased: bootstraps)</td><td>No — target depends on $\mathbf w$ but we ignore that</td><td>Linear case: converges to the TD fixed point (on-policy)</td></tr>
+<tr><td><strong>Semi-gradient $n$-step TD</strong></td><td>$G_{t:t+n}=R_{t+1}+\dots+\gamma^n\hat v(S_{t+n},\mathbf w)$</td><td>No, bias shrinks with $n$</td><td>No</td><td>Between TD(0) and MC</td></tr>
+</table></div>
+
+<figure class="diagram">
+<svg viewBox="0 0 760 250" style="max-width:100%;height:auto" role="img" aria-label="Semi-gradient: gradient flows through the prediction but not through the bootstrapped target">
+  <defs>
+    <marker id="a2g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--s3)"/></marker>
+    <marker id="a2r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--s8)"/></marker>
+  </defs>
+  <rect x="40" y="30" width="250" height="70" rx="10" fill="var(--accent-soft)" stroke="var(--s1)"/>
+  <text x="165" y="58" text-anchor="middle" font-size="13" class="muted-t">prediction</text>
+  <text x="165" y="82" text-anchor="middle" font-size="16" font-weight="700">v̂(S_t, w)</text>
+  <rect x="40" y="150" width="250" height="70" rx="10" fill="var(--surface-2)" stroke="var(--s2)"/>
+  <text x="165" y="178" text-anchor="middle" font-size="13" class="muted-t">TD target</text>
+  <text x="165" y="202" text-anchor="middle" font-size="16" font-weight="700">R + γ v̂(S′, w)</text>
+  <rect x="380" y="90" width="150" height="70" rx="10" fill="var(--surface-2)" stroke="var(--s7)"/>
+  <text x="455" y="118" text-anchor="middle" font-size="13" class="muted-t">TD error</text>
+  <text x="455" y="142" text-anchor="middle" font-size="16" font-weight="700">δ = U − v̂</text>
+  <line x1="290" y1="65" x2="380" y2="110" stroke="var(--text-3)" stroke-width="1.6"/>
+  <line x1="290" y1="185" x2="380" y2="140" stroke="var(--text-3)" stroke-width="1.6"/>
+  <!-- gradient flow -->
+  <path d="M455,90 C455,40 400,20 292,52" fill="none" stroke="var(--s3)" stroke-width="2.6" marker-end="url(#a2g)"/>
+  <text x="540" y="52" font-size="13" fill="var(--s3)" font-weight="700" style="fill:var(--s3)">∇ w flows here ✔</text>
+  <path d="M455,160 C455,215 420,235 292,200" fill="none" stroke="var(--s8)" stroke-width="2.4" stroke-dasharray="6 5" marker-end="url(#a2r)"/>
+  <text x="500" y="214" font-size="13" font-weight="700" style="fill:var(--s8)">held constant ✘ (“semi”)</text>
+  <text x="620" y="125" text-anchor="middle" font-size="13">Update:</text>
+  <text x="620" y="145" text-anchor="middle" font-size="13" font-weight="700">w ← w + α δ ∇v̂(S_t,w)</text>
+</svg>
+<figcaption class="small muted">Figure 2 — Semi-gradient: only the prediction is differentiated; the bootstrapped target is held fixed.</figcaption>
+</figure>
+
+<div class="box pitfall"><span class="box-title">Common mistake</span>
+<p>Differentiating the whole squared error $[R+\gamma\hat v(S',\mathbf w)-\hat v(S,\mathbf w)]^2$ gives the <em>residual-gradient</em> method, which has an extra term $-\gamma\nabla\hat v(S',\mathbf w)$. Semi-gradient TD omits it: it is simpler, usually faster, converges in the linear on-policy case — but it is <strong>not</strong> gradient descent on any objective.</p></div>
+
+<div class="algo"><div class="algo-head"><span class="name">Semi-gradient TD(0) for estimating v̂ ≈ v_π</span><span class="tags"><span class="tag on">on-policy</span><span class="tag boot">bootstraps</span></span></div>
+<pre><span class="k">Input:</span> policy π, differentiable v̂(s,w) with v̂(terminal,·)=0
+<span class="k">Parameters:</span> step size α &gt; 0
+Initialise w ∈ ℝᵈ arbitrarily (e.g. 0)
+<span class="k">Loop for each episode:</span>
+    Initialise S
+    <span class="k">Loop for each step of episode:</span>
+        Choose A ~ π(·|S)
+        Take A, observe R, S′
+        δ ← R + γ·v̂(S′,w) − v̂(S,w)         <span class="c">// TD error (target not differentiated)</span>
+        w ← w + α·δ·∇v̂(S,w)                  <span class="c">// ∇v̂ = x(S) in the linear case</span>
+        S ← S′
+    <span class="k">until</span> S is terminal</pre>
+<div class="algo-foot">Online, incremental, no waiting for the end of the episode (unlike gradient MC).</div></div>
+
+<!-- ============================================================ -->
+<h2 id="linear">4. Linear function approximation and the TD fixed point</h2>
+
+<div class="eq">$$\hat v(s,\mathbf w)=\mathbf w^{\!\top}\mathbf x(s)=\sum_{i=1}^{d}w_i\,x_i(s),\qquad \nabla_{\mathbf w}\hat v(s,\mathbf w)=\mathbf x(s)$$<div class="eq-name"><span>Linear value function</span><span class="ref">(book eq. 9.8)</span></div></div>
+
+<p>The update becomes beautifully simple — a <em>TD-error times feature-vector</em> step:</p>
+<div class="eq">$$\mathbf w_{t+1}=\mathbf w_t+\alpha\,\delta_t\,\mathbf x_t,\qquad \delta_t=R_{t+1}+\gamma\,\mathbf w_t^{\!\top}\mathbf x_{t+1}-\mathbf w_t^{\!\top}\mathbf x_t$$<div class="eq-name"><span>Semi-gradient TD(0), linear</span><span class="ref">(book eq. 9.9)</span></div></div>
+
+<p>Linear $\overline{\mathrm{VE}}$ is a convex quadratic bowl, so gradient MC finds the global minimum. For TD(0) we ask where the weights settle: in expectation</p>
+<div class="eq">$$\mathbb E[\Delta\mathbf w]=\alpha\,(\mathbf b-\mathbf A\mathbf w),\quad \mathbf b=\mathbb E[R_{t+1}\mathbf x_t]\in\mathbb R^d,\quad \mathbf A=\mathbb E\!\big[\mathbf x_t(\mathbf x_t-\gamma\mathbf x_{t+1})^{\!\top}\big]\in\mathbb R^{d\times d}$$$$\Longrightarrow\quad \mathbf w_{TD}=\mathbf A^{-1}\mathbf b\quad\text{(the TD fixed point)}$$<div class="eq-name"><span>TD fixed point</span><span class="ref">(book eqs. 9.10–9.12)</span></div></div>
+
+<div class="eq">$$\overline{\mathrm{VE}}(\mathbf w_{TD})\;\le\;\frac{1}{1-\gamma}\;\min_{\mathbf w}\overline{\mathrm{VE}}(\mathbf w)$$<div class="eq-name"><span>Error bound at the TD fixed point</span><span class="ref">(book eq. 9.14)</span></div></div>
+
+<figure class="diagram">
+<svg viewBox="0 0 760 170" style="max-width:100%;height:auto" role="img" aria-label="Error of the TD fixed point versus the best possible linear solution">
+  <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-3)"/></marker></defs>
+  <line x1="40" y1="110" x2="720" y2="110" stroke="var(--text-3)" stroke-width="1.6" marker-end="url(#a3)"/>
+  <text x="725" y="128" font-size="12" text-anchor="end" class="muted-t">VE(w) →</text>
+  <circle cx="110" cy="110" r="7" fill="var(--s3)"/><text x="110" y="92" text-anchor="middle" font-size="13" font-weight="700">w* (best possible)</text><text x="110" y="140" text-anchor="middle" font-size="12" class="muted-t">min VE</text>
+  <circle cx="300" cy="110" r="7" fill="var(--s1)"/><text x="300" y="92" text-anchor="middle" font-size="13" font-weight="700">w_TD (TD(0) limit)</text>
+  <rect x="110" y="40" width="460" height="14" rx="3" fill="var(--accent-soft)" stroke="var(--s1)"/>
+  <text x="340" y="34" text-anchor="middle" font-size="12.5">guarantee: VE(w_TD) ≤ min VE / (1 − γ)</text>
+  <circle cx="570" cy="110" r="7" fill="var(--s2)"/><text x="570" y="92" text-anchor="middle" font-size="13">bound for γ = 0.9: 10 × min VE</text>
+  <text x="380" y="162" text-anchor="middle" font-size="12" class="muted-t">TD is biased (bootstraps) so it stops at w_TD, not w*, but trades this for lower variance and online learning.</text>
+</svg>
+<figcaption class="small muted">Figure 3 — TD(0) with linear features converges, but only within a factor $1/(1-\gamma)$ of the best achievable error.</figcaption>
+</figure>
+
+<div class="box key"><span class="box-title">Why does it still converge?</span>
+<p>In the on-policy case the matrix $\mathbf A$ is positive definite (the bootstrapping target is “pulled” by the same distribution it is sampled from). Convergence is <em>lost</em> if the data come from a different distribution (off-policy) — the first corner of the deadly triad below.</p></div>
+
+<!-- ============================================================ -->
+<h2 id="features">5. Choosing the features</h2>
+
+<p>With linear methods all the representational power sits in the features. Standard families:</p>
+
+<div class="table-wrap"><table>
+<tr><th>Family</th><th>Features</th><th>Good for</th><th>Cost / catch</th></tr>
+<tr><td><strong>State aggregation</strong></td><td>One-hot of the group containing $s$</td><td>Simplest case; table over groups</td><td>Staircase values; all states of a group share one value</td></tr>
+<tr><td><strong>Polynomial</strong></td><td>$x_i(s)=\prod_j s_j^{c_{i,j}}$; e.g. $(1,s_1,s_2,s_1s_2,s_1^2,s_2^2)$</td><td>Smooth low-dimensional problems</td><td>$(n+1)^k$ terms for degree $n$ in $k$ dims — explodes</td></tr>
+<tr><td><strong>Fourier cosine</strong></td><td>$x_i(s)=\cos(\pi\,\mathbf c^i\!\cdot\mathbf s)$, $c^i_j\in\{0,\dots,n\}$</td><td>Smooth functions; easy step-size choice</td><td>$(n+1)^k$ terms; poor for discontinuities</td></tr>
+<tr><td><strong>Coarse / tile coding</strong></td><td>Several offset overlapping grids; one active tile per grid</td><td>Fast, sparse, easy on continuous inputs</td><td>Needs tiling design; step size $\alpha=\tfrac{1}{10\cdot\#\text{tilings}}$</td></tr>
+<tr><td><strong>RBF</strong></td><td>$x_i(s)=\exp\!\big(-\tfrac{\|s-c_i\|^2}{2\sigma_i^2}\big)$</td><td>Smooth, graded response</td><td>Cost of centres/widths; no sparsity</td></tr>
+</table></div>
+
+<figure class="diagram">
+<svg viewBox="0 0 760 330" style="max-width:100%;height:auto" role="img" aria-label="State aggregation staircase and tile coding with two offset tilings">
+  <text x="190" y="22" text-anchor="middle" font-size="14" font-weight="700">State aggregation (5 groups)</text>
+  <line x1="40" y1="270" x2="340" y2="270" stroke="var(--text-3)"/><line x1="40" y1="270" x2="40" y2="40" stroke="var(--text-3)"/>
+  <text x="190" y="298" text-anchor="middle" font-size="12" class="muted-t">state s (1 … 1000)</text>
+  <text x="14" y="160" font-size="12" class="muted-t" transform="rotate(-90 14 160)" text-anchor="middle">value</text>
+  <polyline points="40,250 340,60" fill="none" stroke="var(--s2)" stroke-width="2.2" stroke-dasharray="5 4"/>
+  <polyline points="40,238 100,238 100,200 160,200 160,162 220,162 220,124 280,124 280,86 340,86" fill="none" stroke="var(--s1)" stroke-width="3" transform="translate(0,0)"/>
+  <g stroke="var(--border)" stroke-dasharray="2 4"><line x1="100" y1="40" x2="100" y2="270"/><line x1="160" y1="40" x2="160" y2="270"/><line x1="220" y1="40" x2="220" y2="270"/><line x1="280" y1="40" x2="280" y2="270"/></g>
+  <text x="70" y="62" font-size="12" style="fill:var(--s2)">true v_π (dashed)</text>
+  <text x="70" y="80" font-size="12" style="fill:var(--s1)">v̂ (staircase)</text>
+  <text x="190" y="318" text-anchor="middle" font-size="11.5" class="muted-t">w has 5 entries; x(s) = one-hot of s's group</text>
+
+  <text x="570" y="22" text-anchor="middle" font-size="14" font-weight="700">Tile coding, 2 overlapping tilings</text>
+  <rect x="440" y="40" width="240" height="240" fill="none" stroke="var(--border)"/>
+  <!-- tiling A (solid) -->
+  <g stroke="var(--s1)" stroke-width="1.4">
+    <line x1="500" y1="40" x2="500" y2="280"/><line x1="560" y1="40" x2="560" y2="280"/><line x1="620" y1="40" x2="620" y2="280"/>
+    <line x1="440" y1="100" x2="680" y2="100"/><line x1="440" y1="160" x2="680" y2="160"/><line x1="440" y1="220" x2="680" y2="220"/>
+  </g>
+  <!-- tiling B (dashed, offset 20,20) -->
+  <g stroke="var(--s2)" stroke-width="1.4" stroke-dasharray="5 4">
+    <line x1="460" y1="40" x2="460" y2="280"/><line x1="520" y1="40" x2="520" y2="280"/><line x1="580" y1="40" x2="580" y2="280"/><line x1="640" y1="40" x2="640" y2="280"/>
+    <line x1="440" y1="120" x2="680" y2="120"/><line x1="440" y1="180" x2="680" y2="180"/><line x1="440" y1="240" x2="680" y2="240"/>
+  </g>
+  <rect x="500" y="100" width="60" height="60" fill="var(--s1)" opacity="0.22"/>
+  <rect x="520" y="120" width="60" height="60" fill="var(--s2)" opacity="0.22"/>
+  <rect x="520" y="120" width="40" height="40" fill="none" stroke="var(--text)" stroke-width="2"/>
+  <circle cx="545" cy="135" r="5" fill="var(--text)"/>
+  <text x="552" y="128" font-size="12">s</text>
+  <text x="560" y="300" text-anchor="middle" font-size="11.5" class="muted-t">x(s) has 1 active tile per tiling (2 ones); the</text>
+  <text x="560" y="316" text-anchor="middle" font-size="11.5" class="muted-t">overlap (box) shows the finer effective resolution</text>
+</svg>
+<figcaption class="small muted">Figure 4 — Left: state aggregation gives a staircase. Right: overlapping offset tilings; the point activates one tile in each, so generalisation is local but the resolution is finer than one tile.</figcaption>
+</figure>
+
+<div class="box exam"><span class="box-title">Exam tip — number of weights and step size</span>
+<p>Tile coding with $m$ tilings of $t$ tiles per dimension in $k$ dimensions has $m\,t^{\,k}$ weights, exactly $m$ of which are active. A step size “$\alpha=\frac{1}{10m}$” means the value at the visited state moves about 1/10 of the way to the target. (Book §9.5.4; the “1/10” rule is the heuristic $\alpha=(\tau\,\mathbb E[\mathbf x^\top\mathbf x])^{-1}$ with $\tau=10$.)</p></div>
+
+<!-- ============================================================ -->
+<h2 id="nn">6. Neural networks as approximators</h2>
+
+<p>When good features cannot be designed by hand, let the network learn them. The weights $\mathbf w$ are <em>all</em> layer weights; $\hat v(s,\mathbf w)$ is the output. The same update applies — the only change is that $\nabla_{\mathbf w}\hat v$ is computed by <strong>backpropagation</strong>.</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 760 270" style="max-width:100%;height:auto" role="img" aria-label="A feed-forward network computing the value of a state, with the TD error feeding back through backpropagation">
+  <defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-3)"/></marker>
+  <marker id="a5r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--s8)"/></marker></defs>
+  <g stroke="var(--border)" stroke-width="1">
+    <!-- input to h1 -->
+    <line x1="140" y1="70" x2="300" y2="55"/><line x1="140" y1="70" x2="300" y2="110"/><line x1="140" y1="70" x2="300" y2="165"/>
+    <line x1="140" y1="130" x2="300" y2="55"/><line x1="140" y1="130" x2="300" y2="110"/><line x1="140" y1="130" x2="300" y2="165"/>
+    <line x1="140" y1="190" x2="300" y2="55"/><line x1="140" y1="190" x2="300" y2="110"/><line x1="140" y1="190" x2="300" y2="165"/>
+    <!-- h1 to h2 -->
+    <line x1="300" y1="55" x2="460" y2="80"/><line x1="300" y1="55" x2="460" y2="150"/>
+    <line x1="300" y1="110" x2="460" y2="80"/><line x1="300" y1="110" x2="460" y2="150"/>
+    <line x1="300" y1="165" x2="460" y2="80"/><line x1="300" y1="165" x2="460" y2="150"/>
+    <line x1="460" y1="80" x2="600" y2="115"/><line x1="460" y1="150" x2="600" y2="115"/>
+  </g>
+  <g fill="var(--accent-soft)" stroke="var(--s1)" stroke-width="1.6">
+    <circle cx="140" cy="70" r="16"/><circle cx="140" cy="130" r="16"/><circle cx="140" cy="190" r="16"/>
+  </g>
+  <g fill="var(--surface-2)" stroke="var(--s3)" stroke-width="1.6">
+    <circle cx="300" cy="55" r="16"/><circle cx="300" cy="110" r="16"/><circle cx="300" cy="165" r="16"/>
+    <circle cx="460" cy="80" r="16"/><circle cx="460" cy="150" r="16"/>
+  </g>
+  <circle cx="600" cy="115" r="20" fill="var(--accent-soft)" stroke="var(--s2)" stroke-width="2.2"/>
+  <text x="600" y="120" text-anchor="middle" font-size="13" font-weight="700">v̂</text>
+  <text x="140" y="228" text-anchor="middle" font-size="12.5">input: state</text>
+  <text x="140" y="244" text-anchor="middle" font-size="12" class="muted-t">(pixels, angles, …)</text>
+  <text x="300" y="206" text-anchor="middle" font-size="12.5">hidden layer 1</text>
+  <text x="460" y="206" text-anchor="middle" font-size="12.5">hidden layer 2</text>
+  <text x="300" y="224" text-anchor="middle" font-size="11.5" class="muted-t">learned features</text>
+  <text x="600" y="164" text-anchor="middle" font-size="12.5">output = value</text>
+  <path d="M580,60 C480,20 300,20 150,32" fill="none" stroke="var(--s8)" stroke-width="2.2" stroke-dasharray="6 4" marker-end="url(#a5r)"/>
+  <text x="380" y="18" text-anchor="middle" font-size="12.5" style="fill:var(--s8)" font-weight="700">backprop: ∇w v̂ ,  scaled by α·δ</text>
+  <text x="690" y="60" text-anchor="start" font-size="12" class="muted-t">target U</text>
+  <text x="690" y="76" text-anchor="start" font-size="12" class="muted-t">δ = U − v̂</text>
+  <line x1="688" y1="82" x2="622" y2="106" stroke="var(--text-3)" marker-end="url(#a5)"/>
+</svg>
+<figcaption class="small muted">Figure 5 — Nonlinear approximation. Same update rule, gradient by backpropagation; the hidden layers play the role of learned features $\mathbf x(s)$.</figcaption>
+</figure>
+
+<div class="box pitfall"><span class="box-title">Caveats</span>
+<ul>
+<li>$\overline{\mathrm{VE}}$ is no longer convex ⇒ only a local optimum; TD(0) with a nonlinear $\hat v$ has <em>no</em> convergence guarantee.</li>
+<li>Consecutive RL samples are strongly correlated (violating i.i.d. SGD); this motivates <a href="learn_dqn.html#replay">experience replay</a>.</li>
+<li>Targets change as the network changes; this motivates the <a href="learn_dqn.html#target">target network</a>.</li>
+</ul></div>
+
+<!-- ============================================================ -->
+<h2 id="control">7. From prediction to control</h2>
+
+<p>For control we approximate action values $\hat q(s,a,\mathbf w)\approx q_\pi(s,a)$ and use the same recipe with a TD target on the next <em>action</em>:</p>
+<div class="eq">$$\mathbf w_{t+1}=\mathbf w_t+\alpha\Big[R_{t+1}+\gamma\,\hat q(S_{t+1},A_{t+1},\mathbf w_t)-\hat q(S_t,A_t,\mathbf w_t)\Big]\nabla_{\mathbf w}\hat q(S_t,A_t,\mathbf w_t)$$<div class="eq-name"><span>Episodic semi-gradient Sarsa</span><span class="ref">(book eq. 10.1/10.2)</span></div></div>
+<p>Acting is then ε-greedy with respect to $\hat q$: $A=\arg\max_a\hat q(S,a,\mathbf w)$ w.p. $1-\varepsilon$. Replacing $\hat q(S',A')$ by $\max_{a'}\hat q(S',a',\mathbf w)$ gives semi-gradient <strong>Q-learning</strong>, the ancestor of DQN.</p>
+
+<div class="box pitfall"><span class="box-title">The deadly triad</span>
+<p>Instability and divergence can arise when <em>all three</em> are present together:</p>
+<ol class="small">
+<li><strong>Function approximation</strong> (generalisation couples states),</li>
+<li><strong>Bootstrapping</strong> (target built from the current estimate),</li>
+<li><strong>Off-policy training</strong> (data not from the target policy's distribution).</li>
+</ol>
+<p>Remove one and you are safe (e.g. gradient MC has no bootstrapping; on-policy semi-gradient TD with linear features is safe). Q-learning with a neural network has all three — which is why DQN needs replay and a target network.</p></div>
+
+<!-- ============================================================ -->
+<h2 id="worked">8. Worked numerical example (the kind asked in exams)</h2>
+
+<div class="box"><span class="box-title">Problem</span>
+<p>Linear TD(0), $d=2$. Current weights $\mathbf w=(0.5,\;1.0)^\top$. Features $\mathbf x(S)=(1,\;2)^\top$, $\mathbf x(S')=(2,\;0)^\top$. Reward $R=1$, $\gamma=0.9$, $\alpha=0.1$. Perform one semi-gradient TD(0) update.</p></div>
+
+<ol class="steps">
+<li><strong>Prediction at $S$:</strong> $\hat v(S)=\mathbf w^\top\mathbf x(S)=0.5\cdot1+1.0\cdot2=2.5$.</li>
+<li><strong>Prediction at $S'$:</strong> $\hat v(S')=0.5\cdot2+1.0\cdot0=1.0$.</li>
+<li><strong>TD error:</strong> $\delta=R+\gamma\hat v(S')-\hat v(S)=1+0.9(1.0)-2.5=-0.6$.</li>
+<li><strong>Gradient:</strong> $\nabla\hat v(S)=\mathbf x(S)=(1,2)^\top$.</li>
+<li><strong>Update:</strong> $\mathbf w\leftarrow\mathbf w+\alpha\,\delta\,\mathbf x(S)=(0.5,1.0)+0.1(-0.6)(1,2)=(0.5-0.06,\;1.0-0.12)=\mathbf{(0.44,\;0.88)}$.</li>
+<li><strong>Check:</strong> new $\hat v(S)=0.44+1.76=2.20$ — moved from 2.5 toward the target $1.9$ (not all the way: $\alpha$ is small). Note $\hat v(S')$ also changed, to $0.88$ — that is generalisation (and why the target is “moving”).</li>
+</ol>
+
+<div class="box"><span class="box-title">Variant — the residual-gradient update (for contrast)</span>
+<p>Differentiating the whole error also differentiates the target: $\mathbf w\leftarrow\mathbf w+\alpha\,\delta\,\big(\mathbf x(S)-\gamma\mathbf x(S')\big)$. Here $\mathbf x(S)-\gamma\mathbf x(S')=(1-1.8,\;2-0)=(-0.8,\;2)$, so $\mathbf w=(0.5,1.0)+0.1(-0.6)(-0.8,2)=(0.548,\;0.88)$. Exams normally ask only for the <em>semi</em>-gradient answer $(0.44,0.88)$ above.</p></div>
+
+<h3>State-aggregation mini-example</h3>
+<p>1000 states, 10 groups of 100, so $d=10$ and $\mathbf x(s)=\mathbf e_{\lceil s/100\rceil}$. A gradient-MC step at $S_t=250$ (group 3) with return $G_t=0.4$ and $\hat v=0.1$: $\Delta w_3=\alpha(0.4-0.1)=0.3\alpha$. <em>All 100 states of group 3 move together.</em> No other weight changes.</p>
+
+<!-- ============================================================ -->
+<h2 id="traps">9. Traps and exam checklist</h2>
+
+<div class="table-wrap"><table>
+<tr><th>Question you may get</th><th>Short answer</th></tr>
+<tr><td>Why “semi”-gradient?</td><td>The TD target depends on $\mathbf w$ but the gradient treats it as a constant; so it is not the true gradient of any objective.</td></tr>
+<tr><td>Which target gives true gradient descent?</td><td>Monte Carlo return $G_t$ (independent of $\mathbf w$).</td></tr>
+<tr><td>What is $\nabla\hat v$ for linear FA?</td><td>$\mathbf x(s)$ — the feature vector. For tabular it is a one-hot, recovering the usual TD update.</td></tr>
+<tr><td>Does semi-gradient TD converge?</td><td>Linear + on-policy: yes, to $\mathbf w_{TD}=\mathbf A^{-1}\mathbf b$. Off-policy or nonlinear: may diverge.</td></tr>
+<tr><td>Weighting in $\overline{\mathrm{VE}}$?</td><td>On-policy distribution $\mu(s)$; ensures effort is spent on states actually visited.</td></tr>
+<tr><td>Tabular as a special case?</td><td>One-hot features: $\mathbf w$ holds one value per state; $\alpha\delta\mathbf x$ updates only the visited state.</td></tr>
+<tr><td>Deadly triad?</td><td>Function approximation + bootstrapping + off-policy.</td></tr>
+</table></div>
+
+<div class="box key"><span class="box-title">What to carry to the next pages</span>
+<p>The recipe “<strong>weight ← weight + step × error × gradient</strong>” is reused everywhere: in <a href="learn_pg.html">policy gradient</a> the “error” becomes a return or TD error multiplying $\nabla\ln\pi$; in <a href="learn_dqn.html">DQN</a> it is the Q-learning error multiplying $\nabla Q$ for a deep network.</p></div>
+
+<div class="pager-links">
+  <p><a href="chapters/ch09.html">Open Chapter 9 (full text, demos, quiz) →</a> &nbsp;|&nbsp; <a href="learn_pg.html">Next: Learn Policy Gradient →</a></p>
+</div>
+
+</main>
+</body>
+</html>
